@@ -1,0 +1,209 @@
+/* Rankings Page Styles */
+.rankings-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.rankings-container h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 2rem;
+  color: #333;
+}
+
+/* フィルターエリア */
+.filters {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  background-color: #f5f5f5;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.period-filters {
+  display: flex;
+  gap: 10px;
+}
+
+.filter-button {
+  padding: 8px 16px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.filter-button:hover {
+  background-color: #f0f0f0;
+}
+
+.filter-button.active {
+  background-color: #4a6fa5;
+  color: white;
+  border-color: #4a6fa5;
+}
+
+.grade-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* ランキングテーブル */
+.rankings-list {
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.rankings-header {
+  display: grid;
+  grid-template-columns: 60px 3fr 1fr 1fr 1fr;
+  background-color: #f0f0f0;
+  padding: 12px 15px;
+  font-weight: bold;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.ranking-item {
+  display: grid;
+  grid-template-columns: 60px 3fr 1fr 1fr 1fr;
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.ranking-item:last-child {
+  border-bottom: none;
+}
+
+.ranking-item:hover {
+  background-color: #f9f9f9;
+}
+
+/* トップ3のスタイル */
+.ranking-item.top-1 {
+  background-color: rgba(255, 215, 0, 0.1);
+}
+
+.ranking-item.top-2 {
+  background-color: rgba(192, 192, 192, 0.1);
+}
+
+.ranking-item.top-3 {
+  background-color: rgba(205, 127, 50, 0.1);
+}
+
+/* カラムスタイル */
+.rank-column {
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.user-column {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  font-size: 1.5rem;
+}
+
+.username {
+  font-weight: 500;
+}
+
+.grade-column, .score-column, .streak-column {
+  text-align: center;
+}
+
+.score-column {
+  font-weight: bold;
+  color: #4a6fa5;
+}
+
+/* ローディングとエラー表示 */
+.loading-spinner {
+  margin: 40px auto;
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #4a6fa5;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-message {
+  text-align: center;
+  margin: 30px 0;
+  padding: 20px;
+  background-color: #fff5f5;
+  border: 1px solid #ffebeb;
+  border-radius: 8px;
+  color: #d32f2f;
+}
+
+.error-message button {
+  margin-top: 15px;
+  padding: 8px 16px;
+}
+
+.no-rankings {
+  text-align: center;
+  padding: 40px 0;
+  color: #666;
+  font-style: italic;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  
+  .period-filter, .grade-filter select {
+    width: 100%;
+  }
+  
+  .ranking-item {
+    flex-wrap: wrap;
+  }
+  
+  .grade-info {
+    order: 3;
+    width: auto;
+    margin-left: auto;
+  }
+  
+  .score-info {
+    order: 4;
+    width: auto;
+    flex-direction: row;
+    gap: var(--spacing-md);
+    margin-left: auto;
+  }
+  
+  .streak-info {
+    order: 5;
+    width: auto;
+  }
+}

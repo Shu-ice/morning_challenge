@@ -1,0 +1,182 @@
+/* Problems Page Styles */
+.problems-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--spacing-xl) 0;
+}
+
+.problems-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.progress-info {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.timer {
+  background-color: var(--light-gray);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-full);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.problem-card {
+  background-color: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-xl);
+  text-align: center;
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.problem-number {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+  font-weight: 500;
+}
+
+.problem-text {
+  font-size: 2.5rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-xl);
+  animation: fadeIn 0.5s ease;
+}
+
+.answer-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.answer-input {
+  width: 60%;
+  padding: var(--spacing-md);
+  font-size: 1.5rem;
+  text-align: center;
+  border: 2px solid var(--mid-gray);
+  border-radius: var(--radius-md);
+  transition: border-color 0.3s ease, transform 0.2s ease;
+}
+
+.answer-input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+  transform: scale(1.02);
+}
+
+.next-button {
+  width: 60%;
+  padding: var(--spacing-md);
+  font-size: var(--font-size-md);
+}
+
+.problem-counter {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: auto;
+}
+
+.counter-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--light-gray);
+  transition: all 0.3s ease;
+}
+
+.counter-dot.current {
+  background-color: var(--primary-color);
+  transform: scale(1.2);
+}
+
+.counter-dot.correct {
+  background-color: var(--success-color);
+}
+
+.counter-dot.incorrect {
+  background-color: var(--danger-color);
+}
+
+.completion-message {
+  text-align: center;
+  animation: fadeIn 1s ease;
+}
+
+.completion-message h2 {
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--spacing-md);
+  color: var(--primary-color);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 122, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 1s ease-in-out infinite;
+  margin: var(--spacing-lg) auto;
+}
+
+.loading {
+  text-align: center;
+  padding: var(--spacing-xxl);
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Problem Number Spotlight Effect */
+.problem-number::before {
+  content: '';
+  position: absolute;
+  top: -150px;
+  left: -150px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(0, 122, 255, 0.1) 0%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  z-index: -1;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .problem-text {
+    font-size: 2rem;
+  }
+  
+  .answer-input, .next-button {
+    width: 100%;
+  }
+}

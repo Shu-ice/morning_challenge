@@ -1,0 +1,184 @@
+.profile-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.profile-page h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.success-message {
+  background-color: #e7f7e7;
+  border: 1px solid #c3e6c3;
+  color: #2e7d32;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.error-message {
+  background-color: #fbe9e7;
+  border: 1px solid #ffccbc;
+  color: #d32f2f;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.profile-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 20px;
+}
+
+/* プロフィール表示モード */
+.profile-details {
+  padding: 10px;
+}
+
+.profile-item {
+  margin-bottom: 15px;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+}
+
+.profile-label {
+  font-weight: bold;
+  width: 150px;
+  color: #555;
+}
+
+.profile-value {
+  flex: 1;
+}
+
+.login-info {
+  font-size: 0.9rem;
+  color: #777;
+  text-align: right;
+  padding: 10px 0;
+  font-style: italic;
+}
+
+/* 編集モード */
+.profile-edit-form {
+  padding: 10px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #4a6fa5;
+  box-shadow: 0 0 0 2px rgba(74, 111, 165, 0.2);
+}
+
+/* ボタン */
+.button-group {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.edit-button,
+.save-button,
+.cancel-button,
+.history-button,
+.logout-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.edit-button {
+  background-color: #4a6fa5;
+  color: white;
+}
+
+.save-button {
+  background-color: #4caf50;
+  color: white;
+}
+
+.cancel-button {
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.history-button {
+  background-color: #ff9800;
+  color: white;
+}
+
+.logout-button {
+  background-color: #f44336;
+  color: white;
+}
+
+.edit-button:hover,
+.save-button:hover,
+.history-button:hover,
+.logout-button:hover {
+  filter: brightness(0.9);
+}
+
+.cancel-button:hover {
+  background-color: #e0e0e0;
+}
+
+/* レスポンシブ */
+@media (max-width: 600px) {
+  .profile-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .profile-label {
+    width: 100%;
+    margin-bottom: 5px;
+  }
+  
+  .button-group {
+    flex-direction: column;
+  }
+  
+  .edit-button,
+  .save-button,
+  .cancel-button,
+  .history-button,
+  .logout-button {
+    width: 100%;
+  }
+} 
