@@ -89,7 +89,7 @@ API.interceptors.response.use(
 
 // --- Axios クライアントテスト関数 ---
 // バックエンドが応答しているか確認する
-export const testBackendConnection = async () => {
+const testBackendConnection = async () => {
   console.log('[API] Testing backend connection...');
   try {
     const response = await API.get('/');
@@ -113,7 +113,7 @@ setTimeout(() => {
 }, 1000);
 
 // --- 認証関連 API ---
-export const authAPI = {
+const authAPI = {
   register: async (userData: any) => {
     try {
       console.log('[API] Register request:', userData);
@@ -186,17 +186,13 @@ export const authAPI = {
 };
 
 // --- ユーザー関連 API (プロフィール取得/更新など) ---
-// ★ login/logout を削除 (authAPI に移動想定)
-export const userAPI = {
-  // register: (userData: any) => API.post('/users/register', userData), // 削除
-  // login: (credentials: any) => API.post('/users/login', credentials), // 削除
-  // logout: () => API.post('/users/logout'), // 削除
+const userAPI = {
   getProfile: () => API.get('/users/profile'),
   updateProfile: (userData: any) => API.put('/users/profile', userData)
 };
 
 // --- 問題関連 API ---
-export const problemsAPI = {
+const problemsAPI = {
   getProblems: async (difficulty: DifficultyRank, date?: string) => {
     try {
       console.log(`[API] 問題取得リクエスト: difficulty=${difficulty}, date=${date || '今日'}`);
@@ -492,81 +488,20 @@ export const problemsAPI = {
 
   getHistory: async () => {
     try {
-      // ユーザーIDを取得（新しいアプローチ - userIdを優先）
-      let userId = null;
-      let username = null;
-      
-      try {
-        // 1. JWTトークンから取得を試みる
-        const token = localStorage.getItem('token');
-        if (token) {
-          try {
-            const tokenPayload = token.split('.')[1];
-            const decodedPayload = JSON.parse(atob(tokenPayload));
-            userId = decodedPayload.userId || decodedPayload.id || decodedPayload.sub;
-            if (userId) {
-              console.log(`[API] トークンからユーザーID取得: ${userId}`);
-            }
-          } catch (e) {
-            console.log('[API] Failed to decode token (not JWT format or invalid)');
-          }
-        }
-        
-        // 2. ローカルストレージから 'user' キーでユーザー情報を取得
-        if (!userId) {
-          const userDataStr = localStorage.getItem('user');
-          if (userDataStr) {
-            const userData = JSON.parse(userDataStr);
-            // ユーザーIDを優先的に取得
-            userId = userData.userId || userData._id || userData.id;
-            // バックアップ用にusernameも保持
-            username = userData.username;
-          }
-        }
-      } catch (error) {
-        console.error('[API] ユーザー情報の解析エラー:', error);
-      }
-      
-      // クエリパラメータを構築
-      const params = new URLSearchParams();
-      if (userId) params.append('userId', userId);
-      if (username) params.append('username', username);
-      
-      // まず /api/history を試す
-      try {
-        console.log(`[API] 履歴取得リクエスト /api/history: userId=${userId}, username=${username}`);
-        const response = await API.get(`/history?${params.toString()}`);
-        
-        if (response.data && response.data.success) {
-          console.log('[API] 履歴取得成功 (/api/history):', response.data);
-          return response.data;
-        } else {
-          console.warn('[API] /api/history からの応答が不正:', response.data);
-          throw new Error('履歴取得レスポンスが不正です');
-        }
-      } catch (firstError) {
-        console.warn('[API] /api/history からの履歴取得に失敗。バックアップを試みます:', firstError);
-        
-        // バックアップとして /api/problems/history を試す
-        console.log(`[API] 履歴取得リクエスト /api/problems/history: userId=${userId}, username=${username}`);
-        const backupResponse = await API.get(`/problems/history?${params.toString()}`);
-        
-        if (!backupResponse.data || !backupResponse.data.success) {
-          console.error('[API] バックアップ履歴取得にも失敗:', backupResponse.data);
-          throw new Error(backupResponse.data?.message || '履歴の取得に失敗しました');
-        }
-        
-        console.log('[API] バックアップから履歴取得成功:', backupResponse.data);
-        return backupResponse.data;
-      }
-    } catch (error) {
-      console.error('履歴取得エラー:', error);
-      throw error;
+      console.log('[API] 履歴取得リクエスト (認証情報を使用)');
+      // クエリパラメータなしでリクエストを送信
+      const response = await API.get('/problems/history'); 
+      console.log('[API] 履歴取得レスポンス:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[API] Get history error:', error);
+      throw error; // エラーを再スローして呼び出し元で処理
     }
   }
 };
 
-export const rankingAPI = {
+// --- ランキング関連 API ---
+const rankingAPI = {
   getAll: (limit: number = 10, difficulty?: DifficultyRank) => {
     const params = new URLSearchParams();
     if (limit) params.append('limit', limit.toString());
@@ -628,13 +563,13 @@ export const rankingAPI = {
 };
 
 // 管理者API (例)
-export const adminAPI = {
+const adminAPI = {
   generateProblems: (date: string) => API.post(`/admin/generate-problems/${date}`),
   // 必要に応じて他の管理者用APIエンドポイントを追加
 };
 
 // --- 履歴関連 API ---
-export const historyAPI = {
+const historyAPI = {
   getUserHistory: async (limit: number = 10) => {
     try {
       console.log(`[API] 履歴取得リクエスト`);
@@ -675,4 +610,5 @@ export const historyAPI = {
   }
 };
 
-export default API; 
+// 必要なものだけを最後にまとめてエクスポート
+export { API, authAPI, userAPI, problemsAPI, rankingAPI, historyAPI, adminAPI, testBackendConnection }; 

@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // /api へのリクエストをバックエンドサーバーにプロキシ
         '/api': {
-          target: `http://localhost:${env.BACKEND_PORT || 5000}`, // .env からバックエンドポートを読み込む
+          target: `http://localhost:${env.BACKEND_PORT || 5001}`, // デフォルトを 5001 に変更
           changeOrigin: true,
           secure: false,
           // rewrite: (path) => path.replace(/^\/api/, '') // /api プレフィックスを削除しない

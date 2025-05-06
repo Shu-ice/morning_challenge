@@ -30,8 +30,8 @@ if (!JWT_SECRET) {
 }
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 
-// ポート設定 - 環境変数から取得、デフォルトは5000番
-const PORT = process.env.BACKEND_PORT || 5000;
+// ポート設定 - 環境変数から取得、デフォルトは5001番
+const PORT = process.env.BACKEND_PORT || 5001; // 5000 から 5001 に変更
 // フロントエンドのオリジン - 環境変数から取得、デフォルトは http://localhost:3000
 const FRONTEND_ORIGIN = `http://localhost:${process.env.FRONTEND_PORT || 3000}`;
 
@@ -1209,102 +1209,156 @@ const startServer = async () => {
     // 問題履歴取得API
     app.get('/api/problems/history', protect, async (req, res) => {
       try {
-        const { username, userId } = req.query;
-        const userIdentifier = userId || username;
-        
-        if (!userIdentifier) {
-          return res.status(400).json({ success: false, message: 'ユーザー情報が必要です' });
+        const userId = req.user._id;
+
+        if (!userId) {
+          return res.status(401).json({ success: false, message: '認証されていません。' });
         }
-        
-        console.log(`[API] 履歴取得: userId=${userId}, username=${username}`);
 
-        // MongoDB から履歴データを取得
-        const query = userId 
-          ? { userId } 
-          : { username };
-          
-        const history = await Result.find(query)
+        console.log(`[API] 履歴取得: userId=${userId}`);
+
+        // 1. ユーザーの全履歴を取得 (日付降順)
+        const userHistory = await Result.find({ userId })
           .sort({ date: -1 })
-          .lean();
-          
-        console.log(`[API] 履歴取得結果: ${history.length}件`);
+          .lean(); // .lean() で軽量なJSオブジェクトとして取得
 
-        // 連続記録の計算
+        console.log(`[API] ユーザー履歴取得結果: ${userHistory.length}件`);
+
+        // 履歴がない場合はここで早期リターン
+        if (userHistory.length === 0) {
+          // 連続記録計算 (履歴がないので 0)
+           const currentStreak = 0;
+           const maxStreak = 0;
+           return res.json({
+             success: true,
+             history: [],
+             currentStreak,
+             maxStreak
+           });
+        }
+
+        // 2. 順位計算が必要な (日付, 難易度) の組み合わせを抽出
+        const uniqueDateDifficultyPairs = [...new Set(userHistory.map(h => `${h.date}|${h.difficulty}`))]
+                                          .map(pair => {
+                                            const [date, difficulty] = pair.split('|');
+                                            return { date, difficulty };
+                                          });
+
+        console.log(`[API] 順位計算が必要な組み合わせ: ${uniqueDateDifficultyPairs.length}件`);
+        // console.log('[API] Pairs:', uniqueDateDifficultyPairs); // デバッグ用
+
+        // 3. 各組み合わせについて順位を計算 (アグリゲーション)
+        const ranksMap = new Map(); // 型注釈を削除
+
+        for (const pair of uniqueDateDifficultyPairs) {
+          const { date, difficulty } = pair;
+          const key = `${date}|${difficulty}`;
+
+          try {
+            // アグリゲーションパイプラインの構築
+            const pipeline = [
+              // Step 1: 対象の日付と難易度で絞り込み
+              { $match: { date: date, difficulty: difficulty } },
+              // Step 2: スコア(降順)、時間(昇順)でソート
+              { $sort: { score: -1, timeSpent: 1 } },
+              // Step 3: グループ化して各ドキュメントに一時的な配列を作成 (元のドキュメント + ID)
+              { $group: {
+                  _id: null, // 単一グループ
+                  items: { $push: { _id: "$_id", userId: "$userId" } } // IDとユーザーIDのみ保持
+              }},
+              // Step 4: 配列を展開し、各要素にインデックス(順位)を付与
+              { $unwind: { path: "$items", includeArrayIndex: "rank" } },
+              // Step 5: 対象ユーザーの結果のみに絞り込み
+              { $match: { "items.userId": userId } },
+              // Step 6: 必要なフィールド(rank)のみを選択
+              { $project: {
+                  _id: 0, // 元の _id は不要
+                  rank: { $add: ["$rank", 1] } // rank は 0-indexed なので +1
+              }}
+            ];
+
+            // console.log(`[API] Aggregation Pipeline for ${key}:`, JSON.stringify(pipeline, null, 2)); // デバッグ用
+            const result = await Result.aggregate(pipeline);
+            // console.log(`[API] Aggregation Result for ${key}:`, result); // デバッグ用
+
+            if (result && result.length > 0) {
+              ranksMap.set(key, result[0].rank);
+              console.log(`[API] Rank calculated for ${key}: ${result[0].rank}`);
+            } else {
+              // アグリゲーションで結果が見つからない場合 (通常はありえないはず)
+              ranksMap.set(key, -1); // または null や '-' など
+              console.warn(`[API] Rank not found for user ${userId} in aggregation result for ${key}`);
+            }
+          } catch (aggError) {
+            console.error(`[API] Aggregation error for ${key}:`, aggError);
+            ranksMap.set(key, -1); // エラー時は -1 または null
+          }
+        }
+        console.log('[API] 全ての順位計算が完了');
+
+
+        // 4. 連続記録の計算 (既存ロジックを流用)
         let currentStreak = 0;
         let maxStreak = 0;
         let tempStreak = 0;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = dayjs().tz().startOf('day');
 
-        // 日付でソートされた履歴を作成
-        const sortedHistory = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
-        
-        for (let i = 0; i < sortedHistory.length; i++) {
-          const submissionDate = new Date(sortedHistory[i].date);
-          submissionDate.setHours(0, 0, 0, 0);
-          
-          if (i === 0) {
-            tempStreak = 1;
-            continue;
-          }
+        // streak計算のために日付昇順にソート (userHistoryは既に取得済み)
+        const sortedHistoryAsc = [...userHistory].sort((a, b) => dayjs(a.date).diff(dayjs(b.date)));
 
-          const prevDate = new Date(sortedHistory[i - 1].date);
-          prevDate.setHours(0, 0, 0, 0);
-          
-          const dayDiff = (submissionDate - prevDate) / (1000 * 60 * 60 * 24);
-          
-          if (dayDiff === 1) {
-            tempStreak++;
-            maxStreak = Math.max(maxStreak, tempStreak);
-          } else {
-            tempStreak = 1;
-          }
+        for (let i = 0; i < sortedHistoryAsc.length; i++) {
+           const submissionDate = dayjs(sortedHistoryAsc[i].date).tz().startOf('day');
+           if (i === 0) {
+             tempStreak = 1;
+           } else {
+             const prevDate = dayjs(sortedHistoryAsc[i - 1].date).tz().startOf('day');
+             const dayDiff = submissionDate.diff(prevDate, 'day');
+             if (dayDiff === 1) {
+               tempStreak++;
+             } else if (dayDiff > 1) {
+               tempStreak = 1;
+             }
+           }
+           maxStreak = Math.max(maxStreak, tempStreak);
         }
-        
-        maxStreak = Math.max(maxStreak, tempStreak);
-
-        // 現在の連続記録を計算
-        const lastSubmission = sortedHistory[sortedHistory.length - 1];
-        if (lastSubmission) {
-          const lastDate = new Date(lastSubmission.date);
-          lastDate.setHours(0, 0, 0, 0);
-          
-          const dayDiff = (today - lastDate) / (1000 * 60 * 60 * 24);
-          if (dayDiff <= 1) {
-            currentStreak = tempStreak;
-          }
+        const lastSubmissionDate = dayjs(sortedHistoryAsc[sortedHistoryAsc.length - 1].date).tz().startOf('day');
+        if (today.diff(lastSubmissionDate, 'day') <= 1) {
+          currentStreak = tempStreak;
         }
 
-        // 履歴データの整形
-        const formattedHistory = await Promise.all(history.map(async (submission) => {
-          const rank = await Result.countDocuments({
-            date: submission.date,
-            difficulty: submission.difficulty,
-            timeSpent: {
-              $lt: submission.timeSpent
-            }
-          }) + 1;
+
+        // 5. 履歴データの整形 (順位情報をマージ)
+        const formattedHistory = userHistory.map(submission => {
+          const key = `${submission.date}|${submission.difficulty}`;
+          const rank = ranksMap.get(key) ?? null; // Mapから順位を取得、なければ null
+
+          // ランクが見つからなかった場合のログ
+          if (rank === null) {
+             console.warn(`[API] Rank lookup failed for key: ${key}`);
+          }
 
           return {
             date: submission.date,
             difficulty: submission.difficulty,
             timeSpent: submission.timeSpent,
-            rank: rank
+            score: submission.score,
+            correctAnswers: submission.correctAnswers,
+            totalProblems: submission.totalProblems,
+            rank: rank // 計算した順位を追加
           };
-        }));
+        });
 
         res.json({
           success: true,
-          history: formattedHistory,
+          history: formattedHistory, // 順位ありの履歴
           currentStreak,
           maxStreak
         });
       } catch (error) {
-        console.error('履歴取得エラー:', error);
-        res.status(500).json({ 
-          success: false, 
-          message: '履歴の取得に失敗しました',
-          error: error.message
+        console.error('履歴取得または順位計算エラー:', error); // エラーメッセージを具体的に
+        res.status(500).json({
+          success: false,
+          message: '履歴の取得または順位計算中にエラーが発生しました',
         });
       }
     });

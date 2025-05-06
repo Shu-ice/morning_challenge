@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { api } from '../api';
+import { problemsAPI } from '../api';
 
 interface HistoryItem {
   date: string;
   difficulty: string;
   timeSpent: number;
-  rank: number;
+  score: number;
+  correctAnswers: number;
+  totalProblems: number;
+  rank: number | null;
 }
 
 interface HistoryResponse {
@@ -28,7 +31,7 @@ export const History: React.FC = () => {
     const fetchHistory = async () => {
       try {
         setLoading(true);
-        const response = await api.getHistory();
+        const response = await problemsAPI.getHistory();
         console.log('履歴データ:', response);
         setHistory(response.history || []);
         setCurrentStreak(response.currentStreak || 0);
@@ -97,6 +100,7 @@ export const History: React.FC = () => {
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">日付</th>
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">難易度</th>
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">タイム</th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">スコア (正解/問題数)</th>
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">順位</th>
                 </tr>
               </thead>
@@ -113,7 +117,10 @@ export const History: React.FC = () => {
                       {formatTime(item.timeSpent)}秒
                     </td>
                     <td className="px-4 py-2 text-sm text-gray-900">
-                      {item.rank}位
+                      {item.score}点 ({item.correctAnswers}/{item.totalProblems})
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-900">
+                      {item.rank !== null && item.rank > 0 ? `${item.rank}位` : '-'}
                     </td>
                   </tr>
                 ))}
