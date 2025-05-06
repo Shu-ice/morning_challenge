@@ -11,7 +11,6 @@ interface OperationSettings {
   maxDigits2?: number; // 最大桁数（第二オペランド）
   decimalEnabled?: boolean; // 小数を有効にするかどうか
   decimalPlaces?: number; // 小数点以下の桁数（小数の場合のみ）
-  useBrackets?: boolean; // 括弧を使用するかどうか
 }
 
 // 難易度ごとの設定インターフェース
@@ -21,7 +20,9 @@ interface DifficultySettings {
   multiplication: OperationSettings;
   division: OperationSettings;
   decimal: OperationSettings; // 旧式の小数設定（後方互換性のため残す）
-  termsCount: number; // 計算の項の数（2または3）- 難易度ごとに共通化
+  termsCount: number; // 計算の項の数（2～5）
+  useBrackets: boolean; // 難易度ごとに括弧の使用を設定
+  maxAnswerDecimalPlaces: number; // 答えの最大小数点以下桁数
 }
 
 // すべての難易度の設定
@@ -35,36 +36,44 @@ interface ProblemSettings {
 // デフォルト設定
 const defaultSettings: ProblemSettings = {
   beginner: {
-    addition: { enabled: true, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false, useBrackets: false },
-    subtraction: { enabled: true, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false, useBrackets: false },
-    multiplication: { enabled: false, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false, useBrackets: false },
-    division: { enabled: false, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false, useBrackets: false },
+    addition: { enabled: true, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false },
+    subtraction: { enabled: true, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false },
+    multiplication: { enabled: false, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false },
+    division: { enabled: false, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false },
     decimal: { enabled: false, minDigits: 1, maxDigits: 1, decimalPlaces: 1 },
-    termsCount: 2
+    termsCount: 2,
+    useBrackets: false, // デフォルトは括弧なし
+    maxAnswerDecimalPlaces: 2, // デフォルトは2桁
   },
   intermediate: {
-    addition: { enabled: true, minDigits: 1, maxDigits: 2, minDigits2: 1, maxDigits2: 2, decimalEnabled: false, useBrackets: false },
-    subtraction: { enabled: true, minDigits: 1, maxDigits: 2, minDigits2: 1, maxDigits2: 2, decimalEnabled: false, useBrackets: false },
-    multiplication: { enabled: true, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false, useBrackets: false },
-    division: { enabled: true, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false, useBrackets: false },
+    addition: { enabled: true, minDigits: 1, maxDigits: 2, minDigits2: 1, maxDigits2: 2, decimalEnabled: false },
+    subtraction: { enabled: true, minDigits: 1, maxDigits: 2, minDigits2: 1, maxDigits2: 2, decimalEnabled: false },
+    multiplication: { enabled: true, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false },
+    division: { enabled: true, minDigits: 1, maxDigits: 1, minDigits2: 1, maxDigits2: 1, decimalEnabled: false },
     decimal: { enabled: false, minDigits: 1, maxDigits: 1, decimalPlaces: 1 },
-    termsCount: 2
+    termsCount: 2,
+    useBrackets: false,
+    maxAnswerDecimalPlaces: 2,
   },
   advanced: {
-    addition: { enabled: true, minDigits: 2, maxDigits: 2, minDigits2: 2, maxDigits2: 2, decimalEnabled: false, useBrackets: false },
-    subtraction: { enabled: true, minDigits: 2, maxDigits: 2, minDigits2: 2, maxDigits2: 2, decimalEnabled: false, useBrackets: false },
-    multiplication: { enabled: true, minDigits: 1, maxDigits: 2, minDigits2: 1, maxDigits2: 2, decimalEnabled: false, useBrackets: false },
-    division: { enabled: true, minDigits: 1, maxDigits: 2, minDigits2: 1, maxDigits2: 2, decimalEnabled: false, useBrackets: false },
+    addition: { enabled: true, minDigits: 2, maxDigits: 2, minDigits2: 2, maxDigits2: 2, decimalEnabled: false },
+    subtraction: { enabled: true, minDigits: 2, maxDigits: 2, minDigits2: 2, maxDigits2: 2, decimalEnabled: false },
+    multiplication: { enabled: true, minDigits: 1, maxDigits: 2, minDigits2: 1, maxDigits2: 2, decimalEnabled: false },
+    division: { enabled: true, minDigits: 1, maxDigits: 2, minDigits2: 1, maxDigits2: 2, decimalEnabled: false },
     decimal: { enabled: true, minDigits: 1, maxDigits: 2, decimalPlaces: 1 },
-    termsCount: 2
+    termsCount: 2,
+    useBrackets: true, // 上級はデフォルトで括弧あり
+    maxAnswerDecimalPlaces: 2,
   },
   expert: {
-    addition: { enabled: true, minDigits: 2, maxDigits: 3, minDigits2: 2, maxDigits2: 3, decimalEnabled: false, useBrackets: true },
-    subtraction: { enabled: true, minDigits: 2, maxDigits: 3, minDigits2: 2, maxDigits2: 3, decimalEnabled: false, useBrackets: true },
-    multiplication: { enabled: true, minDigits: 2, maxDigits: 2, minDigits2: 2, maxDigits2: 2, decimalEnabled: false, useBrackets: true },
-    division: { enabled: true, minDigits: 2, maxDigits: 2, minDigits2: 2, maxDigits2: 2, decimalEnabled: false, useBrackets: false },
+    addition: { enabled: true, minDigits: 2, maxDigits: 3, minDigits2: 2, maxDigits2: 3, decimalEnabled: false },
+    subtraction: { enabled: true, minDigits: 2, maxDigits: 3, minDigits2: 2, maxDigits2: 3, decimalEnabled: false },
+    multiplication: { enabled: true, minDigits: 2, maxDigits: 2, minDigits2: 2, maxDigits2: 2, decimalEnabled: false },
+    division: { enabled: true, minDigits: 2, maxDigits: 2, minDigits2: 2, maxDigits2: 2, decimalEnabled: false },
     decimal: { enabled: true, minDigits: 1, maxDigits: 2, decimalPlaces: 2 },
-    termsCount: 3
+    termsCount: 3,
+    useBrackets: true, // 超級もデフォルトで括弧あり
+    maxAnswerDecimalPlaces: 3, // 超級は3桁まで
   }
 };
 
@@ -76,36 +85,37 @@ const AdminSettings: React.FC = () => {
   // 現在選択されている難易度の設定
   const currentSettings = settings[selectedDifficulty] || defaultSettings[selectedDifficulty];
 
-  // 設定の読み込み
+  // 設定の読み込み (useBracketsとmaxAnswerDecimalPlacesもマージ)
   useEffect(() => {
     const savedSettings = localStorage.getItem('problemSettings');
     if (savedSettings) {
       try {
-        // デフォルト設定とマージして、不足しているプロパティを補完
         const parsedSettings = JSON.parse(savedSettings);
         const mergedSettings = { ...defaultSettings };
         for (const diff of Object.keys(defaultSettings) as DifficultyRank[]) {
           if (parsedSettings[diff]) {
-             mergedSettings[diff] = { ...defaultSettings[diff] }; // diffごとコピー
+             mergedSettings[diff] = { ...defaultSettings[diff] };
              
-             // termsCountの処理（難易度ごとに共通）
              if (parsedSettings[diff].termsCount !== undefined) {
                mergedSettings[diff].termsCount = parsedSettings[diff].termsCount;
              }
+             // 括弧設定のマージ
+             if (parsedSettings[diff].useBrackets !== undefined) {
+               mergedSettings[diff].useBrackets = parsedSettings[diff].useBrackets;
+             }
+             // 答えの小数点以下桁数設定のマージ
+             if (parsedSettings[diff].maxAnswerDecimalPlaces !== undefined) {
+               mergedSettings[diff].maxAnswerDecimalPlaces = parsedSettings[diff].maxAnswerDecimalPlaces;
+             }
 
              for (const op of Object.keys(defaultSettings[diff]) as (keyof DifficultySettings)[]) {
-               if (op === 'termsCount') continue; // termsCountは別途処理済み
+               if (op === 'termsCount' || op === 'useBrackets' || op === 'maxAnswerDecimalPlaces') continue; 
                
                if (parsedSettings[diff][op]) {
-                  // minDigits/maxDigitsがない古い形式の場合の互換性処理を追加
                   const parsedOp = parsedSettings[diff][op];
-                  
-                  // 旧形式から新形式への変換（termsCountを個別の設定から除去）
-                  if (op !== 'decimal' && parsedOp.termsCount !== undefined) {
-                    // 旧形式のtermsCountは無視（または共通設定に移行）
-                    delete parsedOp.termsCount;
-                  }
-                  
+                  // 旧useBracketsを削除
+                  if (parsedOp.useBrackets !== undefined) delete parsedOp.useBrackets;
+
                   mergedSettings[diff][op] = {
                      ...defaultSettings[diff][op],
                      ...parsedOp,
@@ -301,48 +311,46 @@ const AdminSettings: React.FC = () => {
     });
   };
 
-  // 項の数の変更ハンドラ
+  // 項の数の変更ハンドラ (括弧との連動を解除)
   const handleTermsCountChange = (
     difficulty: DifficultyRank,
     value: number
   ) => {
-    if (isNaN(value) || (value !== 2 && value !== 3)) {
-      value = 2; // 2項または3項のみ許可
-    }
-    
-    setSettings(prev => {
-      const currentDiffSettings = prev[difficulty] || defaultSettings[difficulty];
-      
-      return {
-        ...prev,
-        [difficulty]: {
-          ...currentDiffSettings,
-          termsCount: value
-        }
-      };
-    });
+    const termsCount = Math.max(2, Math.min(5, value)); // 2～5に制限
+    setSettings(prev => ({
+      ...prev,
+      [difficulty]: {
+        ...prev[difficulty],
+        termsCount: termsCount
+        // useBracketsは変更しない
+      }
+    }));
   };
 
-  // 括弧の使用設定ハンドラ
-  const handleBracketsToggle = (
+  // 括弧の使用設定ハンドラ (難易度ごと)
+  const handleGlobalBracketsToggle = (difficulty: DifficultyRank) => {
+    setSettings(prev => ({
+      ...prev,
+      [difficulty]: {
+        ...prev[difficulty],
+        useBrackets: !prev[difficulty].useBrackets
+      }
+    }));
+  };
+
+  // 答えの最大小数点以下桁数の変更ハンドラ
+  const handleMaxAnswerDecimalPlacesChange = (
     difficulty: DifficultyRank,
-    operation: keyof DifficultySettings
+    value: number
   ) => {
-    setSettings(prev => {
-      const currentDiffSettings = prev[difficulty] || defaultSettings[difficulty];
-      const currentOpSettings = currentDiffSettings[operation] as OperationSettings;
-      
-      return {
-        ...prev,
-        [difficulty]: {
-          ...currentDiffSettings,
-          [operation]: {
-            ...currentOpSettings,
-            useBrackets: !currentOpSettings.useBrackets
-          }
-        }
-      };
-    });
+    const places = Math.max(1, Math.min(5, value)); // 1～5に制限
+    setSettings(prev => ({
+      ...prev,
+      [difficulty]: {
+        ...prev[difficulty],
+        maxAnswerDecimalPlaces: places
+      }
+    }));
   };
 
   // ドロップダウンのオプションを生成する関数
@@ -354,9 +362,9 @@ const AdminSettings: React.FC = () => {
     return options;
   };
 
-  // 足し算/引き算/掛け算/割り算 のレンダリング関数
+  // 足し算/引き算/掛け算/割り算 のレンダリング関数 (括弧トグルを削除)
   const renderOperationSettings = (op: keyof DifficultySettings) => {
-    if (op === 'termsCount' || op === 'decimal') return null;
+    if (op === 'termsCount' || op === 'decimal' || op === 'useBrackets' || op === 'maxAnswerDecimalPlaces') return null;
     
     const opSettings = currentSettings[op] || defaultSettings[selectedDifficulty][op];
     const opNames = {
@@ -383,7 +391,6 @@ const AdminSettings: React.FC = () => {
           </label>
         </div>
         <div className="setting-content">
-          {/* 第一オペランド */}
           <div className="digit-range-field">
             <label>{opInfo.first}の桁数:</label>
             <div className="digit-range-inputs">
@@ -407,8 +414,6 @@ const AdminSettings: React.FC = () => {
               <span className="digit-unit">けた</span>
             </div>
           </div>
-          
-          {/* 第二オペランド */}
           <div className="digit-range-field">
             <label>{opInfo.second}の桁数:</label>
             <div className="digit-range-inputs">
@@ -432,8 +437,6 @@ const AdminSettings: React.FC = () => {
               <span className="digit-unit">けた</span>
             </div>
           </div>
-          
-          {/* 小数設定 */}
           <div className="setting-field">
             <label>小数を含む:</label>
             <label className="toggle-switch">
@@ -446,22 +449,6 @@ const AdminSettings: React.FC = () => {
               <span className="toggle-slider"></span>
             </label>
           </div>
-          
-          {/* 括弧の使用設定 (項の数が3の場合のみ設定可能) */}
-          {currentSettings.termsCount > 2 && (
-            <div className="setting-field">
-              <label>括弧を使用:</label>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={!!opSettings.useBrackets}
-                  onChange={() => handleBracketsToggle(selectedDifficulty, op)}
-                  disabled={!opSettings.enabled}
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -489,26 +476,57 @@ const AdminSettings: React.FC = () => {
       <div className="settings-panel">
         <h2>{difficultyToJapanese(selectedDifficulty)}の設定</h2>
         
-        {/* 難易度共通の項の数設定 */}
-        <div className="setting-card" key={`${selectedDifficulty}-terms-count`}>
-          <div className="setting-header">
-            <h3>計算の項の数</h3>
+        {/* 項の数と括弧の設定をまとめる */}
+        <div className="settings-section">
+          <h3>計算の構造</h3>
+           <div className="setting-item">
+            <label>項の数：</label>
+            <select
+              value={currentSettings.termsCount}
+              onChange={(e) => handleTermsCountChange(selectedDifficulty, parseInt(e.target.value))}
+            >
+              <option value="2">2項（例：a + b）</option>
+              <option value="3">3項（例：a + b + c）</option>
+              <option value="4">4項（例：a + b + c + d）</option>
+              <option value="5">5項（例：a + b + c + d + e）</option>
+            </select>
+            <div className="help-text">問題に含まれる数値の数</div>
           </div>
-          <div className="setting-content">
-            <div className="setting-field">
-              <label>項の数:</label>
-              <select
-                value={currentSettings.termsCount || 2}
-                onChange={(e) => handleTermsCountChange(selectedDifficulty, parseInt(e.target.value))}
-                className="digit-select"
-              >
-                <option value={2}>2項</option>
-                <option value={3}>3項</option>
-              </select>
-            </div>
+          <div className="setting-item">
+            <label>括弧を使用する:</label>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={currentSettings.useBrackets}
+                onChange={() => handleGlobalBracketsToggle(selectedDifficulty)}
+                // 3項未満の場合は無効化してもよいが、設定自体は可能にする
+                // disabled={currentSettings.termsCount < 3}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+             <div className="help-text">3項以上の計算で括弧が使われる可能性があります</div>
           </div>
         </div>
-        
+
+         {/* 答えの小数点以下桁数の設定 */}
+        <div className="settings-section">
+          <h3>答えの形式</h3>
+          <div className="setting-item">
+            <label>答えの最大小数点以下桁数:</label>
+            <select
+              value={currentSettings.maxAnswerDecimalPlaces}
+              onChange={(e) => handleMaxAnswerDecimalPlacesChange(selectedDifficulty, parseInt(e.target.value))}
+            >
+              <option value="1">1桁</option>
+              <option value="2">2桁</option>
+              <option value="3">3桁</option>
+              <option value="4">4桁</option>
+              <option value="5">5桁</option>
+            </select>
+            <div className="help-text">計算結果の小数点以下の最大桁数</div>
+          </div>
+        </div>
+
         <div className="settings-grid">
           {/* 四則演算の設定 */}
           {(['addition', 'subtraction', 'multiplication', 'division'] as const).map(op => 

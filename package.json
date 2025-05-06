@@ -4,17 +4,29 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "vite",
+    "dev:backend": "cd server && cross-env DISABLE_TIME_CHECK=true MONGODB_MOCK=true node server.js",
+    "dev:prod": "concurrently \"npm run dev:frontend\" \"npm run dev:backend:prod\"",
+    "dev:backend:prod": "cd server && cross-env DISABLE_TIME_CHECK=true MONGODB_MOCK=false node server.js",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:win": "npx kill-port 5006 && cross-env DISABLE_TIME_CHECK=true concurrently \"npm run dev:frontend\" \"cd server && node server.js\"",
+    "server": "cd server && cross-env DISABLE_TIME_CHECK=true MONGODB_MOCK=true node server.js",
+    "server:prod": "cd server && cross-env DISABLE_TIME_CHECK=false MONGODB_MOCK=false node server.js"
   },
   "dependencies": {
+    "axios": "^1.9.0",
+    "dotenv": "^16.5.0",
+    "mongodb": "^6.16.0",
+    "mongoose": "^8.14.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.5.2"
   },
   "devDependencies": {
+    "@types/axios": "^0.14.4",
     "@types/node": "^22.15.3",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
@@ -22,6 +34,9 @@
     "@typescript-eslint/parser": "^7.0.0",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "cross-port-killer": "^1.4.0",
     "eslint": "^8.57.1",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.5",

@@ -1,15 +1,16 @@
-const express = require('express');
+import express from 'express';
+import { getProblems, submitAnswers, getHistory } from '../controllers/problemController.js';
+import { protect, timeRestriction } from '../middleware/authMiddleware.js';
+
 const router = express.Router();
-const { getProblems, submitAnswers, getHistory } = require('../controllers/problemController');
-const { protect, timeRestriction } = require('../middleware/authMiddleware');
 
 // 問題取得ルート（時間制限あり）
-router.get('/', protect, getProblems);
+router.get('/', protect, timeRestriction, getProblems);
 
 // 問題回答提出ルート
-router.post('/submit', protect, submitAnswers);
+router.post('/submit', protect, timeRestriction, submitAnswers);
 
 // 履歴取得ルート
 router.get('/history', protect, getHistory);
 
-module.exports = router;
+export default router;

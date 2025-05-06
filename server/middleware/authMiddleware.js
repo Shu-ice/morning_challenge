@@ -1,64 +1,69 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/userModel');
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv'; // dotenv をインポート
+import User from '../models/User.js';
 
-// ユーザー認証ミドルウェア
+// .env ファイルを読み込む
+dotenv.config();
+
+// 環境変数からJWTシークレットを取得
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('[Auth Middleware] エラー: JWT_SECRET 環境変数が設定されていません。');
+    // ミドルウェア読み込み時点では process.exit(1) できないため、エラーを投げるか、起動時にチェックする
+    throw new Error('JWT_SECRET is not defined in environment variables'); 
+}
+
+// 認証保護ミドルウェア
 const protect = async (req, res, next) => {
-  try {
     let token;
+    console.log('[Protect Middleware] Attempting authentication...');
 
-    // Authorizationヘッダーからトークンを取得
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
-    } else if (req.cookies && req.cookies.token) {
-      // または、クッキーからトークンを取得
-      token = req.cookies.token;
+    // Cookie から jwt トークンを読み取る
+    if (req.cookies && req.cookies.jwt) {
+        token = req.cookies.jwt;
+        console.log(`[Protect Middleware] JWT Cookie found: ${token.substring(0, 20)}...`);
     }
 
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: '認証が必要です。ログインしてください。'
-      });
+    // Authorizationヘッダーからもトークンを読み取る (Bearer token)
+    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        token = req.headers.authorization.split(' ')[1];
+        console.log(`[Protect Middleware] Using Authorization header token: ${token.substring(0, 20)}...`);
     }
 
-    // トークンを検証
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'morningmathsecret');
+    if (token) {
+        try {
+            console.log('[Protect Middleware] Verifying token with JWT_SECRET...');
+            
+            // トークンを検証
+            const decoded = jwt.verify(token, JWT_SECRET);
+            console.log('[Protect Middleware] Token decoded successfully. User ID:', decoded.userId);
 
-    // ユーザー情報を取得
-    const user = await User.findById(decoded.id);
+            // トークンからユーザーIDを取得し、ユーザー情報をDBから取得 (-password でパスワードを除く)
+            const user = await User.findById(decoded.userId).select('-password');
 
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'ユーザーが存在しません。'
-      });
+            if (!user) {
+                // ユーザーが存在しない場合 (トークンは有効だがユーザーが削除されたなど)
+                console.log('[Auth Middleware] User not found for token ID:', decoded.userId);
+                // メッセージを少し具体的に
+                return res.status(401).json({ success: false, message: '認証情報が無効です。再度ログインしてください。' });
+            }
+            
+            // ユーザー情報をリクエストに追加
+            req.user = user;
+            
+            // ユーザー情報が取得できたら次のミドルウェアへ
+            console.log(`[Auth Middleware] User authenticated: ${req.user.username}, isAdmin: ${req.user.isAdmin}`);
+            next();
+        } catch (error) {
+            console.error('[Auth Middleware] Token verification failed:', error.message);
+            // トークンが無効な場合 (期限切れ、改ざんなど)
+            res.status(401).json({ success: false, message: 'セッションが無効か期限切れです。再度ログインしてください。' }); // メッセージを修正
+        }
+    } else {
+        // トークンが存在しない場合
+        console.log('[Auth Middleware] No token provided');
+        res.status(401).json({ success: false, message: '認証が必要です。ログインしてください。' }); // メッセージを修正
     }
-
-    // リクエストオブジェクトにユーザー情報を追加
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('認証エラー:', error);
-    
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: '無効なトークンです。再度ログインしてください。'
-      });
-    }
-    
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'トークンの有効期限が切れています。再度ログインしてください。'
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'サーバーエラーが発生しました。'
-    });
-  }
 };
 
 // 管理者権限チェックミドルウェア
@@ -80,6 +85,12 @@ const timeRestriction = (req, res, next) => {
     const skipTimeCheck = req.query.skipTimeCheck === 'true';
     
     if (skipTimeCheck) {
+      return next();
+    }
+    
+    // 管理者ユーザーの場合は時間制限をスキップ
+    if (req.user && req.user.isAdmin) {
+      console.log('[TimeRestriction] 管理者ユーザーのため時間制限をスキップします:', req.user.username);
       return next();
     }
     
@@ -107,4 +118,4 @@ const timeRestriction = (req, res, next) => {
   }
 };
 
-module.exports = { protect, admin, timeRestriction };
+export { protect, admin, timeRestriction };

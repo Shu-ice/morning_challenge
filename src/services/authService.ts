@@ -25,13 +25,15 @@ class AuthService {
     try {
       const response = await apiService.post('/auth/login', credentials);
       
-      if (response.success) {
+      if (response.token && response.user) {
         apiService.setToken(response.token);
         this.setCurrentUser(response.user);
+        return response;
+      } else {
+        throw new Error(response.error || 'ログインに失敗しました');
       }
-      
-      return response;
     } catch (error) {
+      console.error('ログインエラー:', error);
       throw error;
     }
   }

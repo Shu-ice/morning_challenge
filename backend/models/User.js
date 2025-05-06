@@ -27,7 +27,8 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     required: [true, '学年は必須です'],
     min: 1,
-    max: 6
+    max: 6,
+    default: 1
   },
   avatar: {
     type: String,
@@ -44,6 +45,10 @@ const UserSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
     default: Date.now
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
   },
   createdAt: {
     type: Date,
@@ -65,7 +70,7 @@ UserSchema.pre('save', async function(next) {
 // JWT トークンの生成
 UserSchema.methods.getSignedJwtToken = function() {
   return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE
+    expiresIn: process.env.JWT_EXPIRE || '1d'
   });
 };
 

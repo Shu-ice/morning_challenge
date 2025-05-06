@@ -2,6 +2,74 @@ const Result = require('../models/Result');
 const User = require('../models/User');
 
 /**
+ * @desc    全期間のランキングを取得
+ * @route   GET /api/rankings
+ * @access  Private (auth)
+ */
+exports.getAllRankings = async (req, res) => {
+  try {
+    const { grade } = req.query;
+    
+    // クエリ条件
+    const query = {};
+    
+    // 学年フィルター（もし指定されていれば）
+    if (grade && !isNaN(parseInt(grade))) {
+      query.grade = parseInt(grade);
+    }
+    
+    // 各ユーザーの合計スコアを集計
+    const aggregatedResults = await Result.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: '$user',
+          totalScore: { $sum: '$score' },
+          count: { $sum: 1 },
+          bestResult: { $first: '$$ROOT' }
+        }
+      },
+      { $sort: { totalScore: -1, count: -1 } },
+      { $limit: 50 }
+    ]);
+    
+    // ユーザー情報を取得
+    const userIds = aggregatedResults.map(result => result._id);
+    const users = await User.find({ _id: { $in: userIds } });
+    
+    // 結果を整形
+    const formattedRankings = aggregatedResults.map((result, index) => {
+      const user = users.find(u => u._id.toString() === result._id.toString());
+      return {
+        rank: index + 1,
+        id: result._id,
+        user: user ? {
+          id: user._id,
+          username: user.username,
+          avatar: user.avatar,
+          grade: user.grade,
+          streak: user.streak
+        } : null,
+        totalScore: result.totalScore,
+        count: result.count
+      };
+    });
+    
+    res.status(200).json({
+      success: true,
+      count: formattedRankings.length,
+      data: formattedRankings
+    });
+  } catch (error) {
+    console.error('全体ランキング取得エラー:', error);
+    res.status(500).json({
+      success: false,
+      error: 'ランキングの取得中にエラーが発生しました'
+    });
+  }
+};
+
+/**
  * @desc    日間ランキングを取得
  * @route   GET /api/rankings/daily
  * @access  Public
@@ -312,3 +380,77 @@ exports.getMonthlyRanking = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    学年別ランキングを取得
+ * @route   GET /api/rankings/grade/:grade
+ * @access  Private (auth)
+ */
+exports.getGradeRanking = async (req, res) => {
+  try {
+    const grade = parseInt(req.params.grade);
+    
+    if (isNaN(grade) || grade < 1 || grade > 6) {
+      return res.status(400).json({
+        success: false,
+        error: '有効な学年(1-6)を指定してください'
+      });
+    }
+    
+    // 指定された学年のすべての結果を取得
+    const aggregatedResults = await Result.aggregate([
+      { $match: { grade } },
+      {
+        $group: {
+          _id: '$user',
+          totalScore: { $sum: '$score' },
+          count: { $sum: 1 },
+          bestResult: { $first: '$$ROOT' }
+        }
+      },
+      { $sort: { totalScore: -1, count: -1 } },
+      { $limit: 50 }
+    ]);
+    
+    // ユーザー情報を取得
+    const userIds = aggregatedResults.map(result => result._id);
+    const users = await User.find({ _id: { $in: userIds } });
+    
+    // 結果を整形
+    const formattedRankings = aggregatedResults.map((result, index) => {
+      const user = users.find(u => u._id.toString() === result._id.toString());
+      return {
+        rank: index + 1,
+        id: result._id,
+        user: user ? {
+          id: user._id,
+          username: user.username,
+          avatar: user.avatar,
+          grade: user.grade,
+          streak: user.streak
+        } : null,
+        totalScore: result.totalScore,
+        count: result.count
+      };
+    });
+    
+    res.status(200).json({
+      success: true,
+      count: formattedRankings.length,
+      data: formattedRankings
+    });
+  } catch (error) {
+    console.error('学年別ランキング取得エラー:', error);
+    res.status(500).json({
+      success: false,
+      error: '学年別ランキングの取得中にエラーが発生しました'
+    });
+  }
+};
+
+// rankingRoutes.jsのインポートに合わせて関数をエクスポート
+exports.getDailyRankings = exports.getDailyRanking;
+exports.getWeeklyRankings = exports.getWeeklyRanking;
+exports.getMonthlyRankings = exports.getMonthlyRanking;
+exports.getGradeRankings = exports.getGradeRanking;
+exports.getRankings = exports.getAllRankings;

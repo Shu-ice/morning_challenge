@@ -2,14 +2,18 @@
  * APIリクエストを管理する基本クラス
  */
 class ApiService {
+  baseUrl: string;
+  token: string | null;
+
   constructor() {
-    this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    this.baseUrl = '/api';
     this.token = localStorage.getItem('token');
+    console.log(`[ApiService] Initialized with baseUrl: ${this.baseUrl}`);
   }
 
   // リクエストヘッダーを取得
-  getHeaders() {
-    const headers = {
+  getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
@@ -21,11 +25,13 @@ class ApiService {
   }
 
   // GETリクエスト
-  async get(endpoint) {
+  async get(endpoint: string) {
     try {
+      console.log(`[ApiService] GET request to: ${this.baseUrl}${endpoint}`);
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'GET',
         headers: this.getHeaders(),
+        credentials: 'include', // CORS対応
       });
 
       if (!response.ok) {
@@ -34,17 +40,20 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
+      console.error(`[ApiService] GET error for ${endpoint}:`, error);
       throw error;
     }
   }
 
   // POSTリクエスト
-  async post(endpoint, data) {
+  async post(endpoint: string, data: any) {
     try {
+      console.log(`[ApiService] POST request to: ${this.baseUrl}${endpoint}`, data);
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(data),
+        credentials: 'include', // CORS対応
       });
 
       if (!response.ok) {
@@ -53,12 +62,13 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
+      console.error(`[ApiService] POST error for ${endpoint}:`, error);
       throw error;
     }
   }
 
   // PUTリクエスト
-  async put(endpoint, data) {
+  async put(endpoint: string, data: any) {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'PUT',
@@ -77,7 +87,7 @@ class ApiService {
   }
 
   // エラーハンドリング
-  async handleError(response) {
+  async handleError(response: Response) {
     try {
       const error = await response.json();
       return {
@@ -93,7 +103,7 @@ class ApiService {
   }
 
   // トークンをセット
-  setToken(token) {
+  setToken(token: string | null) {
     this.token = token;
     if (token) {
       localStorage.setItem('token', token);

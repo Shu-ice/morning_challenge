@@ -1,11 +1,11 @@
 const express = require('express');
 const { check } = require('express-validator');
-const { register, login, getMe, updateProfile } = require('../controllers/authController');
+const { register, login, getMe, updateProfile, updatePassword } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// ユーザー登録
+// ユーザー登録 - 時間制限なし
 router.post(
   '/register',
   [
@@ -17,13 +17,16 @@ router.post(
   register
 );
 
-// ログイン
+// ログイン - 時間制限なし
 router.post('/login', login);
 
-// 自分のプロフィール取得
+// 自分のプロフィール取得 - 認証は必要だが時間制限なし
 router.get('/me', protect, getMe);
 
-// プロフィール更新
+// プロフィール更新 - 認証は必要だが時間制限なし
 router.put('/profile', protect, updateProfile);
+
+// パスワード更新 - 認証は必要だが時間制限なし
+router.put('/update-password', protect, updatePassword);
 
 module.exports = router;

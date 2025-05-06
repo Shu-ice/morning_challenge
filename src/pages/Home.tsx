@@ -1,29 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/Home.css';
 import { DifficultyRank, difficultyToJapanese } from '../types/difficulty';
-import { Link } from 'react-router-dom';
+import { AppPages } from '../App';
+import { UserData } from '../types';
 
 interface HomeProps {
   onStartPractice: (difficulty: DifficultyRank) => void;
   isTimeValid: boolean;
+  setCurrentPage: (page: AppPages) => void;
+  user: UserData | null;
+  defaultDifficulty: DifficultyRank;
 }
 
-const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid }) => {
-  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyRank>('beginner');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
-  useEffect(() => {
-    // ユーザーデータを取得
-    try {
-      const userDataString = localStorage.getItem('userData');
-      if (userDataString) {
-        const userData = JSON.parse(userDataString);
-        setIsLoggedIn(userData.isLoggedIn);
-      }
-    } catch (error) {
-      console.error('Failed to parse user data:', error);
-    }
-  }, []);
+const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid, setCurrentPage, user, defaultDifficulty }) => {
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyRank>(defaultDifficulty);
   
   const difficultyOptions = [
     { value: 'beginner' as DifficultyRank, label: '初級' },
@@ -33,6 +23,7 @@ const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid }) => {
   ];
   
   const handleStartClick = () => {
+    console.log(`[Home] Starting practice with difficulty: ${selectedDifficulty}`);
     if (isTimeValid) {
       onStartPractice(selectedDifficulty);
     }
@@ -120,9 +111,14 @@ const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid }) => {
         </div>
       </div>
       
-      {isLoggedIn && (
+      {user?.isLoggedIn && user?.isAdmin && (
         <div className="admin-link-container">
-          <Link to="/admin" className="admin-link">管理者設定</Link>
+          <button 
+            onClick={() => setCurrentPage(AppPages.ADMIN_DASHBOARD)} 
+            className="admin-link"
+          >
+            管理者設定
+          </button>
         </div>
       )}
     </div>

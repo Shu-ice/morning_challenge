@@ -1,76 +1,81 @@
 import React, { useState } from 'react';
 import '../styles/Login.css';
-import type { LoginCredentials } from '../types';
+import type { UserData } from '../types/index';
+import { authAPI } from '../api/index';
 
 interface LoginProps {
-  onLogin: (credentials: LoginCredentials) => void;
+  onLogin: (userData: UserData, token: string) => void;
+  onRegister: () => void;
 }
 
-function Login({ onLogin }: LoginProps) {
-  const [username, setUsername] = useState('');
+function Login({ onLogin, onRegister }: LoginProps) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  console.log('[Login Component] Rendered');
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    // 入力検証
-    if (!username.trim()) {
-      setError('ユーザー名を入力してください');
-      return;
-    }
-    
-    if (!password.trim()) {
-      setError('パスワードを入力してください');
-      return;
-    }
-    
-    setIsLoading(true);
     setError('');
-    
-    // 通常はここでAPI通信するが、今回は簡易的に実装
-    setTimeout(() => {
-      // 簡易的な認証処理（実際はAPIを使用）
-      if (password === '1234') { // デモ用の簡易パスワード
-        // ユーザー情報をローカルストレージに保存
-        localStorage.setItem('user', JSON.stringify({ 
-          username, 
-          isLoggedIn: true,
-          loginTime: new Date().toISOString()
-        }));
-        
-        // 親コンポーネントに通知
-        onLogin({ username, password });
-      } else {
-        setError('ユーザー名またはパスワードが間違っています');
-      }
+    setIsLoading(true);
+
+    if (!email.trim() || !password.trim()) {
+      setError('メールアドレスとパスワードを入力してください');
       setIsLoading(false);
-    }, 1000);
+      return;
+    }
+
+    console.log(`[Login] ログイン試行: ${email}`);
+
+    try {
+      const response = await authAPI.login({ email, password });
+      
+      console.log('[Login] ログイン成功:', response);
+      
+      if (response.token && response.user) {
+        onLogin(response.user, response.token);
+      } else {
+        throw new Error('ログインレスポンスの形式が無効です');
+      }
+    } catch (err: any) {
+      console.error('[Login] APIログインエラー:', err);
+      
+      if (err.code === 'ERR_NETWORK') {
+        console.error(`[Login] ネットワークエラー詳細: ${err.message}, コード: ${err.code}`);
+        setError('サーバーに接続できません。サーバーが起動しているか確認してください。');
+      } else if (err.response) {
+        console.error(`[Login] サーバーエラー: ${err.response.status}`, err.response.data);
+        const message = err.response.data?.error || err.response.data?.message || err.message || 'ログイン処理中にエラーが発生しました。';
+        setError(`${message}`);
+      } else {
+        console.error('[Login] 未分類エラー:', err);
+        setError('ネットワークエラー: ' + (err.message || 'ログイン処理中に不明なエラーが発生しました'));
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h2>朝の計算チャレンジ</h2>
-        <h3>ログイン</h3>
-        
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <h2 className="text-2xl font-bold text-center text-gray-900">ログイン</h2>
         {error && (
-          <div className="error-message">
-            {error}
-          </div>
+          <p className="text-sm text-red-600">{error}</p>
         )}
-        
-        <form onSubmit={handleSubmit}>
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">ユーザー名</label>
+            <label htmlFor="email">メールアドレス</label>
             <input
-              type="text"
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="ユーザー名を入力"
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="メールアドレスを入力"
               disabled={isLoading}
+              autoFocus
             />
           </div>
           
@@ -86,18 +91,26 @@ function Login({ onLogin }: LoginProps) {
             />
           </div>
           
-          <button 
-            type="submit" 
-            className="login-button"
-            disabled={isLoading}
-          >
-            {isLoading ? 'ログイン中...' : 'ログイン'}
-          </button>
+          <div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              {isLoading ? 'ログイン中...' : 'ログイン'}
+            </button>
+          </div>
         </form>
-        
-        <div className="login-help">
-          <p>※開発中のため、パスワードは「1234」でログインできます</p>
-          <p>※ユーザー名は自由に入力してください</p>
+        <div className="text-sm text-center pt-4">
+          <p className="text-gray-600">
+            アカウントをお持ちでないですか？{' '}
+            <button
+              onClick={onRegister}
+              className="font-semibold text-indigo-600 hover:text-indigo-800 text-base underline"
+            >
+              新規登録はこちら
+            </button>
+          </p>
         </div>
       </div>
     </div>

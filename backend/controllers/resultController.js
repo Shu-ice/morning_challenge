@@ -1,6 +1,7 @@
 const Result = require('../models/Result');
 const Problem = require('../models/Problem');
 const User = require('../models/User');
+const History = require('../models/History');
 
 /**
  * @desc    問題の解答結果を保存
@@ -13,7 +14,8 @@ exports.saveResult = async (req, res) => {
       problems,
       totalTime,
       score,
-      grade
+      grade,
+      difficulty
     } = req.body;
     
     if (!problems || !Array.isArray(problems)) {
@@ -55,6 +57,35 @@ exports.saveResult = async (req, res) => {
       score,
       grade
     });
+    
+    // 履歴保存処理
+    try {
+      // 問題の詳細情報を取得 (問題文と正解のため)
+      const detailedProblems = await Problem.find({ _id: { $in: problems.map(p => p.problemId) } }).lean();
+      const problemMap = detailedProblems.reduce((map, p) => {
+        map[p._id.toString()] = p;
+        return map;
+      }, {});
+
+      await History.create({
+        user: req.user.id,
+        difficulty,
+        grade,
+        totalProblems: problems.length,
+        correctAnswers,
+        score,
+        timeSpent: totalTime,
+        problems: problems.map(p => ({
+          problem: problemMap[p.problemId.toString()]?.question || '問題不明',
+          userAnswer: p.userAnswer,
+          correctAnswer: problemMap[p.problemId.toString()]?.answer || '正解不明',
+          isCorrect: p.isCorrect
+        }))
+      });
+      console.log('解答履歴が保存されました。');
+    } catch (historyError) {
+      console.error('履歴保存エラー:', historyError);
+    }
     
     // ユーザーのポイントを更新
     const pointsEarned = Math.floor(score / 10);

@@ -7,6 +7,9 @@ const { validationResult } = require('express-validator');
  * @access  Public
  */
 exports.register = async (req, res) => {
+  // ★ デバッグログ追加: リクエストボディの内容を確認
+  console.log('Register request body:', req.body);
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -63,38 +66,53 @@ exports.register = async (req, res) => {
  * @access  Public
  */
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+  // ★ デバッグログ追加: リクエストボディの内容を確認
+  console.log('Login request body:', req.body);
 
-  // メールアドレスとパスワードがあるか確認
-  if (!email || !password) {
+  const { username, email, password } = req.body;
+
+  // ユーザー名またはメールアドレスとパスワードがあるか確認
+  if ((!username && !email) || !password) {
     return res.status(400).json({
       success: false,
-      error: 'メールアドレスとパスワードを入力してください'
+      error: 'ユーザー名（またはメールアドレス）とパスワードを入力してください'
     });
   }
 
   try {
     // ユーザー検索（パスワードフィールドを含む）
-    const user = await User.findOne({ email }).select('+password');
+    const query = username ? { username } : { email };
+    const user = await User.findOne(query).select('+password');
+    
     if (!user) {
       return res.status(401).json({
         success: false,
-        error: 'メールアドレスまたはパスワードが正しくありません'
+        error: 'ユーザー名（またはメールアドレス）またはパスワードが正しくありません'
       });
     }
+
+    // ★ デバッグログ追加: ユーザー情報を確認
+    console.log('Found user:', {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      isAdmin: user.isAdmin
+    });
 
     // パスワード検証
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        error: 'メールアドレスまたはパスワードが正しくありません'
+        error: 'ユーザー名（またはメールアドレス）またはパスワードが正しくありません'
       });
     }
 
     // 連続ログイン確認と更新
     await updateLoginStreak(user);
 
+    // ★ デバッグログ追加
+    console.log('[authController.js] Calling user.getSignedJwtToken() to generate token');
     // JWTトークンの発行
     const token = user.getSignedJwtToken();
 
@@ -108,7 +126,8 @@ exports.login = async (req, res) => {
         grade: user.grade,
         avatar: user.avatar,
         points: user.points,
-        streak: user.streak
+        streak: user.streak,
+        isAdmin: user.isAdmin
       }
     });
   } catch (error) {
@@ -195,6 +214,63 @@ exports.updateProfile = async (req, res) => {
 };
 
 /**
+ * @desc    パスワードを更新
+ * @route   PUT /api/auth/update-password
+ * @access  Private
+ */
+exports.updatePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  // 入力チェック
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      error: '現在のパスワードと新しいパスワードを入力してください'
+    });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      error: '新しいパスワードは6文字以上である必要があります'
+    });
+  }
+
+  try {
+    // ユーザーをIDで検索し、パスワードフィールドも取得
+    const user = await User.findById(req.user.id).select('+password');
+
+    if (!user) {
+      // 通常は protect ミドルウェアで弾かれるはずだが念のため
+      return res.status(404).json({ success: false, error: 'ユーザーが見つかりません' });
+    }
+
+    // 現在のパスワードが正しいか検証
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, error: '現在のパスワードが正しくありません' });
+    }
+
+    // 新しいパスワードをハッシュ化して保存
+    user.password = newPassword; // pre('save') フックでハッシュ化される
+    await user.save();
+
+    // ★ パスワード変更成功時はトークンを再発行しない（通常は不要）
+    // 必要であればここで新しいトークンを発行して返すことも可能
+    // const token = user.getSignedJwtToken(); 
+
+    res.status(200).json({ success: true, message: 'パスワードが正常に変更されました' });
+
+  } catch (error) {
+    console.error('パスワード更新エラー:', error);
+    res.status(500).json({
+      success: false,
+      error: 'パスワードの更新中にエラーが発生しました'
+    });
+  }
+};
+
+/**
  * 連続ログイン状況を更新
  * @param {Object} user - ユーザーオブジェクト
  */
@@ -222,4 +298,54 @@ const updateLoginStreak = async (user) => {
 
   user.lastLogin = now;
   await user.save();
+};
+
+/**
+ * @desc    管理者権限を設定（開発環境専用）
+ * @route   POST /api/auth/set-admin
+ * @access  Private/Admin
+ */
+exports.setAdmin = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // 環境チェック（本番環境では実行不可）
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        success: false,
+        error: 'この操作は本番環境では実行できません'
+      });
+    }
+
+    // ユーザーを検索
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: '指定されたメールアドレスのユーザーが見つかりません'
+      });
+    }
+
+    // 管理者権限を設定
+    user.isAdmin = true;
+    await user.save();
+
+    console.log(`管理者権限を設定しました: ${email}`);
+
+    res.status(200).json({
+      success: true,
+      message: '管理者権限を設定しました',
+      user: {
+        id: user._id,
+        email: user.email,
+        isAdmin: user.isAdmin
+      }
+    });
+  } catch (error) {
+    console.error('管理者権限設定エラー:', error);
+    res.status(500).json({
+      success: false,
+      error: '管理者権限の設定中にエラーが発生しました'
+    });
+  }
 };

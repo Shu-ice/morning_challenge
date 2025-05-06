@@ -1,27 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import '../styles/Results.css';
-import type { Results as ResultsType, ProblemResult } from '@/types';
+import type { Results as ResultsType, ProblemResult } from '@/types/index';
 import { difficultyToJapanese } from '@/types/difficulty';
-import { useNavigate } from 'react-router-dom';
 
 interface ResultsProps {
   results: ResultsType | null;
   onViewRankings: () => void;
+  onBackToHome: () => void;
 }
 
-const Results: React.FC<ResultsProps> = ({ results, onViewRankings }) => {
+const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome }) => {
   const [showConfetti, setShowConfetti] = useState(true);
-  const navigate = useNavigate();
   
   useEffect(() => {
+    // 結果がない場合は何もしない
     if (!results) return;
     
+    // 紙吹雪エフェクトのタイマー設定
     const timer = setTimeout(() => {
       setShowConfetti(false);
     }, 3000);
     
+    // APIのレスポンスの問題を表示
+    console.log('結果データ:', results);
+    
+    // クリーンアップ関数
     return () => clearTimeout(timer);
-  }, [results]);
+  }, [results]); // 依存配列から hasSavedResult を削除
   
   if (!results) {
     return (
@@ -29,6 +34,12 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings }) => {
         <div className="results-header text-center mb-8">
           <h1>結果が見つかりません</h1>
           <p>問題を解いてから結果を確認してください。</p>
+          <button 
+            onClick={onBackToHome}
+            className="button button-primary mt-4"
+          >
+            ホームに戻る
+          </button>
         </div>
       </div>
     );
@@ -36,150 +47,102 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings }) => {
   
   const formatTime = (milliseconds: number) => {
     const totalSeconds = milliseconds / 1000;
-    return `${totalSeconds.toFixed(2)}秒`;
+    // ここで表示用にフォーマット (例: 小数点以下2桁)
+    return `${totalSeconds.toFixed(2)}秒`; 
   };
-  
-  const getScoreMessage = (correctAnswers: number, totalProblems: number) => {
-    if (totalProblems === 0) return '問題がありません';
-    const percentage = (correctAnswers / totalProblems) * 100;
-    if (percentage === 100) return '完璧！🎉';
-    if (percentage >= 90) return '素晴らしい！✨';
-    if (percentage >= 70) return '良くできました！👍';
-    if (percentage >= 50) return 'がんばりました！😊';
-    return 'また明日挑戦しよう！💪';
+
+  const getResultMessage = () => {
+    if (!results) return "";
+    const accuracy = (results.correctAnswers / results.totalProblems) * 100;
+    if (accuracy === 100) return "素晴らしい！全問正解です！";
+    if (accuracy >= 80) return "よくできました！";
+    if (accuracy >= 60) return "まずまずの成績です！";
+    return "もう少し頑張りましょう！";
   };
-  
-  const getProgressBarWidth = (value: number, total: number) => {
-    if (total === 0) return '0%';
-    return `${Math.max(0, Math.min(100, (value / total) * 100))}%`;
-  };
-  
-  // ランキングを表示する時に自分の難易度を指定して遷移
-  const handleViewRankings = () => {
+
+  // ★ クリックハンドラを修正
+  const handleViewRankingsClick = () => {
     if (results) {
-      // 難易度パラメータをローカルストレージに保存
+      // ★ localStorage に難易度を保存
       localStorage.setItem('selectedDifficultyFromResults', results.difficulty);
-      navigate('/rankings');
-    } else {
-      onViewRankings();
     }
+    // App.tsx から渡された onViewRankings を実行
+    onViewRankings();
   };
-  
-  const correctAnswers = results.correctAnswers;
-  const totalProblems = results.totalProblems;
-  const incorrectAnswers = totalProblems - correctAnswers;
-  
+
   return (
-    <div className="results-container max-w-3xl mx-auto p-4 md:p-8">
+    <div className="results-container p-4 md:p-8 max-w-3xl mx-auto">
       {showConfetti && (
         <div className="confetti-container">
-          {Array.from({ length: 50 }).map((_, index) => (
-            <div 
-              key={index}
-              className="confetti-piece"
-              style={{
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                backgroundColor: `hsl(${Math.random() * 360}, 80%, 60%)`
-              }}
-            />
+          {[...Array(100)].map((_, i) => (
+            <div key={i} className="confetti"></div>
           ))}
         </div>
       )}
-      
+
       <div className="results-header text-center mb-8">
-        <h1 className="text-3xl font-bold mb-2">チャレンジ結果</h1>
-        <p className="text-lg text-gray-600">{difficultyToJapanese(results.difficulty)} レベル</p>
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">結果発表</h1>
+        <p className="text-lg md:text-xl text-gray-600">{getResultMessage()}</p>
       </div>
-      
-      <div className="results-card bg-white rounded-lg shadow-lg p-6 md:p-8">
-        <div className="score-section text-center mb-8">
-          <p className="score-message text-2xl font-semibold mb-4">{getScoreMessage(correctAnswers, totalProblems)}</p>
-        </div>
-        
-        <div className="stats-section space-y-4 mb-8">
-          <div className="stat-item">
-            <div className="flex justify-between mb-1">
-              <span className="stat-label font-medium">正解</span>
-              <span className="stat-value text-green-600 font-medium">{correctAnswers}/{totalProblems}</span>
-            </div>
-            <div className="stat-bar bg-gray-200 rounded-full h-2.5">
-              <div 
-                className="stat-progress correct bg-green-500 h-2.5 rounded-full"
-                style={{ width: getProgressBarWidth(correctAnswers, totalProblems) }}
-              />
-            </div>
-          </div>
-          
-          <div className="stat-item">
-            <div className="flex justify-between mb-1">
-              <span className="stat-label font-medium">不正解</span>
-              <span className="stat-value text-red-600 font-medium">{incorrectAnswers}/{totalProblems}</span>
-            </div>
-            <div className="stat-bar bg-gray-200 rounded-full h-2.5">
-              <div 
-                className="stat-progress incorrect bg-red-500 h-2.5 rounded-full"
-                style={{ width: getProgressBarWidth(incorrectAnswers, totalProblems) }}
-              />
-            </div>
-          </div>
-          
-          <div className="stat-item time flex justify-between items-center pt-4">
-            <span className="stat-label text-lg font-medium">所要時間</span>
-            <span className="stat-value time-value text-xl font-semibold text-primary-600">{formatTime(results.timeSpent * 1000)}</span>
-          </div>
-        </div>
 
-        {/* 問題詳細テーブルを追加 */}
-        <div className="problem-details-section mt-8 pt-8 border-t border-gray-200">
-          <h2 className="text-xl font-semibold mb-4 text-center">問題ごとの結果</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">問題</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">あなたの回答</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">正解</th>
-                  <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">結果</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {(results.problems as ProblemResult[]).map((problem: ProblemResult, index: number) => (
-                  <tr key={problem.id} className={problem.isCorrect ? '' : 'bg-red-50'}>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{problem.question}</td>
-                    <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${problem.isCorrect ? 'text-gray-700' : 'text-red-600'}`}>
-                      {problem.userAnswer ?? '-'}
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-green-600 font-medium">{problem.correctAnswer}</td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-                      {problem.isCorrect ? (
-                        <span className="text-green-500 text-lg">○</span>
-                      ) : (
-                        <span className="text-red-500 text-lg">×</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div className="results-summary bg-white rounded-lg shadow-lg p-6 mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div>
+          <div className="text-sm text-gray-500">難易度</div>
+          <div className="text-xl font-semibold">{difficultyToJapanese(results.difficulty)}</div>
         </div>
-        {/* 問題詳細テーブルここまで */}
-
-        <div className="results-actions flex justify-center gap-4 mt-8">
-          <button 
-            className="button button-primary"
-            onClick={handleViewRankings}
-          >
-            ランキングを見る
-          </button>
+        <div>
+          <div className="text-sm text-gray-500">正解数</div>
+          <div className="text-xl font-semibold">{results.correctAnswers} / {results.totalProblems}</div>
+        </div>
+        <div>
+          <div className="text-sm text-gray-500">かかった時間</div>
+          <div className="text-xl font-semibold">{formatTime(results.totalTime)}</div>
+        </div>
+        <div>
+          <div className="text-sm text-gray-500">あなたの順位</div>
+          {/* rank が 0 または null/undefined の場合は "-" を表示 */} 
+          <div className="text-xl font-semibold">{results.rank ? `${results.rank}位` : '-'}</div>
         </div>
       </div>
-      
-      <div className="results-footer text-center mt-8">
-        <p className="text-gray-600">次回のチャレンジは明日の朝6:30からです。お楽しみに！</p>
+
+      <div className="results-details bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h2 className="text-xl font-semibold mb-4">詳細</h2>
+        <ul className="space-y-2">
+          {results.problems && results.problems.length > 0 ? (
+            results.problems.map((problem, index) => (
+            <li key={index} className={`flex justify-between items-center p-2 rounded ${problem.isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
+              <span className="text-sm md:text-base">問題 {index + 1}: {problem.question.replace(' = ?', '')}</span>
+              <div className="text-right">
+                <span className={`font-medium ${problem.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                  {problem.userAnswer !== null ? problem.userAnswer : '未解答'}
+                  {!problem.isCorrect && (
+                    <span className="text-xs text-gray-500 ml-2">
+                      (正解: {problem.correctAnswer})
+                    </span>
+                  )}
+                </span>
+              </div>
+            </li>
+            ))
+          ) : (
+            <li className="p-2 text-center text-gray-500">詳細データがありません</li>
+          )}
+        </ul>
+      </div>
+
+      <div className="results-actions text-center space-x-4">
+        <button 
+          onClick={onBackToHome} 
+          className="button button-secondary"
+        >
+          ホームに戻る
+        </button>
+        <button 
+          onClick={handleViewRankingsClick}
+          className="button button-primary"
+        >
+          ランキングを見る
+        </button>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 // APIとの通信を行うサービス
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://localhost:5001/api';
 
 // ローカルストレージからトークンを取得
 const getToken = () => {

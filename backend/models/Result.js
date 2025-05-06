@@ -1,55 +1,85 @@
 const mongoose = require('mongoose');
+const { DifficultyRank } = require('../constants/difficulty');
 
+// 問題単位の結果のサブスキーマ
+const ProblemResultSchema = new mongoose.Schema({
+  id: Number,
+  question: String,
+  userAnswer: Number,
+  correctAnswer: Number,
+  isCorrect: Boolean,
+  timeSpent: Number // 各問題にかかった時間（秒）
+});
+
+// 問題一式の結果スキーマ
 const ResultSchema = new mongoose.Schema({
-  user: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'ユーザーIDは必須です']
+    required: false
+  },
+  username: {
+    type: String,
+    required: true
+  },
+  difficulty: {
+    type: String,
+    enum: Object.values(DifficultyRank),
+    required: true
   },
   date: {
-    type: Date,
-    default: Date.now
+    type: String, // "YYYY-MM-DD" 形式
+    required: true
   },
-  problems: [{
-    problem: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Problem'
-    },
-    userAnswer: Number,
-    isCorrect: Boolean,
-    timeSpent: Number
-  }],
-  totalProblems: {
-    type: Number,
-    required: [true, '問題数は必須です']
+  timeSpent: {
+    type: Number, // 秒単位
+    required: true
+  },
+  totalTime: {
+    type: Number, // ミリ秒単位（フロントエンドとの一貫性のため）
+    required: false
   },
   correctAnswers: {
     type: Number,
-    required: [true, '正解数は必須です']
+    required: true
   },
-  totalTime: {
+  incorrectAnswers: {
     type: Number,
-    required: [true, '所要時間は必須です']
+    required: true
+  },
+  unanswered: {
+    type: Number,
+    required: true
+  },
+  totalProblems: {
+    type: Number,
+    required: true
   },
   score: {
     type: Number,
-    required: [true, 'スコアは必須です']
+    required: true
   },
   grade: {
     type: Number,
-    required: [true, '学年は必須です'],
-    min: 1,
-    max: 6
+    required: false
   },
-  completed: {
-    type: Boolean,
-    default: true
+  // 連続達成日数（ユーザーテーブルとの冗長保存）
+  streak: {
+    type: Number,
+    default: 0,
+    required: false
+  },
+  problems: [ProblemResultSchema], // 個々の問題の結果
+  // ランキング情報（オプション）
+  rank: {
+    type: Number,
+    required: false
   }
+}, {
+  timestamps: true
 });
 
-// インデックスを作成して検索速度を向上
-ResultSchema.index({ user: 1, date: -1 });
-ResultSchema.index({ score: -1 });
-ResultSchema.index({ date: -1 });
+// インデックスを作成（ユーザーID、日付、難易度の組み合わせでユニーク）
+ResultSchema.index({ userId: 1, date: 1, difficulty: 1 }, { unique: true });
 
 module.exports = mongoose.model('Result', ResultSchema);

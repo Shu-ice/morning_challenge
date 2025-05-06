@@ -1,0 +1,52 @@
+/* src/styles/AdminLayout.css */
+
+.admin-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f0f2f5; /* Light gray background */
+}
+
+.admin-header {
+  background-color: #001529; /* Dark blue */
+  color: white;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.admin-nav a {
+  color: white;
+  margin-left: 1.5rem;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.admin-nav a:hover,
+.admin-nav a.active {
+  color: #1890ff; /* Ant Design blue */
+}
+
+.admin-content {
+  flex-grow: 1;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto; /* Center content */
+  width: 100%;
+}
+
+.admin-footer {
+  text-align: center;
+  padding: 1rem;
+  background-color: #e9e9e9;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+/* Add more specific styles for admin components as needed */ 

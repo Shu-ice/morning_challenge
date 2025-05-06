@@ -1,24 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/Rankings.css';
-import { Results, UserData } from '@/types';
+import { Results, UserData } from '@/types/index';
+import { ProblemResult } from '@/types/index';
 import { difficultyToJapanese, DifficultyRank, japaneseToDifficulty } from '@/types/difficulty';
+import { GRADE_OPTIONS } from '@/types/grades';
+import { rankingAPI } from '../api/index';
 
 interface RankingsProps {
   results?: Results;
 }
 
-interface RankingItem extends Results {
+interface RankingItem {
+  totalProblems: number;
+  correctAnswers: number;
+  incorrectAnswers: number;
+  unanswered: number;
+  totalTime: number;
+  timeSpent: number;
+  grade?: string | number;
+  problems?: ProblemResult[];
+  score: number;
+  difficulty: DifficultyRank;
   timestamp?: string;
   username?: string;
-  grade?: string;
   calculatedRank?: number;
+  rank?: number;
 }
 
 // ユーザーデータを取得するヘルパー関数
 const getUserData = (): UserData | null => {
   try {
-    const userDataString = localStorage.getItem('userData');
-    return userDataString ? JSON.parse(userDataString) : null;
+    // 複数の可能性のあるキー名を確認
+    const possibleKeys = ['userData', 'user', 'currentUser'];
+    
+    for (const key of possibleKeys) {
+      const userDataString = localStorage.getItem(key);
+      if (userDataString) {
+        try {
+          const data = JSON.parse(userDataString);
+          console.log(`ユーザーデータが見つかりました: ${key}`, data);
+          return data;
+        } catch (e) {
+          console.error(`キー ${key} のユーザーデータの解析に失敗しました:`, e);
+        }
+      }
+    }
+    
+    // デバッグ: すべてのキーを表示
+    console.log('利用可能なすべてのキー:', Object.keys(localStorage));
+    return null;
   } catch (error) {
     console.error('Failed to get user data:', error);
     return null;
@@ -27,72 +57,57 @@ const getUserData = (): UserData | null => {
 
 export const Rankings: React.FC<RankingsProps> = ({ results }) => {
   const [rankings, setRankings] = useState<RankingItem[]>([]);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyRank>('beginner');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyRank>(() => {
+    const savedDifficulty = localStorage.getItem('selectedDifficultyFromResults');
+    return (savedDifficulty as DifficultyRank) || 'beginner';
+  });
   const [currentUser, setCurrentUser] = useState<UserData | null>(getUserData());
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
-    // ローカルストレージからランキングデータを取得
-    const storedRankings = localStorage.getItem('rankings');
-    if (storedRankings) {
+    const fetchRankings = async () => {
       try {
-        setRankings(JSON.parse(storedRankings));
-      } catch (error) {
-        console.error("Failed to load rankings:", error);
+        setIsLoading(true);
+        setError(null);
+        
+        // APIからランキングデータを取得 (難易度で絞り込み)
+        const response = await rankingAPI.getDaily(20, selectedDifficulty);
+        console.log('ランキングデータ取得:', response);
+        
+        if (response.success && response.data && response.data.rankings) {
+          setRankings(response.data.rankings.map((item: any) => ({
+            difficulty: selectedDifficulty,
+            timestamp: new Date().toISOString(),
+            correctAnswers: item.correctAnswers || 0,
+            totalProblems: item.totalProblems || 10,
+            timeSpent: item.timeSpent || 0,
+            username: item.username || 'ゲスト',
+            grade: item.grade || '不明',
+            incorrectAnswers: item.incorrectAnswers || 0,
+            unanswered: 0,
+            totalTime: item.totalTime || item.timeSpent * 1000,
+            score: item.score || 0,
+            rank: item.rank,
+            problems: []
+          })));
+        } else {
+          // データ形式が予想と異なる場合の対応
+          console.error('ランキングデータの形式が不正です:', response);
+          setError('ランキングデータの形式が不正です');
+          setRankings([]);
+        }
+      } catch (err) {
+        console.error('ランキング取得エラー:', err);
+        setError('ランキングの取得に失敗しました');
         setRankings([]);
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
     
-    // 結果画面から指定された難易度を取得
-    const difficultyFromResults = localStorage.getItem('selectedDifficultyFromResults');
-    if (difficultyFromResults) {
-      setSelectedDifficulty(difficultyFromResults as DifficultyRank);
-      // 一度使用したら削除
-      localStorage.removeItem('selectedDifficultyFromResults');
-    } else if (results && results.difficulty) {
-      // 直接結果から渡された難易度があれば使用
-      setSelectedDifficulty(results.difficulty);
-    }
-  }, [results]);
-
-  useEffect(() => {
-    // 新しい結果をランキングに追加（resultsが存在する場合のみ）
-    if (results) {
-      const userData = getUserData();
-      setCurrentUser(userData);
-      
-      const newRankingItem: RankingItem = {
-        ...results,
-        timestamp: new Date().toISOString(),
-        username: userData?.username || '名無し',
-        grade: userData?.grade || '不明'
-      };
-      
-      // 既存のランキングに追加（重複チェックはしないが、同一タイムスタンプは避ける）
-      setRankings(prevRankings => {
-        const updated = [...prevRankings.filter(r => r.timestamp !== newRankingItem.timestamp), newRankingItem];
-        
-        // 難易度ごとにフィルタリング、ソート、上位保持
-        const difficulties = ['beginner', 'intermediate', 'advanced', 'expert'];
-        let finalRankings: RankingItem[] = [];
-        difficulties.forEach(diff => {
-          const diffRankings = updated
-            .filter(r => r.difficulty === diff)
-            .sort((a, b) => {
-              if (a.correctAnswers !== b.correctAnswers) {
-                return b.correctAnswers - a.correctAnswers;
-              }
-              return a.timeSpent - b.timeSpent;
-            })
-            .slice(0, 20); // 各難易度で上位20件
-          finalRankings = [...finalRankings, ...diffRankings];
-        });
-        
-        // ローカルストレージに保存
-        localStorage.setItem('rankings', JSON.stringify(finalRankings));
-        return finalRankings;
-      });
-    }
-  }, [results]);
+    fetchRankings();
+  }, [selectedDifficulty]);
 
   // 難易度でフィルタリング
   const filteredRankings = rankings.filter(r => r && r.difficulty && r.difficulty === selectedDifficulty);
@@ -114,6 +129,27 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
   const formatTimeSpent = (timeInSeconds: number) => {
     // 小数点以下が整数の場合も小数点以下2桁まで表示（四捨五入せず元の値を維持）
     return `${timeInSeconds.toFixed(2)}秒`;
+  };
+
+  // 学年の表示処理を改善
+  const formatGrade = (grade: string | number | undefined): string => {
+    if (grade === undefined || grade === null || grade === '') return '不明'; // 空文字列も不明扱い
+    
+    const gradeStr = String(grade); // 文字列に変換して処理
+
+    // 数値または数値文字列 (小1～小6) の場合は「〜年生」の形式にフォーマット
+    if (/^[1-6]$/.test(gradeStr)) {
+      return `小${gradeStr}年生`;
+    }
+    
+    // GRADE_OPTIONS からラベルを探す (中学生、高校生など)
+    const option = GRADE_OPTIONS.find(opt => opt.value === gradeStr);
+    if (option) {
+      return option.label;
+    }
+    
+    // その他の場合はそのまま文字列として返す (予期しない値)
+    return gradeStr;
   };
 
   return (
@@ -160,7 +196,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
               >
                 <div className="rank-column">{ranking.calculatedRank}</div>
                 <div className="user-column">{ranking.username || '名無し'}</div>
-                <div className="grade-column">{ranking.grade || '不明'}</div>
+                <div className="grade-column">{formatGrade(ranking.grade)}</div>
                 <div className="score-column">{ranking.correctAnswers}/{ranking.totalProblems}</div>
                 <div className="time-column">
                   {formatTimeSpent(ranking.timeSpent)}

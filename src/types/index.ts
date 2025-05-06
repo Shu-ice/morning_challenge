@@ -1,8 +1,13 @@
 import type { DifficultyRank } from './difficulty';
 
 export interface Problem {
+  _id?: string;
   question: string;
   answer: number;
+  grade?: number;
+  type?: string;
+  difficulty?: DifficultyRank;
+  date?: string;
 }
 
 export interface ProblemResult {
@@ -31,10 +36,22 @@ export interface Results {
 export interface UserData {
   username: string;
   isLoggedIn: boolean;
+  email?: string;
   grade?: number;
+  loginTime?: string;
+  isAdmin?: boolean;
+  userId?: string;
 }
 
 export interface LoginCredentials {
   username: string;
   password: string;
+}
+
+// Login APIからのレスポンスデータの型定義
+export interface LoginResponseData {
+  success: boolean;
+  token: string;
+  user: UserData;
+  message?: string;
 } 
