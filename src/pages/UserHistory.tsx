@@ -86,6 +86,8 @@ const UserHistory: React.FC = () => {
         }
       };
       
+      // 不要なエンドポイント試行ロジックを削除
+      /*
       // 複数のエンドポイントを順番に試す（成功したら中断）
       let succeeded = false;
       
@@ -98,22 +100,7 @@ const UserHistory: React.FC = () => {
           if (response.data && (response.data.success || response.data.history || response.data.data)) {
             console.log('APIレスポンス (/api/history):', response.data);
             
-            // レスポンス形式に応じたデータ取得
-            if (response.data.history) {
-              setHistory(response.data.history);
-            } else if (response.data.data) {
-              setHistory(response.data.data);
-            } else {
-              setHistory([]);
-            }
-            
-            // ストリーク情報の取得
-            if (response.data.currentStreak !== undefined) {
-              setCurrentStreak(response.data.currentStreak);
-            }
-            if (response.data.maxStreak !== undefined) {
-              setMaxStreak(response.data.maxStreak);
-            }
+            // ... (データ取得ロジック)
             
             succeeded = true;
           }
@@ -121,11 +108,12 @@ const UserHistory: React.FC = () => {
           console.warn('/api/history エンドポイントエラー:', err);
         }
       }
+      */
       
-      // 方法2: /api/problems/history エンドポイント（バックアップAPI）
-      if (!succeeded) {
+      // ★ /api/problems/history のみ呼び出すように修正
+      // if (!succeeded) { // <-- この if 文も不要
         try {
-          console.log('エンドポイント2: /api/problems/history を試行');
+          console.log('履歴取得エンドポイント: /api/problems/history を試行'); // ログを修正
           const response = await api.get('/problems/history', config);
           
           if (response.data && (response.data.success || response.data.history || response.data.data)) {
@@ -134,7 +122,7 @@ const UserHistory: React.FC = () => {
             // レスポンス形式に応じたデータ取得
             if (response.data.history) {
               setHistory(response.data.history);
-            } else if (response.data.data) {
+            } else if (response.data.data) { // 互換性のための data プロパティもチェック
               setHistory(response.data.data);
             } else {
               setHistory([]);
@@ -148,29 +136,39 @@ const UserHistory: React.FC = () => {
               setMaxStreak(response.data.maxStreak);
             }
             
-            succeeded = true;
+            // succeeded = true; // succeeded フラグは不要
+          } else {
+            // API は成功したが、期待するデータがない場合
+            console.warn('APIレスポンスに有効な履歴データが含まれていません:', response.data);
+            setError('履歴データの取得に失敗しました (形式エラー)。');
+            setHistory([]);
           }
         } catch (err) {
-          console.warn('/api/problems/history エンドポイントエラー:', err);
+          console.error('/api/problems/history エンドポイントエラー:', err); // エラーログを error に変更
+          // succeeded フラグは不要なので、ここでエラー状態を設定
+          if (axios.isAxiosError(err) && err.response?.status === 401) {
+            setError('認証エラーが発生しました。再ログインしてください。');
+            setUser(null);
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+          } else {
+            setError('履歴の取得中にエラーが発生しました。');
+          }
+          setHistory([]);
         }
-      }
+      // } // <-- 不要な if 文の閉じ括弧
       
+      // 不要なエラーチェックを削除 (try...catch 内で処理するため)
+      /*
       // 両方のエンドポイントが失敗した場合
       if (!succeeded) {
         setError('履歴の取得に失敗しました。サーバーに接続できません。');
         setHistory([]);
       }
-    } catch (err) {
-      console.error('履歴取得エラー:', err);
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
-        setError('認証エラーが発生しました。再ログインしてください。');
-        setUser(null);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-      } else {
-        setError('履歴の取得に失敗しました。');
-      }
-      setHistory([]);
+      */
+    // } catch (err) { // <-- 外側の catch も不要 (内部の catch で処理するため、ただし念のため残すのもあり)
+    //   console.error('履歴取得エラー:', err);
+    // ... (エラー処理)
     } finally {
       setIsLoading(false);
     }

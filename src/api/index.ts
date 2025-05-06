@@ -178,11 +178,36 @@ const authAPI = {
     }
   },
   
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    console.log('[API] User logged out, token removed');
+  logout: async () => {
+    try {
+      // バックエンドにログアウトリクエストを送信して Cookie をクリア
+      await API.post('/auth/logout'); 
+      console.log('[API] Logout request sent to backend');
+    } catch (error) {
+      // バックエンドでのログアウトに失敗しても、フロントエンドの処理は続行
+      console.error('[API] Backend logout failed, proceeding with local cleanup:', error);
+    } finally {
+      // 常にローカルストレージはクリアする
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      console.log('[API] User logged out locally, token removed');
+    }
   },
+  
+  // ★ 追加: ログイン状態確認
+  checkLoginStatus: async () => {
+    try {
+      const response = await API.get('/auth/me');
+      console.log('[API] Login status check response:', response.data);
+      // 成功したらユーザー情報を返す
+      return response.data; // { success: true, user: {...} }
+    } catch (error: any) {
+      // 401 Unauthorized など、認証されていない場合はエラーになる
+      console.log('[API] Login status check failed (likely not logged in):', error.response?.status);
+      // エラーの場合は null または特定のオブジェクトを返すなど、呼び出し元で処理しやすい形式にする
+      return { success: false, user: null }; 
+    }
+  }
 };
 
 // --- ユーザー関連 API (プロフィール取得/更新など) ---
@@ -197,37 +222,9 @@ const problemsAPI = {
     try {
       console.log(`[API] 問題取得リクエスト: difficulty=${difficulty}, date=${date || '今日'}`);
       
-      // ユーザー情報の取得をより堅牢に
-      let userId = null;
-      try {
-        const userDataStr = localStorage.getItem('user');
-        if (userDataStr) {
-          const userData = JSON.parse(userDataStr);
-          // 複数の可能なID形式に対応
-          userId = userData.userId || userData._id || userData.id;
-          
-          if (!userId) {
-            console.warn('[API] ユーザー情報にIDが見つかりません:', userData);
-            // ユーザー名をログに出力（デバッグ用）
-            console.log('[API] Username:', userData.username);
-          } else {
-            console.log(`[API] ユーザーID: ${userId}`);
-          }
-        } else {
-          console.warn('[API] ユーザー情報がlocalStorageにありません');
-        }
-      } catch (parseError) {
-        console.error('[API] ユーザー情報の解析エラー:', parseError);
-      }
-      
       // クエリパラメータを設定
       const params: any = { difficulty };
       if (date) params.date = date;
-      // userIdがある場合のみパラメータに含める
-      if (userId) {
-        params.userId = userId;
-        console.log(`[API] ユーザーIDをパラメータに含めます: ${userId}`);
-      }
       
       console.log(`[API] 問題取得パラメータ:`, params);
       
@@ -294,7 +291,7 @@ const problemsAPI = {
     date: string,
     answers: string[],
     timeSpent: number,
-    userId?: string // userId を任意パラメータとして定義
+    // userId?: string // userId を削除
   }) => {
     try {
       console.log(`[API] 回答を提出します:`, data);
@@ -303,103 +300,54 @@ const problemsAPI = {
       const token = localStorage.getItem('token');
       if (!token) {
         console.warn('[API] 認証トークンがありません。結果を保存できない可能性があります。');
+        // トークンがない場合でも、バックエンドの protect ミドルウェアで弾かれるはずなので、
+        // ここで処理を中断する必要はないかもしれないが、警告は有用。
       }
       
-      // ユーザーIDを取得（新しいアプローチ - userIdを優先）
+      // ユーザーID取得ロジックを削除
+      /*
       let userId = null;
       let username = null;
       
       try {
-        // 1. JWTトークンから取得を試みる
-        if (token) {
-          try {
-            const tokenPayload = token.split('.')[1];
-            const decodedPayload = JSON.parse(atob(tokenPayload));
-            userId = decodedPayload.userId || decodedPayload.id || decodedPayload.sub;
-            if (userId) {
-              console.log(`[API] トークンからユーザーID取得: ${userId}`);
-            }
-          } catch (e) {
-            console.log('[API] Failed to decode token (not JWT format or invalid)');
-          }
-        }
-        
-        // 2. ローカルストレージから 'user' キーでユーザー情報を取得
-        if (!userId) {
-          const userDataStr = localStorage.getItem('user');
-          if (userDataStr) {
-            const userData = JSON.parse(userDataStr);
-            // ユーザーIDを優先的に取得
-            userId = userData.userId || userData._id || userData.id;
-            // バックアップ用にusernameも保持
-            username = userData.username;
-            
-            if (userId) {
-              console.log(`[API] ローカルストレージからユーザーID取得: ${userId}`);
-            } else if (username) {
-              console.log(`[API] ローカルストレージからusername取得: ${username}`);
-            } else {
-              console.warn('[API] ユーザー情報にIDもusernameも見つかりません:', userData);
-            }
-          } else {
-            console.warn('[API] ユーザー情報がlocalStorageの"user"にありません');
-            
-            // 3. 代替ストレージから取得を試みる
-            const tokenUserStr = localStorage.getItem('tokenUser');
-            if (tokenUserStr) {
-              const tokenUser = JSON.parse(tokenUserStr);
-              userId = tokenUser.id || tokenUser.userId;
-              username = tokenUser.username;
-              console.log(`[API] tokenUserからID取得: ${userId}`);
-            } else {
-              // 4. その他のストレージキーから取得を試みる
-              const altUserInfo = sessionStorage.getItem('userInfo') || localStorage.getItem('userInfo');
-              if (altUserInfo) {
-                try {
-                  const altData = JSON.parse(altUserInfo);
-                  userId = altData.id || altData.userId || altData._id;
-                  username = altData.username || altData.email;
-                  console.log(`[API] 代替ソースからID取得: ${userId}`);
-                } catch (e) {
-                  console.error('[API] 代替ユーザー情報の解析エラー:', e);
-                }
-              }
-            }
-          }
-        }
+        // ... (古いユーザーID取得ロジック) ...
       } catch (parseError) {
         console.error('[API] ユーザー情報の解析エラー:', parseError);
       }
+      */
       
-      // 送信データを構築する - userIdを優先、バックアップとしてusernameも送信
+      // 送信データを構築する (userId, username を削除)
       const submissionData: {
         difficulty: string;
         date: string;
         answers: string[];
         timeSpent: number;
-        userId?: string;
-        username?: string;
+        // userId?: string;
+        // username?: string;
       } = {
-        ...data,
-        userId: userId || data.userId // リクエストのuserIdかローカルで取得したuserIdを使用
+        difficulty: data.difficulty,
+        date: data.date,
+        answers: data.answers,
+        timeSpent: data.timeSpent
+        // userId: userId || data.userId // 削除
       };
       
-      // usernameをバックアップとして追加（両方ないとサーバーでエラーになるため）
+      // 不要な username バックアップ、匿名ユーザー処理を削除
+      /*
       if (!submissionData.userId && username) {
         submissionData.username = username;
         console.log(`[API] userIdが取得できないため、usernameをバックアップとして使用: ${username}`);
       }
-      
-      // どちらも取得できなかった場合のフォールバック - 匿名ユーザー
       if (!submissionData.userId && !submissionData.username) {
         submissionData.username = 'anonymous-' + Math.floor(Math.random() * 10000);
         console.warn(`[API] ユーザー識別子が見つかりません。一時的な識別子を生成: ${submissionData.username}`);
       }
+      */
       
-      console.log(`[API] 送信データ:`, submissionData);
+      console.log(`[API] 送信データ:`, submissionData); // userId, username なし
       
       // 認証トークンが既にリクエストに添付されるため、
-      // ユーザーIDはレスポンスの代替表示用に残します
+      // ユーザーIDはレスポンスの代替表示用に残します <-- このコメントは古いので削除
       const response = await API.post('/problems/submit', submissionData);
       console.log(`[API] 回答提出レスポンス:`, response);
       

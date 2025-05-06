@@ -1248,53 +1248,48 @@ const startServer = async () => {
         // console.log('[API] Pairs:', uniqueDateDifficultyPairs); // デバッグ用
 
         // 3. 各組み合わせについて順位を計算 (アグリゲーション)
-        const ranksMap = new Map(); // 型注釈を削除
+        const ranksMap = new Map(); // 結果格納用マップ: "date|difficulty" -> rank
 
-        for (const pair of uniqueDateDifficultyPairs) {
+        // Promise.all を使って並列処理（ただしDB負荷に注意）
+        // もしDB負荷が高すぎる場合は、逐次処理に戻す (for...of ループ)
+        await Promise.all(uniqueDateDifficultyPairs.map(async (pair) => {
           const { date, difficulty } = pair;
           const key = `${date}|${difficulty}`;
 
           try {
+            console.log(`[API] Calculating rank for ${key}...`); // 開始ログ
             // アグリゲーションパイプラインの構築
             const pipeline = [
-              // Step 1: 対象の日付と難易度で絞り込み
               { $match: { date: date, difficulty: difficulty } },
-              // Step 2: スコア(降順)、時間(昇順)でソート
               { $sort: { score: -1, timeSpent: 1 } },
-              // Step 3: グループ化して各ドキュメントに一時的な配列を作成 (元のドキュメント + ID)
               { $group: {
-                  _id: null, // 単一グループ
-                  items: { $push: { _id: "$_id", userId: "$userId" } } // IDとユーザーIDのみ保持
+                  _id: null, 
+                  items: { $push: { _id: "$_id", userId: "$userId" } }
               }},
-              // Step 4: 配列を展開し、各要素にインデックス(順位)を付与
               { $unwind: { path: "$items", includeArrayIndex: "rank" } },
-              // Step 5: 対象ユーザーの結果のみに絞り込み
               { $match: { "items.userId": userId } },
-              // Step 6: 必要なフィールド(rank)のみを選択
               { $project: {
-                  _id: 0, // 元の _id は不要
-                  rank: { $add: ["$rank", 1] } // rank は 0-indexed なので +1
+                  _id: 0,
+                  rank: { $add: ["$rank", 1] } 
               }}
             ];
 
-            // console.log(`[API] Aggregation Pipeline for ${key}:`, JSON.stringify(pipeline, null, 2)); // デバッグ用
             const result = await Result.aggregate(pipeline);
-            // console.log(`[API] Aggregation Result for ${key}:`, result); // デバッグ用
 
-            if (result && result.length > 0) {
+            if (result && result.length > 0 && typeof result[0].rank === 'number') { // 結果とrankの型をチェック
               ranksMap.set(key, result[0].rank);
               console.log(`[API] Rank calculated for ${key}: ${result[0].rank}`);
             } else {
-              // アグリゲーションで結果が見つからない場合 (通常はありえないはず)
-              ranksMap.set(key, -1); // または null や '-' など
-              console.warn(`[API] Rank not found for user ${userId} in aggregation result for ${key}`);
+              ranksMap.set(key, null); // 取得失敗時は null を設定
+              console.warn(`[API] Rank not found or invalid for user ${userId} in aggregation result for ${key}. Result:`, result);
             }
           } catch (aggError) {
             console.error(`[API] Aggregation error for ${key}:`, aggError);
-            ranksMap.set(key, -1); // エラー時は -1 または null
+            ranksMap.set(key, null); // エラー時も null を設定
           }
-        }
-        console.log('[API] 全ての順位計算が完了');
+        }));
+        
+        console.log('[API] 全ての順位計算 (または試行) が完了');
 
 
         // 4. 連続記録の計算 (既存ロジックを流用)
@@ -1330,11 +1325,12 @@ const startServer = async () => {
         // 5. 履歴データの整形 (順位情報をマージ)
         const formattedHistory = userHistory.map(submission => {
           const key = `${submission.date}|${submission.difficulty}`;
-          const rank = ranksMap.get(key) ?? null; // Mapから順位を取得、なければ null
+          const rank = ranksMap.get(key); // null の可能性あり
 
-          // ランクが見つからなかった場合のログ
-          if (rank === null) {
-             console.warn(`[API] Rank lookup failed for key: ${key}`);
+          // submission オブジェクトが存在することを確認
+          if (!submission) {
+            console.error('[API] Invalid submission object found during formatting:', submission);
+            return null; // 不正なデータはスキップ
           }
 
           return {
@@ -1344,9 +1340,11 @@ const startServer = async () => {
             score: submission.score,
             correctAnswers: submission.correctAnswers,
             totalProblems: submission.totalProblems,
-            rank: rank // 計算した順位を追加
+            rank: rank // null の場合もある
           };
-        });
+        }).filter(item => item !== null); // null になった要素を除外
+        
+        console.log(`[API] Formatted history count: ${formattedHistory.length}`); // 整形後の件数ログ
 
         res.json({
           success: true,
@@ -1613,7 +1611,7 @@ const startServer = async () => {
     }, 60 * 1000); // 1分ごとにチェック
 
     // POST /api/auth/register - 新規ユーザー登録
-    app.post('/api/auth/register', async (req, res) => {
+    app.post('/api/auth/register', async (req, res, next) => { // next を追加
         const { username, email, password, grade } = req.body;
         
         // 必須項目の検証
@@ -1642,12 +1640,18 @@ const startServer = async () => {
             }
 
             // 新しいユーザーを作成 (パスワードは pre-save フックでハッシュ化される)
-            const newUser = await User.create({
-                username: username.toLowerCase(), // ユーザー名として保存
-                email: email.toLowerCase(),       // メールアドレスとして保存 
+            const newUser = new User({
+                username: username.toLowerCase(),
+                email: email.toLowerCase(),
                 password: password,
                 grade: grade,
             });
+            
+            // ★ Mongoose のバリデーションを明示的に実行
+            await newUser.validate();
+            
+            // ★ 保存処理
+            await newUser.save();
 
             console.log(`User registered: ${newUser.username}, Email: ${newUser.email}`);
 
@@ -1671,14 +1675,31 @@ const startServer = async () => {
 
         } catch (error) {
             // エラーログを強化
-            console.error('User registration error:', error); 
-            console.error('Request body (masked password):', { ...req.body, password: '***' }); 
-            // Mongoose のバリデーションエラーなどもここでキャッチ
+            console.error('User registration error:', error);
+            console.error('Request body (masked password):', { ...req.body, password: '***' });
+            
+            // ★ エラーの種類に応じたレスポンス
             if (error.name === 'ValidationError') {
-                const messages = Object.values(error.errors).map(val => val.message);
+                // Mongoose のバリデーションエラー
+                const messages = Object.values(error.errors).map(val => val.message); // : any を削除
                 return res.status(400).json({ success: false, message: messages.join(' ') });
+            } else if (error.code === 11000) {
+                 // MongoDB の重複キーエラー (email or username)
+                 console.error('Duplicate key error during registration.');
+                 // より具体的なメッセージを返す (どちらが重複したか)
+                 let duplicateField = '不明なフィールド';
+                 if (error.keyPattern?.email) {
+                   duplicateField = 'メールアドレス';
+                 } else if (error.keyPattern?.username) {
+                   duplicateField = 'ユーザー名';
+                 }
+                 return res.status(400).json({ success: false, message: `この${duplicateField}は既に使用されています。` });
             }
-            res.status(500).json({ success: false, message: 'ユーザー登録中にエラーが発生しました。' });
+            
+            // ★ その他の予期せぬエラーは Express のエラーハンドリングミドルウェアに渡す
+            console.error('Unhandled error during registration, passing to error handler.');
+            next(error); 
+            // res.status(500).json({ success: false, message: 'ユーザー登録中に予期せぬエラーが発生しました。' }); // ← next を使う場合は削除
         }
     });
 
@@ -2081,6 +2102,17 @@ const startServer = async () => {
 
     // startServer(); // ★ startServer() 関数の最後で app.listen を呼んでいるので、ここでは不要
     // export default app; // server.js がエントリーポイントなら不要
+
+    // ★ POST /api/auth/logout - ログアウト処理
+    app.post('/api/auth/logout', (req, res) => {
+      res.cookie('jwt', '', { // Cookie名を'jwt'と仮定（login処理に合わせる）
+        httpOnly: true,
+        expires: new Date(0), // 有効期限を過去に設定して削除
+        secure: process.env.NODE_ENV !== 'development', 
+        sameSite: 'lax' 
+      });
+      res.status(200).json({ success: true, message: 'ログアウトしました。' });
+    });
 
   } catch (error) {
     console.error('サーバー起動中に予期せぬエラーが発生しました:', error);
