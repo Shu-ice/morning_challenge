@@ -1,6 +1,20 @@
 // 難易度ランク
 export type DifficultyRank = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
+export const DIFFICULTY_LABELS: Record<DifficultyRank, string> = {
+  beginner: '初級',
+  intermediate: '中級',
+  advanced: '上級',
+  expert: 'エキスパート'
+};
+
+export const DIFFICULTY_COLORS: Record<DifficultyRank, string> = {
+  beginner: 'bg-green-100 text-green-800',
+  intermediate: 'bg-blue-100 text-blue-800',
+  advanced: 'bg-yellow-100 text-yellow-800',
+  expert: 'bg-red-100 text-red-800'
+};
+
 // 難易度名の変換（表示用）
 export const difficultyToJapanese = (difficulty: DifficultyRank): string => {
   switch (difficulty) {

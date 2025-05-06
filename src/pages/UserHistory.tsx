@@ -1,30 +1,32 @@
 import React, { useState, useEffect } from 'react';
-// import { Link } from 'react-router-dom'; // Link を削除
-import axios from 'axios'; // axios を直接インポート
-// import { useAuth } from '@/contexts/AuthContext'; // AuthContextの場所を要確認
-// import { apiClient } from '@/api'; // 不要なインポートを削除
-import { difficultyToJapanese, DifficultyRank } from '@/types/difficulty'; // DifficultyRankもインポート
-import '@/styles/UserHistory.css'; // パスを修正
+import { historyAPI } from '../api/index'; // ★ historyAPI をインポート
+import { difficultyToJapanese, DifficultyRank } from '../types/difficulty'; // difficulty 関連をインポート
+import '../styles/UserHistory.css'; // スタイルシートのパスを修正
+import { UserData, ProblemResult } from '../types/index'; // UserData と ProblemResult をインポート
+import axios from 'axios'; // ★ エラーハンドリングのために axios をインポート
 
-// axios インスタンスを作成
-const api = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
+// axios の直接インポートは不要になる
+// import axios from 'axios'; 
+// const api = axios.create(...); // api インスタンスも不要
 
-interface HistoryItem {
-  id?: string;
-  date?: string;
-  difficulty: string;
+interface HistoryItem { // 型定義を Result モデルに近づけるか、APIのレスポンスに合わせる
+  _id: string; // _id を必須にする
+  date: string;
+  difficulty: DifficultyRank;
   grade?: number;
-  totalProblems?: number;
-  correctAnswers?: number;
-  score?: number;
+  totalProblems: number;
+  correctAnswers: number;
+  score: number;
   timeSpent: number;
-  timestamp?: string;
+  timestamp: string; // timestamp も必須にする
   rank?: number;
+  // 以下のフィールドは Result モデルに含まれる可能性がある
+  username?: string;
+  userId?: string;
+  problems?: ProblemResult[];
+  incorrectAnswers?: number;
+  unanswered?: number;
+  totalTime?: number;
 }
 
 interface PaginationInfo {
@@ -33,25 +35,24 @@ interface PaginationInfo {
   totalItems: number;
 }
 
-const UserHistory: React.FC = () => {
-  // const { user } = useAuth(); // 一旦コメントアウト
-  const [user, setUser] = useState<{ username: string, token: string, streak?: number } | null>(null);
+const UserHistory = () => {
+  const [user, setUser] = useState<UserData & { token: string } | null>(null); // user の型を UserData ベースに
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null); // ★ pagination state を復活
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1); // ★ currentPage と setCurrentPage を復活
+  // ストリーク情報はAPIレスポンスから受け取るようにする
   const [currentStreak, setCurrentStreak] = useState<number>(0);
   const [maxStreak, setMaxStreak] = useState<number>(0);
 
-  // ユーザー情報をlocalStorageから取得
+  // ユーザー情報をlocalStorageから取得 (変更なし)
   useEffect(() => {
     const storedUserInfo = localStorage.getItem('user');
     const storedToken = localStorage.getItem('token');
-    
     if (storedUserInfo && storedToken) {
       try {
-        const parsedUser = JSON.parse(storedUserInfo);
+        const parsedUser = JSON.parse(storedUserInfo) as UserData; // ★ UserData としてキャスト
         setUser({ ...parsedUser, token: storedToken });
       } catch (e) {
         console.error("ユーザー情報の解析に失敗しました", e);
@@ -64,12 +65,12 @@ const UserHistory: React.FC = () => {
     }
   }, []);
 
-  // 履歴データ取得関数
+  // 履歴データ取得関数 (historyAPI を使用するように変更)
   const fetchHistory = async () => {
-    if (!user || !user.token) {
+    if (!user) { 
       setIsLoading(false);
       setHistory([]);
-      setPagination(null);
+      setPagination(null); // ★ pagination もリセット
       return;
     }
     
@@ -77,98 +78,60 @@ const UserHistory: React.FC = () => {
     setError(null);
     
     try {
-      console.log('履歴取得開始');
+      console.log('[UserHistory] 履歴取得開始 using historyAPI.getUserHistory');
       
-      // リクエスト設定
-      const config = {
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
-      };
+      // ★ historyAPI を使用
+      const response = await historyAPI.getUserHistory(10); // limit は 10 固定など
       
-      // 不要なエンドポイント試行ロジックを削除
-      /*
-      // 複数のエンドポイントを順番に試す（成功したら中断）
-      let succeeded = false;
+      console.log('[UserHistory] APIレスポンス:', response);
       
-      // 方法1: /api/history エンドポイント（新しいAPI）
-      if (!succeeded) {
-        try {
-          console.log('エンドポイント1: /api/history を試行');
-          const response = await api.get('/history', config);
-          
-          if (response.data && (response.data.success || response.data.history || response.data.data)) {
-            console.log('APIレスポンス (/api/history):', response.data);
-            
-            // ... (データ取得ロジック)
-            
-            succeeded = true;
-          }
-        } catch (err) {
-          console.warn('/api/history エンドポイントエラー:', err);
-        }
+      if (response.success && response.history) {
+        // ★ HistoryItem 型に合わせてデータを整形 (必要であれば)
+        //    API が返す history 配列の各要素が HistoryItem と互換性があるか確認
+        setHistory(response.history);
+        
+        // ストリーク情報などもレスポンスに含まれていれば設定
+        // setCurrentStreak(response.currentStreak || 0);
+        // setMaxStreak(response.maxStreak || 0);
+        
+        // ★ APIレスポンスにページネーション情報があればセットする
+        // setPagination(response.pagination || null);
+      } else {
+        // API は成功したが、データがないか形式が違う場合
+        console.warn('[UserHistory] APIレスポンスに有効な履歴データが含まれていません:', response);
+        setError(response.message || '履歴データの取得に失敗しました (形式エラー)。');
+        setHistory([]);
+        setPagination(null); // ★ エラー時もリセット
       }
-      */
-      
-      // ★ /api/problems/history のみ呼び出すように修正
-      // if (!succeeded) { // <-- この if 文も不要
-        try {
-          console.log('履歴取得エンドポイント: /api/problems/history を試行'); // ログを修正
-          const response = await api.get('/problems/history', config);
-          
-          if (response.data && (response.data.success || response.data.history || response.data.data)) {
-            console.log('APIレスポンス (/api/problems/history):', response.data);
-            
-            // レスポンス形式に応じたデータ取得
-            if (response.data.history) {
-              setHistory(response.data.history);
-            } else if (response.data.data) { // 互換性のための data プロパティもチェック
-              setHistory(response.data.data);
-            } else {
-              setHistory([]);
-            }
-            
-            // ストリーク情報の取得
-            if (response.data.currentStreak !== undefined) {
-              setCurrentStreak(response.data.currentStreak);
-            }
-            if (response.data.maxStreak !== undefined) {
-              setMaxStreak(response.data.maxStreak);
-            }
-            
-            // succeeded = true; // succeeded フラグは不要
-          } else {
-            // API は成功したが、期待するデータがない場合
-            console.warn('APIレスポンスに有効な履歴データが含まれていません:', response.data);
-            setError('履歴データの取得に失敗しました (形式エラー)。');
-            setHistory([]);
-          }
-        } catch (err) {
-          console.error('/api/problems/history エンドポイントエラー:', err); // エラーログを error に変更
-          // succeeded フラグは不要なので、ここでエラー状態を設定
-          if (axios.isAxiosError(err) && err.response?.status === 401) {
-            setError('認証エラーが発生しました。再ログインしてください。');
+    } catch (err: any) {
+      console.error('[UserHistory] 履歴取得エラー:', err);
+      // AxiosError かどうかをチェックし、メッセージを抽出
+      let errorMessage = '履歴の取得中にエラーが発生しました。';
+      if (axios.isAxiosError(err)) { // エラーが AxiosError か確認
+          if (err.response) {
+            // サーバーからのエラーレスポンス
+            errorMessage = err.response.data?.message || `サーバーエラー (${err.response.status})`;
+            if (err.response.status === 401) {
+              errorMessage = '認証エラーが発生しました。再ログインしてください。';
+              // 認証エラー時はユーザー情報をクリア
             setUser(null);
             localStorage.removeItem('user');
             localStorage.removeItem('token');
+            }
+          } else if (err.request) {
+            // レスポンスがない場合
+            errorMessage = 'サーバーに接続できませんでした。';
           } else {
-            setError('履歴の取得中にエラーが発生しました。');
+            // リクエスト設定エラーなど
+            errorMessage = err.message;
           }
-          setHistory([]);
-        }
-      // } // <-- 不要な if 文の閉じ括弧
-      
-      // 不要なエラーチェックを削除 (try...catch 内で処理するため)
-      /*
-      // 両方のエンドポイントが失敗した場合
-      if (!succeeded) {
-        setError('履歴の取得に失敗しました。サーバーに接続できません。');
-        setHistory([]);
+      } else if (err instanceof Error) {
+          // Axios 以外のエラー
+          errorMessage = err.message;
       }
-      */
-    // } catch (err) { // <-- 外側の catch も不要 (内部の catch で処理するため、ただし念のため残すのもあり)
-    //   console.error('履歴取得エラー:', err);
-    // ... (エラー処理)
+      setError(errorMessage);
+      setHistory([]);
+      setPagination(null); // ★ エラー時もリセット
     } finally {
       setIsLoading(false);
     }
@@ -179,9 +142,10 @@ const UserHistory: React.FC = () => {
     if (user !== undefined) {
       fetchHistory();
     }
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, currentPage]); // ★ currentPage が変わったときも再取得
 
-  // ページ変更ハンドラ
+  // ★ ページ変更ハンドラを復活
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && pagination && newPage <= pagination.totalPages) {
       setCurrentPage(newPage);
@@ -189,7 +153,8 @@ const UserHistory: React.FC = () => {
   };
 
   // 日付をフォーマットする関数
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) return 'N/A'; // undefined の場合に対応
     try {
       const options: Intl.DateTimeFormatOptions = { 
         year: 'numeric', month: 'short', day: 'numeric', 
@@ -203,7 +168,8 @@ const UserHistory: React.FC = () => {
   };
   
   // 時間をフォーマットする関数 (秒 -> 0.01秒単位)
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds: number | undefined): string => {
+    if (seconds === undefined || seconds === null) return '-'; // undefined/null 対応
     try {
       // 秒を小数点以下2桁まで表示
       return `${seconds.toFixed(2)}秒`;
@@ -228,7 +194,7 @@ const UserHistory: React.FC = () => {
     return (
       <div className="user-history-container">
         <h1>解答履歴</h1>
-        <p>履歴を表示するには<a href="/login">ログイン</a>してください。</p>
+        <p>履歴を表示するには<a href="/login" className="text-blue-600 hover:underline">ログイン</a>してください。</p>
       </div>
     );
   }
@@ -278,9 +244,9 @@ const UserHistory: React.FC = () => {
               </thead>
               <tbody>
                 {history.map((item, index) => (
-                  <tr key={item.id || `history-${index}`} className={`history-row ${index % 2 === 0 ? '' : 'even'}`}>
+                  <tr key={item._id || `history-${index}`} className={`history-row ${index % 2 === 0 ? '' : 'even'}`}>
                     {/* timestampがあれば優先してフォーマット、なければdate、それもなければN/A */}
-                    <td className="date-column">{item.timestamp ? formatDate(item.timestamp) : (item.date || 'N/A')}</td>
+                    <td className="date-column">{formatDate(item.timestamp)}</td>
                     <td className="difficulty-column">{difficultyToJapanese(item.difficulty as DifficultyRank)}</td>
                     <td className="rank-column">{item.rank || '-'}</td>
                     <td className="correct-column">{`${item.correctAnswers ?? '?'} / ${item.totalProblems ?? 10}`}</td>
@@ -291,21 +257,19 @@ const UserHistory: React.FC = () => {
             </table>
           </div>
 
-          {/* ページネーションコントロール */}
+          {/* ★ ページネーション UI を復活 */} 
           {pagination && pagination.totalPages > 1 && (
             <div className="pagination-controls">
               <button 
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="pagination-button"
               >
                 前へ
               </button>
-              <span className="pagination-info">ページ {currentPage} / {pagination.totalPages}</span>
+              <span>ページ {currentPage} / {pagination.totalPages}</span>
               <button 
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === pagination.totalPages}
-                className="pagination-button"
               >
                 次へ
               </button>

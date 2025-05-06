@@ -3,6 +3,7 @@ import { DifficultyRank } from '../utils/problemGenerator.js';
 
 // 個々の問題の結果（DailyProblemSet内で使用）
 const problemResultSchema = new mongoose.Schema({
+    id: { type: String, required: true }, // ★ 問題ID (フロントエンドと合わせる)
     question: { type: String, required: true },
     correctAnswer: { type: Number, required: true },
     options: [{ type: Number }], // 生成された選択肢

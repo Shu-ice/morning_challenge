@@ -5,7 +5,7 @@ const UserSchema = new mongoose.Schema({
   // ユーザー名はプロフィール表示やUI表示用
   username: {
     type: String,
-    required: [true, 'ユーザー名を入力してください'],
+    required: [true, 'ユーザー名は必須です'],
     unique: true,
     trim: true,
     minlength: [3, 'ユーザー名は3文字以上である必要があります'],
@@ -14,30 +14,29 @@ const UserSchema = new mongoose.Schema({
   // メールアドレスはログイン用
   email: {
     type: String,
-    required: [true, 'メールアドレスを入力してください'],
+    required: [true, 'メールアドレスは必須です'],
     unique: true,
-    match: [
-      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-      '有効なメールアドレスを入力してください'
-    ]
+    lowercase: true,
+    trim: true,
+    match: [/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/, '有効なメールアドレスを入力してください']
   },
   // ★ password フィールド
   password: {
     type: String,
-    required: [true, 'パスワードを入力してください'],
+    required: [true, 'パスワードは必須です'],
     minlength: [6, 'パスワードは6文字以上である必要があります'],
     select: false, // APIでユーザー情報を取得する際にデフォルトでパスワードを含めない
   },
   grade: {
     type: Number,
-    required: true,
+    required: [true, '学年は必須です'],
     min: 1,
     max: 6,
     default: 1
   },
   avatar: {
     type: String,
-    default: 'default-avatar.png'
+    default: '😊' // デフォルトアバター
   },
   // 管理者フラグ
   isAdmin: {
@@ -56,6 +55,13 @@ const UserSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  currentStreak: {
+    type: Number,
+    default: 0
+  },
+  lastChallengeDate: {
+    type: String, // YYYY-MM-DD形式
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -67,6 +73,7 @@ UserSchema.pre('save', async function(next) {
   // パスワードが変更されていない場合は何もしない
   if (!this.isModified('password')) {
     next();
+    return;
   }
   // パスワードをハッシュ化
   try {
@@ -83,7 +90,21 @@ UserSchema.pre('save', async function(next) {
 
 // ★ パスワード比較メソッド
 UserSchema.methods.matchPassword = async function(enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  // enteredPassword が undefined や null の場合、bcrypt.compare がエラーを出す可能性がある
+  if (typeof enteredPassword !== 'string' || enteredPassword.length === 0 || typeof this.password !== 'string' || this.password.length === 0) {
+      console.error('[matchPassword] Error: enteredPassword or this.password is missing or invalid.');
+      console.log(`[matchPassword] enteredPassword: "${enteredPassword}" (type: ${typeof enteredPassword}), this.password exists: ${!!this.password} (type: ${typeof this.password}, length: ${this.password ? this.password.length : 'N/A'})`);
+      return false; 
+  }
+  try {
+    console.log(`[matchPassword] Comparing entered password (type: ${typeof enteredPassword}, length: ${enteredPassword.length}) with stored hash (type: ${typeof this.password}, length: ${this.password.length})`);
+    const result = await bcrypt.compare(enteredPassword, this.password);
+    console.log(`[matchPassword] bcrypt.compare result: ${result}`);
+    return result;
+  } catch (error) {
+    console.error('[matchPassword] Error during bcrypt.compare:', error);
+    return false; // エラー時は false を返す
+  }
 };
 
 // ログインストリークの更新

@@ -17,15 +17,15 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: Number(env.FRONTEND_PORT) || 3000, // .env からポートを読み込む、なければ3000
+      port: Number(env.FRONTEND_PORT) || 3004, // デフォルトを3004に変更
       host: true, // Allow access from network
       proxy: {
         // /api へのリクエストをバックエンドサーバーにプロキシ
         '/api': {
-          target: `http://localhost:${env.BACKEND_PORT || 5001}`, // デフォルトを 5001 に変更
+          target: 'http://localhost:5003', // ターゲットをハードコード
           changeOrigin: true,
           secure: false,
-          // rewrite: (path) => path.replace(/^\/api/, '') // /api プレフィックスを削除しない
+          // rewrite: (path) => path.replace(/^\\/api/, '') // バックエンドが/apiプレフィックスを期待しているため、削除しない
         },
       }
     },

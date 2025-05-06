@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import '../styles/Results.css';
-import type { Results as ResultsType, ProblemResult } from '@/types/index';
+import type { PracticeSession, ProblemResult } from '@/types/index';
 import { difficultyToJapanese } from '@/types/difficulty';
 
 interface ResultsProps {
-  results: ResultsType | null;
+  results: PracticeSession | null;
   onViewRankings: () => void;
   onBackToHome: () => void;
 }
@@ -13,20 +13,13 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
   const [showConfetti, setShowConfetti] = useState(true);
   
   useEffect(() => {
-    // 結果がない場合は何もしない
     if (!results) return;
-    
-    // 紙吹雪エフェクトのタイマー設定
     const timer = setTimeout(() => {
       setShowConfetti(false);
     }, 3000);
-    
-    // APIのレスポンスの問題を表示
-    console.log('結果データ:', results);
-    
-    // クリーンアップ関数
+    console.log('結果データ (PracticeSession):', results);
     return () => clearTimeout(timer);
-  }, [results]); // 依存配列から hasSavedResult を削除
+  }, [results]);
   
   if (!results) {
     return (
@@ -45,28 +38,32 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
     );
   }
   
+  const correctAnswers = results.results.filter(r => r.isCorrect).length;
+  const totalProblems = results.results.length;
+  const timeSpent = results.endTime && results.startTime ? (new Date(results.endTime).getTime() - new Date(results.startTime).getTime()) : 0;
+  const score = results.score !== undefined ? results.score : 0;
+  const problems = results.results;
+  const difficulty = results.difficulty;
+  const rank = null;
+  
   const formatTime = (milliseconds: number) => {
     const totalSeconds = milliseconds / 1000;
-    // ここで表示用にフォーマット (例: 小数点以下2桁)
     return `${totalSeconds.toFixed(2)}秒`; 
   };
 
   const getResultMessage = () => {
-    if (!results) return "";
-    const accuracy = (results.correctAnswers / results.totalProblems) * 100;
+    if (totalProblems === 0) return "";
+    const accuracy = (correctAnswers / totalProblems) * 100;
     if (accuracy === 100) return "素晴らしい！全問正解です！";
     if (accuracy >= 80) return "よくできました！";
     if (accuracy >= 60) return "まずまずの成績です！";
     return "もう少し頑張りましょう！";
   };
 
-  // ★ クリックハンドラを修正
   const handleViewRankingsClick = () => {
     if (results) {
-      // ★ localStorage に難易度を保存
       localStorage.setItem('selectedDifficultyFromResults', results.difficulty);
     }
-    // App.tsx から渡された onViewRankings を実行
     onViewRankings();
   };
 
@@ -88,44 +85,56 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
       <div className="results-summary bg-white rounded-lg shadow-lg p-6 mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
         <div>
           <div className="text-sm text-gray-500">難易度</div>
-          <div className="text-xl font-semibold">{difficultyToJapanese(results.difficulty)}</div>
+          <div className="text-xl font-semibold">{difficultyToJapanese(difficulty)}</div>
         </div>
         <div>
           <div className="text-sm text-gray-500">正解数</div>
-          <div className="text-xl font-semibold">{results.correctAnswers} / {results.totalProblems}</div>
+          <div className="text-xl font-semibold">{correctAnswers} / {totalProblems}</div>
         </div>
         <div>
           <div className="text-sm text-gray-500">かかった時間</div>
-          <div className="text-xl font-semibold">{formatTime(results.totalTime)}</div>
+          <div className="text-xl font-semibold">{formatTime(timeSpent)}</div>
         </div>
         <div>
           <div className="text-sm text-gray-500">あなたの順位</div>
-          {/* rank が 0 または null/undefined の場合は "-" を表示 */} 
-          <div className="text-xl font-semibold">{results.rank ? `${results.rank}位` : '-'}</div>
+          <div className="text-xl font-semibold">{rank ? `${rank}位` : '-'}</div>
         </div>
       </div>
 
       <div className="results-details bg-white rounded-lg shadow-lg p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">詳細</h2>
-        <ul className="space-y-2">
-          {results.problems && results.problems.length > 0 ? (
-            results.problems.map((problem, index) => (
-            <li key={index} className={`flex justify-between items-center p-2 rounded ${problem.isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
-              <span className="text-sm md:text-base">問題 {index + 1}: {problem.question.replace(' = ?', '')}</span>
-              <div className="text-right">
-                <span className={`font-medium ${problem.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                  {problem.userAnswer !== null ? problem.userAnswer : '未解答'}
-                  {!problem.isCorrect && (
-                    <span className="text-xs text-gray-500 ml-2">
-                      (正解: {problem.correctAnswer})
+        <ul className="space-y-4">
+          {problems && problems.length > 0 ? (
+            problems.map((problem, index) => (
+              <li key={index} className={`p-4 rounded-lg ${problem.isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
+                <div className="flex flex-col space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-medium">問題 {index + 1}</span>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${problem.isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {problem.isCorrect ? '正解' : '不正解'}
                     </span>
+                  </div>
+                  <div className="text-gray-700">
+                    <p className="font-medium">問題:</p>
+                    <p className="ml-4">{problem.question}</p>
+                  </div>
+                  <div className="text-gray-700">
+                    <p className="font-medium">あなたの答え:</p>
+                    <p className={`ml-4 ${problem.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                  {problem.userAnswer !== null ? problem.userAnswer : '未解答'}
+                    </p>
+                  </div>
+                  {!problem.isCorrect && (
+                    <div className="text-gray-700">
+                      <p className="font-medium">正解:</p>
+                      <p className="ml-4 text-green-600">{problem.correctAnswer}</p>
+                    </div>
                   )}
-                </span>
               </div>
             </li>
             ))
           ) : (
-            <li className="p-2 text-center text-gray-500">詳細データがありません</li>
+            <li className="p-4 text-center text-gray-500">詳細データがありません</li>
           )}
         </ul>
       </div>

@@ -47,10 +47,25 @@ function Register({ onRegister, onLogin }: RegisterProps) {
 
       console.log('[Register] 登録成功:', response);
       
-      if (response.token && response.user) {
-        onRegister(response.user, response.token);
+      if (response.token && response._id) {
+        const token = response.token;
+        const userDataFromResponse: UserData = {
+          _id: response._id,
+          username: response.username,
+          email: response.email,
+          grade: response.grade,
+          avatar: response.avatar,
+          isLoggedIn: true,
+          loginTime: new Date().toISOString(),
+          isAdmin: response.isAdmin || false,
+        };
+        onRegister(userDataFromResponse, token);
       } else {
-        throw new Error('登録レスポンスの形式が無効です');
+        let errorMessage = '登録レスポンスの形式が無効です。';
+        if (!response.token) errorMessage += ' トークンがありません。';
+        if (!response._id && !response.user) errorMessage += ' ユーザー情報 (_id or user) がありません。';
+        console.error('[Register] Invalid response structure:', response);
+        throw new Error(errorMessage);
       }
     } catch (err: any) {
       console.error('[Register] API登録エラー:', err);

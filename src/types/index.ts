@@ -1,46 +1,51 @@
 import type { DifficultyRank } from './difficulty';
 
+export type { DifficultyRank };
+
 export interface Problem {
-  _id?: string;
+  id: string;
   question: string;
   answer: number;
-  grade?: number;
-  type?: string;
-  difficulty?: DifficultyRank;
-  date?: string;
+  difficulty: DifficultyRank;
+  options?: number[];
+  explanation?: string;
 }
 
 export interface ProblemResult {
-  id: number;
+  problemId: string;
   question: string;
-  userAnswer: number | null;
+  userAnswer: number;
   correctAnswer: number;
   isCorrect: boolean;
   timeSpent: number;
 }
 
-export interface Results {
-  totalProblems: number;
-  correctAnswers: number;
-  incorrectAnswers: number;
-  unanswered: number;
-  totalTime: number;
-  timeSpent: number;
-  grade: number;
-  problems: ProblemResult[];
-  score: number;
+export interface PracticeSession {
+  id: string;
+  userId: string;
+  startTime: string;
+  endTime?: string;
   difficulty: DifficultyRank;
-  rank?: number;
+  results: ProblemResult[];
+  score: number;
+}
+
+export interface UserProfile extends UserData {
+  totalSessions: number;
+  averageScore: number;
+  bestScore: number;
+  lastPracticeDate?: string;
 }
 
 export interface UserData {
+  _id: string;
   username: string;
-  isLoggedIn: boolean;
   email?: string;
-  grade?: number;
+  grade?: number | string;
+  avatar?: string;
+  isLoggedIn: boolean;
   loginTime?: string;
   isAdmin?: boolean;
-  userId?: string;
 }
 
 export interface LoginCredentials {
@@ -54,4 +59,22 @@ export interface LoginResponseData {
   token: string;
   user: UserData;
   message?: string;
+}
+
+// 問題の解答結果とセッション全体の集計結果を含む型
+export interface Results {
+  difficulty: DifficultyRank;
+  totalProblems: number;
+  correctAnswers: number;
+  incorrectAnswers: number;
+  unanswered: number;
+  totalTime: number; // ミリ秒
+  timeSpent: number; // 秒
+  problems: ProblemResult[]; // 各問題の結果
+  score: number;
+  grade?: number | string; // ユーザーの学年
+  rank?: number; // ランキング (あれば)
+  date?: string; // YYYY-MM-DD 形式の日付
+  // username?: string; // ユーザー名も必要なら追加
+  // userId?: string; // ユーザーIDも必要なら追加
 } 

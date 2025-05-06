@@ -286,82 +286,26 @@ const problemsAPI = {
     }
   },
   
-  submitAnswers: async (data: {
-    difficulty: string,
-    date: string,
-    answers: string[],
-    timeSpent: number,
-    // userId?: string // userId を削除
+  submitAnswers: async (payload: {
+    difficulty: string;
+    date: string;
+    problemIds: string[];
+    answers: string[];
+    timeSpentMs: number;
+    userId: string;
   }) => {
     try {
-      console.log(`[API] 回答を提出します:`, data);
+      console.log('[API] 回答送信リクエスト (submitAnswers):', payload);
       
-      // リクエストを送信する前に、有効なトークンがあるか確認
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('[API] 認証トークンがありません。結果を保存できない可能性があります。');
-        // トークンがない場合でも、バックエンドの protect ミドルウェアで弾かれるはずなので、
-        // ここで処理を中断する必要はないかもしれないが、警告は有用。
-      }
+      // 送信するデータから userId を除外 (トークンから取得するため)
+      // ただし、バックエンド側のロジックによっては含めた方が良い場合もある
+      const { userId, ...submissionData } = payload; 
+      console.log(`[API] 送信データ (submitAnswers):`, submissionData);
       
-      // ユーザーID取得ロジックを削除
-      /*
-      let userId = null;
-      let username = null;
+      // ★ API.post の第二引数は submissionData を使う
+      const response = await API.post('/problems/submit', submissionData); 
+      console.log(`[API] 回答提出レスポンス (submitAnswers):`, response);
       
-      try {
-        // ... (古いユーザーID取得ロジック) ...
-      } catch (parseError) {
-        console.error('[API] ユーザー情報の解析エラー:', parseError);
-      }
-      */
-      
-      // 送信データを構築する (userId, username を削除)
-      const submissionData: {
-        difficulty: string;
-        date: string;
-        answers: string[];
-        timeSpent: number;
-        // userId?: string;
-        // username?: string;
-      } = {
-        difficulty: data.difficulty,
-        date: data.date,
-        answers: data.answers,
-        timeSpent: data.timeSpent
-        // userId: userId || data.userId // 削除
-      };
-      
-      // 不要な username バックアップ、匿名ユーザー処理を削除
-      /*
-      if (!submissionData.userId && username) {
-        submissionData.username = username;
-        console.log(`[API] userIdが取得できないため、usernameをバックアップとして使用: ${username}`);
-      }
-      if (!submissionData.userId && !submissionData.username) {
-        submissionData.username = 'anonymous-' + Math.floor(Math.random() * 10000);
-        console.warn(`[API] ユーザー識別子が見つかりません。一時的な識別子を生成: ${submissionData.username}`);
-      }
-      */
-      
-      console.log(`[API] 送信データ:`, submissionData); // userId, username なし
-      
-      // 認証トークンが既にリクエストに添付されるため、
-      // ユーザーIDはレスポンスの代替表示用に残します <-- このコメントは古いので削除
-      const response = await API.post('/problems/submit', submissionData);
-      console.log(`[API] 回答提出レスポンス:`, response);
-      
-      // レスポンスの形式を確認し、一貫したオブジェクトを返す
-      if (!response || !response.data) {
-        console.warn('[API] 回答提出: レスポンスデータが空です');
-        return { 
-          success: false, 
-          message: 'サーバーからの応答が空です', 
-          results: null 
-        };
-      }
-      
-      // レスポンスがdata.dataという形式の場合に対応
       if (response.data.data && !response.data.success) {
         return {
           success: true,

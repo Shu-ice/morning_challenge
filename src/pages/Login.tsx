@@ -34,10 +34,25 @@ function Login({ onLogin, onRegister }: LoginProps) {
       
       console.log('[Login] ログイン成功:', response);
       
-      if (response.token && response.user) {
-        onLogin(response.user, response.token);
+      if (response.token && response._id) {
+        const token = response.token;
+        const userDataFromResponse: UserData = {
+          _id: response._id,
+          username: response.username,
+          email: response.email,
+          grade: response.grade,
+          avatar: response.avatar,
+          isLoggedIn: true,
+          loginTime: new Date().toISOString(),
+          isAdmin: response.isAdmin || false,
+        };
+        onLogin(userDataFromResponse, token);
       } else {
-        throw new Error('ログインレスポンスの形式が無効です');
+        let errorMessage = 'ログインレスポンスの形式が無効です。';
+        if (!response.token) errorMessage += ' トークンがありません。';
+        if (!response._id && !response.user) errorMessage += ' ユーザー情報 (_id or user) がありません。';
+        console.error('[Login] Invalid response structure:', response); 
+        throw new Error(errorMessage);
       }
     } catch (err: any) {
       console.error('[Login] APIログインエラー:', err);

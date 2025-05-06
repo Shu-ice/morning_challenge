@@ -312,19 +312,6 @@ const ProblemEditor: React.FC = () => {
                     <div className="problem-value">{problem.correctAnswer}</div>
                   )}
                 </div>
-                
-                {problem.options && (
-                  <div className="problem-field">
-                    <label>選択肢:</label>
-                    <div className="options-list">
-                      {problem.options.map((option, optIndex) => (
-                        <span key={optIndex} className={`option ${option === problem.correctAnswer ? 'correct' : ''}`}>
-                          {option}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ))}
