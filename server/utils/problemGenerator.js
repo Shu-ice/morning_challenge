@@ -175,64 +175,88 @@ const getParamsForDifficulty = (difficulty) => {
             };
         case DifficultyRank.INTERMEDIATE: // 小学3・4年生
             return {
-                problemTypes: ['add_subtract_2_3digit', 'multiply_2_3digit_by_1digit', 'multiply_2digit_by_2digit', 'divide_with_remainder', 'simple_decimals_add_subtract'],
-                termsRange: [2, 3],
+                problemTypes: [
+                    'add_subtract_2_3digit',      // 3年生：3桁の加減
+                    'multiply_2_3digit_by_1digit', // 3年生：2桁×1桁、3年生：3桁×1桁
+                    'multiply_2digit_by_2digit',   // 4年生：2桁×2桁
+                    'divide_with_remainder',       // 3年生：2桁÷1桁、4年生：3桁÷1桁
+                    'simple_decimals_add_subtract' // 4年生：小数の加減（小数点以下1桁）
+                ],
+                termsRange: [2, 2], // 基本的に2項の計算
                 digitRanges: {
-                    default: [2, 3], // 基本2-3桁
-                    add_subtract_2_3digit: [2,3],
-                    multiply_2_3digit_by_1digit: [[2,3], [1,1]], // (2-3桁) x (1桁)
-                    multiply_2digit_by_2digit: [[2,2], [2,2]],   // (2桁) x (2桁)
-                    divide_with_remainder: [[2,3], [1,1]],       // (2-3桁) ÷ (1桁)
-                    simple_decimals_add_subtract: [1,2] // 小数点以下1桁まで含む数
+                    default: [2, 3],
+                    add_subtract_2_3digit: [[2, 3], [2, 3]], // 3桁までの加減
+                    multiply_2_3digit_by_1digit: [[2, 3], [1, 1]], // (2-3桁) × (1桁)
+                    multiply_2digit_by_2digit: [[2, 2], [2, 2]],   // (2桁) × (2桁)
+                    divide_with_remainder: [[2, 3], [1, 1]],       // (2-3桁) ÷ (1桁)
+                    simple_decimals_add_subtract: [[1, 2], [1, 2]] // 小数点以下1桁までの数の加減
                 },
                 ops: ['+', '-', '×', '÷'],
-                forceIntegerResult: false, // 割り算や小数計算で必須
+                forceIntegerResult: true, // 割り算は必ず割り切れる数を使用
                 allowNegativeResult: false,
-                maxResultValue: 10000,
+                maxResultValue: 10000, // 3桁×3桁の最大値（999×9=8991）を考慮
                 decimals: 1, // 小数第一位まで
                 intermediateSpecific: {
-                    divisionRemainderPercentage: 0.3, // 余りのある割り算の割合
-                    decimalProblemPercentage: 0.2, // 小数問題の割合
+                    divisionRemainderPercentage: 0.0, // 余りのある割り算は出さない
+                    decimalProblemPercentage: 0.2, // 小数問題の割合（4年生レベル）
+                    multiplicationPercentage: 0.4, // かけ算の割合
+                    divisionPercentage: 0.2, // わり算の割合
+                    addSubtractPercentage: 0.2 // たし算・ひき算の割合
                 }
             };
         case DifficultyRank.ADVANCED: // 小学5・6年生
             return {
-                problemTypes: ['decimal_multiply_divide', 'fraction_add_subtract_different_denominators', 'fraction_multiply_divide', 'mixed_calculations_parentheses'],
-                termsRange: [2, 4],
-                digitRanges: { // 整数部の桁数
-                    default: [1, 4],
-                    decimal_multiply_divide: [1,3], // 例: 12.3 * 4.5
-                    fraction_add_subtract_different_denominators: [1,2], // 分数の分子分母の桁数
-                    fraction_multiply_divide: [1,2],
-                    mixed_calculations_parentheses: [1,3], // 括弧問題の数字の桁数
+                problemTypes: [
+                    'decimal_multiply_divide', // 5年生: 小数の乗除
+                    'fraction_add_subtract_different_denominators', // 5年生: 異分母分数の加減
+                    'fraction_multiply_divide', // 6年生: 分数の乗除
+                    'mixed_calculations_parentheses' // 5・6年生: 括弧を含む四則混合
+                ],
+                termsRange: [2, 4], // 計算に関わる項の数
+                digitRanges: { // 各問題タイプでの整数部の桁数や分子分母の桁数
+                    default: [1, 3], // フォールバック用
+                    decimal_multiply_divide: [[1, 3], [1, 2]], // 例: 12.3 × 4.5 や 123.4 ÷ 5.67
+                    fraction_add_subtract_different_denominators: [[1, 2], [1, 2]], // 分数の分子/分母の桁数
+                    fraction_multiply_divide: [[1, 2], [1, 2]],
+                    mixed_calculations_parentheses: [[1, 3], [1, 3], [1, 2]], // 混合計算で扱う数値の桁数
                 },
                 ops: ['+', '-', '×', '÷'],
-                forceIntegerResult: false,
-                allowNegativeResult: false, // 基本は正
-                maxResultValue: 100000,
+                forceIntegerResult: false, // 小数・分数の結果を許可
+                allowNegativeResult: false, // 負の数はなし
+                maxResultValue: 100000, // 結果の最大値 (調整可能)
                 decimals: 2, // 小数第二位まで
-                allowParentheses: true,
+                allowParentheses: true, // 括弧の使用を許可
                 advancedSpecific: {
-                    fractionProblemPercentage: 0.4, // 分数問題の割合
-                    parenthesesProblemPercentage: 0.3, // かっこ付き問題の割合
+                    decimalProblemPercentage: 0.3,   // 小数問題の割合 30%
+                    fractionProblemPercentage: 0.4,  // 分数問題の割合 40%
+                    mixedProblemPercentage: 0.3,     // 混合計算問題の割合 30%
                 }
             };
-        case DifficultyRank.EXPERT: // 超級
+        case DifficultyRank.EXPERT: // 超級 (すごい小学生)
             return {
-                problemTypes: ['complex_mixed_calculations', 'large_number_operations', 'negative_number_operations'],
+                problemTypes: [
+                    'complex_mixed_calculations_parentheses', // より複雑な括弧付き混合計算
+                    'large_number_operations', // 大きな桁数の整数の計算
+                    'strategic_calculations' // 工夫を要する計算 (問題生成で表現)
+                ],
                 termsRange: [3, 5],
                 digitRanges: {
-                    default: [2, 5], // より大きな桁数
-                    complex_mixed_calculations: [2,4],
-                    large_number_operations: [3,5],
-                    negative_number_operations: [2,4],
+                    default: [2, 4],
+                    complex_mixed_calculations_parentheses: [[2, 4], [2, 3], [1, 3]],
+                    large_number_operations: [[3, 5], [2, 4]],
+                    strategic_calculations: [[2, 4], [2, 4]] // 例: (A × B) + (A × C)
                 },
                 ops: ['+', '-', '×', '÷'],
-                forceIntegerResult: false,
-                allowNegativeResult: true, // 負の数も扱う
-                maxResultValue: 1000000, // さらに大きな結果値
-                decimals: 3, // 小数第三位まで
+                forceIntegerResult: false, // 結果が整数でなくても良い
+                allowNegativeResult: false, // 負の数はなし (ユーザー指示)
+                maxResultValue: 1000000, // 結果の最大値
+                decimals: 3, // 小数第三位まで考慮 (問題による)
                 allowParentheses: true,
+                expertSpecific: {
+                    complexMixedPercentage: 0.5, // 複雑な混合計算 50%
+                    largeNumPercentage: 0.3,     // 大きな数 30%
+                    strategicPercentage: 0.2     // 工夫する計算 20%
+                }
             };
         default: // フォールバック (基本的に使われない想定)
             return { problemTypes: ['add_subtract_1digit'], termsRange: [2,2], digitRanges: { default: [1,1], add_subtract_1digit: [1,1]}, ops: ['+'], forceIntegerResult: true, allowNegativeResult: false, maxResultValue: 20, decimals: 0 };
@@ -326,9 +350,69 @@ const selectProblemType = (difficulty, seed) => {
     return params.problemTypes[0];
 
   } else if (difficulty === DifficultyRank.INTERMEDIATE && params.intermediateSpecific) {
-    // TODO: INTERMEDIATE の問題タイプ選択ロジック (同様に xxxPercentage を使用)
+    const spec = params.intermediateSpecific;
+    const randomValue = seededRandom(seed);
+
+    // 問題タイプの選択（割合に基づく）
+    if (randomValue < spec.multiplicationPercentage) {
+      // かけ算問題（40%）
+      const multRandom = seededRandom(seed + 100);
+      return multRandom < 0.7 ? 'multiply_2_3digit_by_1digit' : 'multiply_2digit_by_2digit';
+    } else if (randomValue < (spec.multiplicationPercentage + spec.divisionPercentage)) {
+      // わり算問題（20%）
+      return 'divide_with_remainder';
+    } else if (randomValue < (spec.multiplicationPercentage + spec.divisionPercentage + spec.addSubtractPercentage)) {
+      // たし算・ひき算問題（20%）
+      return 'add_subtract_2_3digit';
+    } else {
+      // 小数のたし算・ひき算問題（20%）
+      return 'simple_decimals_add_subtract';
+    }
   } else if (difficulty === DifficultyRank.ADVANCED && params.advancedSpecific) {
-    // TODO: ADVANCED の問題タイプ選択ロジック
+    const spec = params.advancedSpecific;
+    const randomVal = seededRandom(seed + 200); // シード値を他と変える
+    if (randomVal < spec.fractionProblemPercentage) {
+      // 分数問題 (40%)
+      const fractionRandom = seededRandom(seed + 210);
+      if (fractionRandom < 0.5 && params.problemTypes.includes('fraction_add_subtract_different_denominators')) {
+        return 'fraction_add_subtract_different_denominators';
+      } else if (params.problemTypes.includes('fraction_multiply_divide')) {
+        return 'fraction_multiply_divide';
+      }
+    } else if (randomVal < (spec.fractionProblemPercentage + spec.decimalProblemPercentage)) {
+      // 小数問題 (30%)
+      if (params.problemTypes.includes('decimal_multiply_divide')) {
+        return 'decimal_multiply_divide';
+      }
+    } else { // 残り (30%)
+      // 混合計算問題
+      if (params.problemTypes.includes('mixed_calculations_parentheses')) {
+        return 'mixed_calculations_parentheses';
+      }
+    }
+    // フォールバック (指定された割合でタイプが見つからない場合など)
+    return params.problemTypes[getRandomInt(0, params.problemTypes.length - 1, seed + 220)];
+  } else if (difficulty === DifficultyRank.EXPERT && params.expertSpecific) {
+    const spec = params.expertSpecific;
+    const randomVal = seededRandom(seed + 300);
+    if (randomVal < spec.complexMixedPercentage) {
+      // 複雑な混合計算 (50%)
+      if (params.problemTypes.includes('complex_mixed_calculations_parentheses')) {
+        return 'complex_mixed_calculations_parentheses';
+      }
+    } else if (randomVal < (spec.complexMixedPercentage + spec.largeNumPercentage)) {
+      // 大きな数 (30%)
+      if (params.problemTypes.includes('large_number_operations')) {
+        return 'large_number_operations';
+      }
+    } else { // 残り (20%)
+      // 工夫する計算
+      if (params.problemTypes.includes('strategic_calculations')) {
+        return 'strategic_calculations';
+      }
+    }
+    // フォールバック
+    return params.problemTypes[getRandomInt(0, params.problemTypes.length - 1, seed + 310)];
   }
   
   const typeIndex = getRandomInt(0, params.problemTypes.length - 1, seed + 1); 
@@ -438,88 +522,148 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
         return generateFallbackProblem(difficulty, currentSeed + 1000); // 未知のタイプならフォールバック
       }
     } else { // INTERMEDIATE 以上、または汎用ロジックへ
-      // ... (既存の汎用ロジック) ...
-      // この汎用ロジックも params.digitRanges[problemType] や params.digitRanges.default を参照するように修正済み
-        const terms = getRandomInt(params.termsRange[0], params.termsRange[1], currentSeed + 60);
-        const currentTermDigitParams = params.digitRanges[problemType] || params.digitRanges.default || [1,2]; 
+      const terms = getRandomInt(params.termsRange[0], params.termsRange[1], currentSeed + 60);
+      const currentTermDigitParams = params.digitRanges[problemType] || params.digitRanges.default || [1,2]; 
 
-        for (let i = 0; i < terms; i++) {
-            let minVal, maxVal;
-            if (Array.isArray(currentTermDigitParams[0])) { 
-                const rangeForThisTerm = currentTermDigitParams[i] || currentTermDigitParams[0]; 
-                minVal = Math.pow(10, rangeForThisTerm[0] -1 );
-                maxVal = Math.pow(10, rangeForThisTerm[1]) -1;
-         } else {
-                minVal = Math.pow(10, currentTermDigitParams[0] -1 );
-                maxVal = Math.pow(10, currentTermDigitParams[1]) -1;
-         }
-            minVal = Math.max(1, minVal); 
-            maxVal = Math.max(minVal, maxVal); 
-         
-         let num;
-            if (params.decimals > 0) {
-                num = getRandomFloat(minVal, maxVal, currentSeed + 70 + i * 2, params.decimals);
-         } else {
-                num = getRandomInt(minVal, maxVal, currentSeed + 70 + i * 2);
-            }
+      // 問題タイプに応じた特別な処理
+      if (problemType === 'divide_with_remainder') {
+        // 割り算問題の場合、必ず割り切れる数を使用
+        const divisor = getRandomInt(1, 9, currentSeed + 70);
+        const quotient = getRandomInt(1, 99, currentSeed + 80);
+        const dividend = divisor * quotient;
+        nums = [dividend, divisor];
+        ops = ['÷'];
+        answer = quotient;
+        questionStr = `${dividend} ÷ ${divisor}`;
+        typeForProblemObject = 'division';
+      } else if (problemType === 'multiply_2_3digit_by_1digit') {
+        // 2-3桁 × 1桁
+        const num1 = getRandomInt(10, 999, currentSeed + 70);
+        const num2 = getRandomInt(1, 9, currentSeed + 80);
+        nums = [num1, num2];
+        ops = ['×'];
+        answer = num1 * num2;
+        questionStr = `${num1} × ${num2}`;
+        typeForProblemObject = 'multiplication';
+      } else if (problemType === 'multiply_2digit_by_2digit') {
+        // 2桁 × 2桁
+        const num1 = getRandomInt(10, 99, currentSeed + 70);
+        const num2 = getRandomInt(10, 99, currentSeed + 80);
+        nums = [num1, num2];
+        ops = ['×'];
+        answer = num1 * num2;
+        questionStr = `${num1} × ${num2}`;
+        typeForProblemObject = 'multiplication';
+      } else if (problemType === 'simple_decimals_add_subtract') {
+        // 小数の加減算（小数点以下1桁まで）
+        const num1 = getRandomFloat(1, 99, currentSeed + 70, 1);
+        const num2 = getRandomFloat(1, 99, currentSeed + 80, 1);
+        nums = [num1, num2];
+        const opIndex = getRandomInt(0, 1, currentSeed + 90);
+        ops = [opIndex === 0 ? '+' : '-'];
+        answer = calculateAnswer(nums, ops, 1);
+        // 答えが負の数にならないように調整
+        if (answer < 0) {
+          [nums[0], nums[1]] = [nums[1], nums[0]];
+          answer = calculateAnswer(nums, ops, 1);
+        }
+        questionStr = `${nums[0]} ${ops[0]} ${nums[1]}`;
+        typeForProblemObject = ops[0] === '+' ? 'decimal_addition' : 'decimal_subtraction';
+      } else {
+        // 通常の整数計算（たし算・ひき算）
+        const num1 = getRandomInt(10, 999, currentSeed + 70);
+        const num2 = getRandomInt(10, 999, currentSeed + 80);
+        nums = [num1, num2];
+        const opIndex = getRandomInt(0, 1, currentSeed + 90);
+        ops = [opIndex === 0 ? '+' : '-'];
+        answer = calculateAnswer(nums, ops, 0);
+        // 答えが負の数にならないように調整
+        if (answer < 0) {
+          [nums[0], nums[1]] = [nums[1], nums[0]];
+          answer = calculateAnswer(nums, ops, 0);
+        }
+        questionStr = `${nums[0]} ${ops[0]} ${nums[1]}`;
+        typeForProblemObject = ops[0] === '+' ? 'addition' : 'subtraction';
+      }
+    }
 
-            if (i > 0 && ops.length > 0 && ops[ops.length-1] === '÷' && num === 0) { 
-                num = getRandomInt(1, Math.min(10, maxVal), currentSeed + 80 + i * 2);
-            }
-            nums.push(num);
-        }
+    // ADVANCED レベルの具体的な問題生成ロジック
+    if (difficulty === DifficultyRank.ADVANCED) {
+      const terms = getRandomInt(params.termsRange[0], params.termsRange[1], currentSeed + 60);
+      const currentTermDigitParams = params.digitRanges[problemType] || params.digitRanges.default || [[1,2],[1,2]];
 
-        const allowedOps = params.ops;
-        ops = [];
-        if (terms > 1) {
-            for (let i = 0; i < terms - 1; i++) {
-              const opIndex = getRandomInt(0, allowedOps.length - 1, currentSeed + 90 + i * 2);
-              ops.push(allowedOps[opIndex]);
+      if (problemType === 'decimal_multiply_divide') {
+        const num1Digits = currentTermDigitParams[0] || [1,3]; // 整数部の桁数範囲
+        const num2Digits = currentTermDigitParams[1] || [1,2]; // 整数部の桁数範囲
+        const decimalPlaces = params.decimals || 2;
+
+        let num1 = getRandomFloat(Math.pow(10, num1Digits[0]-1), Math.pow(10, num1Digits[1])-1, currentSeed + 70, decimalPlaces);
+        let num2 = getRandomFloat(Math.pow(10, num2Digits[0]-1), Math.pow(10, num2Digits[1])-1, currentSeed + 80, decimalPlaces);
+        const op = seededRandom(currentSeed + 90) < 0.5 ? '×' : '÷';
+
+        if (op === '÷') {
+          if (num2 === 0) num2 = getRandomFloat(1, Math.pow(10, num2Digits[1])-1, currentSeed + 81, decimalPlaces) || 1; // 0除算回避
+          answer = num1 / num2;
+          // 結果が指定小数桁で割り切れるか、または非常に近いかチェック (要改善)
+          if (!isCleanNumber(answer, decimalPlaces + 1)) { // 少し許容度を持たせる
+            // 割り切れるペアが見つかるまで再試行 (最大10回程度)
+            for (let i=0; i<10; i++) {
+              num1 = getRandomFloat(Math.pow(10, num1Digits[0]-1), Math.pow(10, num1Digits[1])-1, currentSeed + 70 + i, decimalPlaces);
+              num2 = getRandomFloat(Math.pow(10, num2Digits[0]-1), Math.pow(10, num2Digits[1])-1, currentSeed + 80 + i, decimalPlaces) || 1;
+              if (num2 === 0) num2 = 1;
+              answer = num1 / num2;
+              if (isCleanNumber(answer, decimalPlaces)) break;
+              if (i === 9) console.warn(`ADVANCED decimal division: clean pair not found for ${num1}/${num2}`);
             }
-        }
-        
-        if (ops.includes('÷')) {
-            for (let i = 0; i < ops.length; i++) {
-                if (ops[i] === '÷') {
-                    let divisor = nums[i + 1];
-                    let dividend = nums[i];
-                    if (divisor === 0) {
-                        nums[i+1] = getRandomInt(1, Math.min(10, Math.abs(dividend) || 10), currentSeed + i + 95); 
-                        if (nums[i+1] === 0) nums[i+1] = 1; 
-                        divisor = nums[i+1];
-                    }
-                    if (params.forceIntegerResult && dividend % divisor !== 0) { 
-                      let findAttempts = 0;
-                      let newDivisor = divisor;
-                      const maxDivisorSearch = Math.min(Math.abs(dividend), 50) || 10;
-                      while(findAttempts < 15 && (newDivisor === 0 || dividend % newDivisor !== 0) ) {
-                          newDivisor = getRandomInt(1, maxDivisorSearch, currentSeed + 100 + i * 3 + findAttempts);
-                          findAttempts++;
-                      }
-                      if (dividend % newDivisor === 0 && newDivisor !== 0) {
-                          nums[i+1] = newDivisor;
-                      } else {
-                          const alternativeOps = allowedOps.filter(op => op !== '÷');
-                          ops[i] = alternativeOps.length > 0 ? alternativeOps[getRandomInt(0, alternativeOps.length - 1, currentSeed + 110 + i*3)] : '+'; 
-                      }
-                    }
-                }
-            }
-        }
-        if (nums.length > 0) {
-          answer = calculateAnswer(nums, ops, allowedDecimalPlaces);
-          questionStr = nums[0].toString();
-          for (let i = 0; i < ops.length; i++) {
-            questionStr += ` ${ops[i]} ${nums[i + 1]}`;
-          }
-          if (typeForProblemObject === 'generic_calculation' || typeForProblemObject === problemType) {
-            if (ops.length === 1) typeForProblemObject = ops[0] === '+' ? 'addition' : ops[0] === '-' ? 'subtraction' : ops[0] === '×' ? 'multiplication' : 'division';
-            else if (ops.length > 1) typeForProblemObject = 'mixed_calculation';
-            else typeForProblemObject = 'single_number'; 
           }
         } else {
-          continue;
+          answer = num1 * num2;
         }
+        questionStr = `${num1} ${op} ${num2}`;
+        typeForProblemObject = 'decimal_operation'; // より具体的に decimal_multiplication or decimal_division としても良い
+        nums = [num1, num2]; // 検証用に保持
+        ops = [op];
+
+      } else if (problemType === 'mixed_calculations_parentheses') {
+        // 2項または3項の計算 (例)
+        const numTerms = getRandomInt(2, 3, currentSeed + 100);
+        nums = [];
+        for(let i=0; i<numTerms; i++) {
+          const digitRange = currentTermDigitParams[i] || currentTermDigitParams[0] || [1,3];
+          nums.push(getRandomInt(Math.pow(10, digitRange[0]-1), Math.pow(10, digitRange[1])-1, currentSeed + 110 + i));
+        }
+        
+        ops = [];
+        for(let i=0; i<numTerms-1; i++) {
+          ops.push(params.ops[getRandomInt(0, params.ops.length - 1, currentSeed + 120 + i)]);
+        }
+
+        // 簡単な括弧の挿入 (例: (A op B) op C or A op (B op C))
+        if (numTerms === 3) {
+          if (seededRandom(currentSeed + 130) < 0.5) { // (A op B) op C
+            questionStr = `(${nums[0]} ${ops[0]} ${nums[1]}) ${ops[1]} ${nums[2]}`;
+            const firstResult = calculateAnswer([nums[0], nums[1]], [ops[0]], 0);
+            if (firstResult !== undefined && firstResult >= 0) {
+              answer = calculateAnswer([firstResult, nums[2]], [ops[1]], 0);
+            } else { answer = undefined; } // 途中結果が不正なら全体も不正
+          } else { // A op (B op C)
+            questionStr = `${nums[0]} ${ops[0]} (${nums[1]} ${ops[1]} ${nums[2]})`;
+            const secondResult = calculateAnswer([nums[1], nums[2]], [ops[1]], 0);
+            if (secondResult !== undefined && secondResult >= 0) {
+              answer = calculateAnswer([nums[0], secondResult], [ops[0]], 0);
+            } else { answer = undefined; }
+          }
+        } else { // numTerms === 2
+          questionStr = `${nums[0]} ${ops[0]} ${nums[1]}`;
+          answer = calculateAnswer(nums, ops, 0);
+        }
+        typeForProblemObject = 'mixed_parentheses';
+      } else if (problemType === 'fraction_add_subtract_different_denominators' || problemType === 'fraction_multiply_divide'){
+        // TODO: 分数計算ロジック (別途実装)
+        // 現状はフォールバックに流すか、簡易的な整数問題で代替
+        console.warn(`ADVANCED: Fraction problem type '${problemType}' selected but not yet implemented. Falling back or using simple int.`);
+        return generateFallbackProblem(difficulty, currentSeed + 500); //仮
+      }
     }
 
     if (answer === undefined || 
