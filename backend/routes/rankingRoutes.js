@@ -1,12 +1,12 @@
-const express = require('express');
-const {
-  getAllRankings: getRankings,
-  getDailyRanking: getDailyRankings,
-  getWeeklyRanking: getWeeklyRankings,
-  getMonthlyRanking: getMonthlyRankings,
-  getGradeRanking: getGradeRankings
-} = require('../controllers/rankingController');
-const { protect } = require('../middleware/authMiddleware');
+import express from 'express';
+import {
+  getAllRankings as getRankings,
+  getDailyRanking as getDailyRankings,
+  getWeeklyRanking as getWeeklyRankings,
+  getMonthlyRanking as getMonthlyRankings,
+  getGradeRanking as getGradeRankings
+} from '../controllers/rankingController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -28,4 +28,4 @@ router.get('/monthly', getMonthlyRankings);
 // 学年別ランキング取得 - 時間制限なし（いつでも閲覧可能）
 router.get('/grade/:grade', getGradeRankings);
 
-module.exports = router;
+export default router;

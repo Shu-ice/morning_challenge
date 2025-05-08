@@ -12,16 +12,16 @@
 //   // 実装...
 // };
 
-const Problem = require('../models/Problem');
-const User = require('../models/User');
-const problemGenerator = require('../utils/problemGenerator');
+import Problem from '../models/Problem.js';
+import User from '../models/User.js';
+import { generateProblems } from '../utils/problemGenerator.js';
 
 /**
  * @desc    管理者ページのダッシュボードデータを取得
  * @route   GET /api/admin/dashboard
  * @access  Private (Admin Only)
  */
-exports.getDashboardData = async (req, res) => {
+export const getDashboardData = async (req, res) => {
   try {
     // ユーザー数
     const userCount = await User.countDocuments();
@@ -52,7 +52,7 @@ exports.getDashboardData = async (req, res) => {
  * @route   POST /api/admin/generate-problems
  * @access  Private (Admin Only)
  */
-exports.generateProblemsByAdmin = async (req, res) => {
+export const generateProblemsByAdmin = async (req, res) => {
   try {
     const { grade, difficulty, date } = req.body;
     
@@ -66,7 +66,7 @@ exports.generateProblemsByAdmin = async (req, res) => {
     }
     
     // 問題生成
-    const problems = problemGenerator.generateProblems(difficulty, 10);
+    const problems = generateProblems(difficulty, 10);
     
     // 日付と学年を追加
     const problemsWithMeta = problems.map(p => ({
@@ -105,7 +105,7 @@ exports.generateProblemsByAdmin = async (req, res) => {
  * @route   GET /api/admin/problems?date=YYYY-MM-DD&difficulty=beginner
  * @access  Private/Admin
  */
-exports.getProblemsForAdmin = async (req, res) => {
+export const getProblemsForAdmin = async (req, res) => {
   const { date, difficulty, grade } = req.query;
 
   // クエリパラメータに基づいて検索条件を作成
@@ -151,7 +151,7 @@ exports.getProblemsForAdmin = async (req, res) => {
  * @route   PUT /api/admin/problems/:id
  * @access  Private/Admin
  */
-exports.updateProblemByAdmin = async (req, res) => {
+export const updateProblemByAdmin = async (req, res) => {
   const problemId = req.params.id;
   const { question, answer, type } = req.body; // 更新可能なフィールドを限定
 

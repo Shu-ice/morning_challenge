@@ -1,6 +1,6 @@
-const express = require('express');
-const { saveResult, getUserResults, getResultDetail, getTodayResult } = require('../controllers/resultController');
-const { protect, checkTimeWindow } = require('../middleware/authMiddleware');
+import express from 'express';
+import { saveResult, getUserResults, getResultDetail, getTodayResult } from '../controllers/resultController.js';
+import { protect, checkTimeWindow } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -19,4 +19,4 @@ router.get('/', getUserResults);
 // 結果の詳細を取得
 router.get('/:id', getResultDetail);
 
-module.exports = router;
+export default router;

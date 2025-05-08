@@ -1,5 +1,5 @@
-const Problem = require('../models/Problem');
-const problemGenerator = require('../utils/problemGenerator');
+import Problem from '../models/Problem.js';
+import { generateProblems, getProcessingStatus } from '../../server/utils/problemGenerator.js';
 
 // 問題生成リクエストの状態を追跡するためのマップ
 const generationRequests = new Map();
@@ -10,7 +10,7 @@ const generationRequests = new Map();
  *          または GET /api/problems/generate?grade=1&difficulty=beginner&date=YYYY-MM-DD
  * @access  Private (Admin Only?)
  */
-exports.generateAndSaveProblems = async (req, res) => {
+export const generateAndSaveProblems = async (req, res) => {
   // パラメータ取得 (クエリ or ボディ から)
   const grade = parseInt(req.query.grade || req.body.grade, 10);
   const difficulty = req.query.difficulty || req.body.difficulty;
@@ -120,10 +120,9 @@ const generateProblemsWithTimeout = (difficulty, count, grade, requestId) => {
     // タイムアウト処理
     const timeoutId = setTimeout(() => {
       // タイムアウト時には部分的な結果があればそれを返す
-      const status = problemGenerator.getProcessingStatus(requestId);
+      const status = getProcessingStatus(requestId);
       if (status && status.status === 'timeout') {
         console.warn(`問題生成がタイムアウトしました。部分的な結果を返します。(${difficulty}, ${count}問)`);
-        
         // 部分的な結果があれば返す
         if (status.problems && status.problems.length > 0) {
           resolve(status.problems);
@@ -134,21 +133,16 @@ const generateProblemsWithTimeout = (difficulty, count, grade, requestId) => {
         }
       }
     }, 25000); // 25秒タイムアウト
-    
     try {
       // 問題生成を実行
-      const problems = problemGenerator.generateProblems(difficulty, count, requestId);
-      
+      const problems = generateProblems(difficulty, count, requestId);
       clearTimeout(timeoutId); // タイマーをクリア
-      
       if (!problems || problems.length === 0) {
         throw new Error('問題生成に失敗しました');
       }
-      
       if (problems.length < count) {
         console.warn(`要求された${count}問のうち、${problems.length}問のみ生成されました`);
       }
-      
       resolve(problems);
     } catch (error) {
       clearTimeout(timeoutId);
@@ -184,7 +178,7 @@ const generateFallbackProblems = (difficulty, count, grade) => {
  * @route   GET /api/problems/status/:requestId
  * @access  Private (auth)
  */
-exports.getGenerationStatus = async (req, res) => {
+export const getGenerationStatus = async (req, res) => {
   try {
     const { requestId } = req.params;
     
@@ -208,7 +202,7 @@ exports.getGenerationStatus = async (req, res) => {
     }
     
     // サーバー側の問題生成モジュールからも状態を取得
-    const generatorStatus = problemGenerator.getProcessingStatus(requestId);
+    const generatorStatus = getProcessingStatus(requestId);
     
     // 両方の情報をマージ
     const status = {
@@ -236,7 +230,7 @@ exports.getGenerationStatus = async (req, res) => {
  * @route   GET /api/problems/:id
  * @access  Private (auth)
  */
-exports.getProblem = async (req, res) => {
+export const getProblem = async (req, res) => {
   try {
     const problem = await Problem.findById(req.params.id);
     
@@ -271,7 +265,7 @@ exports.getProblem = async (req, res) => {
  * @route   POST /api/problems/check/:id
  * @access  Private (auth)
  */
-exports.checkAnswer = async (req, res) => {
+export const checkAnswer = async (req, res) => {
   try {
     const { id } = req.params;
     const { answer } = req.body;
@@ -313,7 +307,7 @@ exports.checkAnswer = async (req, res) => {
  * @route   GET /api/problems/practice/:grade
  * @access  Private (auth)
  */
-exports.getPracticeProblems = async (req, res) => {
+export const getPracticeProblems = async (req, res) => {
   try {
     const { grade } = req.params;
     const difficulty = req.query.difficulty || 'beginner';
@@ -336,7 +330,7 @@ exports.getPracticeProblems = async (req, res) => {
     
     // 練習用のため、データベースに保存せずに直接生成
     // 新しい問題生成関数を使用
-    const problems = problemGenerator.generateProblems(difficulty, Math.min(count, 10));
+    const problems = generateProblems.generateProblems(difficulty, Math.min(count, 10));
     
     res.status(200).json({
       success: true,
@@ -353,97 +347,58 @@ exports.getPracticeProblems = async (req, res) => {
 };
 
 /**
- * @desc    指定された日付と難易度の問題を取得
- * @route   GET /api/problems?difficulty=beginner&date=YYYY-MM-DD
- * @access  Private
+ * @desc    指定された難易度と日付に基づいて問題を取得または生成
+ * @route   GET /api/problems?difficulty=beginner&date=YYYY-MM-DD&count=10
+ * @access  Private (auth)
  */
-exports.getProblemsByDifficulty = async (req, res) => {
-  const { difficulty, date } = req.query;
-  const count = parseInt(req.query.count, 10) || 10; // 問題数も考慮する場合
-
-  // パラメータ検証
-  if (!difficulty || !date) {
-    return res.status(400).json({ 
-      success: false, 
-      error: '難易度(difficulty)と日付(date)をクエリパラメータで指定してください。'
-    });
-  }
-  // 簡単な日付形式チェック (例: YYYY-MM-DD)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: '日付は YYYY-MM-DD 形式で指定してください。'
-      });
-  }
-
-  // 認証済みユーザーからIDを取得
+export const getProblemsByDifficulty = async (req, res) => {
+  const { difficulty, date, count: countStr } = req.query;
+  const count = parseInt(countStr, 10) || 10;
   const userId = req.user?._id?.toString() || req.user?.id;
   
-  // userIdのログ出力（開発・デバッグ用）
-  console.log(`[getProblemsByDifficulty] 問題取得リクエスト: userId=${userId}, difficulty=${difficulty}, date=${date}`);
+  console.log(`[getProblemsByDifficulty] START: userId=${userId}, difficulty=${difficulty}, date=${date}, count=${count}`);
+
+  if (!difficulty || !['beginner', 'intermediate', 'advanced', 'expert'].includes(difficulty)) {
+    return res.status(400).json({ success: false, error: '有効な難易度を指定してください。' });
+  }
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ success: false, error: '日付は YYYY-MM-DD 形式で指定してください。' });
+  }
 
   try {
-    // DBから指定された日付と難易度の問題を取得
-    let problems = await Problem.find({
+    console.log(`[getProblemsByDifficulty] Finding existing problems: date=${date}, difficulty=${difficulty}`);
+    const problems = await Problem.find({ // ★ DB検索のみ実行
       date: date,
       difficulty: difficulty,
     })
     .limit(count)
-    .select('-answer -createdAt') // クライアントには答えと作成日時を返さない
     .lean();
 
-    // 問題が見つからない場合は自動生成して保存
-    if (!problems || problems.length === 0) {
-      console.log(`[getProblemsByDifficulty] ${date}の${difficulty}難易度の問題が見つからないため自動生成します`);
-      
-      try {
-        // 1. 問題を生成
-        const generatedProblems = problemGenerator.generateProblems(difficulty, count);
-        console.log(`[getProblemsByDifficulty] ${generatedProblems.length}個の問題を生成しました`);
-        
-        // 2. メタデータを追加してDB保存用に整形
-        const problemsToSave = generatedProblems.map(p => ({
-          question: p.question,
-          answer: p.answer,
-          options: p.options,
-          difficulty,
-          grade: 1, // デフォルト値
-          date
-        }));
-        
-        // 3. 問題をDBに保存
-        const savedProblems = await Problem.insertMany(problemsToSave);
-        console.log(`[getProblemsByDifficulty] ${savedProblems.length}個の問題をDBに保存しました`);
-        
-        // 4. クライアント用に整形
-        problems = savedProblems.map(p => ({
-          _id: p._id,
-          question: p.question,
-          grade: p.grade,
-          type: p.type || 'mixed',
-          difficulty: p.difficulty,
-          date: p.date
-        }));
-      } catch (generationError) {
-        console.error('[getProblemsByDifficulty] 問題生成エラー:', generationError);
-        return res.status(500).json({
-          success: false,
-          error: '問題の自動生成に失敗しました。'
-        });
-      }
-    }
+    console.log(`[getProblemsByDifficulty] Found ${problems.length} existing problems.`);
 
+    const responseProblems = problems.map(p => ({
+      id: p._id,
+      question: p.question,
+      answer: p.answer,
+      type: p.type,
+      difficulty: p.difficulty,
+    })).filter(Boolean); 
+    
+    console.log(`[getProblemsByDifficulty] END: Returning ${responseProblems.length} problems.`);
+
+    // ★ 問題が見つからなかった場合 (空配列の場合) でも 200 OK で返す
     res.status(200).json({
       success: true,
-      count: problems.length,
-      data: problems
+      message: problems.length > 0 ? '問題を取得しました' : '指定された条件の問題は見つかりませんでした。',
+      data: responseProblems, // 問題がない場合は空配列 [] が返る
     });
 
   } catch (error) {
-    console.error('[getProblemsByDifficulty] エラー:', error);
+    console.error('[getProblemsByDifficulty] Error:', error);
     res.status(500).json({
       success: false,
-      error: '問題の取得中にエラーが発生しました'
+      error: '問題の取得中にエラーが発生しました。',
+      details: error.message
     });
   }
 };
@@ -453,25 +408,89 @@ exports.getProblemsByDifficulty = async (req, res) => {
  * @route   POST /api/problems/submit
  * @access  Private
  */
-exports.submitAnswers = async (req, res) => {
-  const { difficulty, date, answers, timeSpent, userId } = req.body;
-  
-  // 基本的なパラメータのバリデーション
-  if (!difficulty || !answers || !Array.isArray(answers)) {
-    return res.status(400).json({
-      success: false,
-      error: '難易度と回答は必須です'
-    });
+export const submitUserAnswers = async (req, res) => {
+  // import { saveResult } from './resultController.js'; // resultControllerに実装想定
+  // return saveResult(req, res);
+  console.warn('[problemController] submitUserAnswers called, but logic should be in resultController.');
+  res.status(501).json({ success: false, error: 'Not Implemented: submit logic resides in resultController' });
+};
+
+/**
+ * @desc    問題リストを一括更新する (問題編集画面からの保存用)
+ * @route   POST /api/problems/edit
+ * @access  Private (Admin Onlyを想定)
+ */
+export const updateMultipleProblems = async (req, res) => {
+  const { date, difficulty, problems: updatedProblems } = req.body;
+
+  if (!date || !difficulty || !updatedProblems || !Array.isArray(updatedProblems)) {
+    return res.status(400).json({ success: false, error: '無効なリクエストデータです。date, difficulty, problems配列が必要です。' });
   }
-  
+
+  console.log(`[updateMultipleProblems] START: date=${date}, difficulty=${difficulty}, problems_count=${updatedProblems.length}`);
+
   try {
-    // ここから実際の回答処理に進む
-    // ...
+    let updatedCount = 0;
+    const errors = [];
+
+    for (const problemData of updatedProblems) {
+      if (!problemData.id) {
+        errors.push({ problemData, error: '問題IDが含まれていません。' });
+        continue;
+      }
+
+      const { id, question, correctAnswer, options } = problemData;
+
+      // correctAnswerが数値であることを確認 (フロントから文字列で来る可能性も考慮)
+      const numericAnswer = Number(correctAnswer);
+      if (isNaN(numericAnswer)) {
+        errors.push({ problemData, error: '回答は有効な数値である必要があります。' });
+        continue;
+      }
+
+      const updateFields = {
+        question,
+        answer: numericAnswer,
+        // options も更新対象にする場合はここに追加
+        // options: options,
+      };
+
+      // 不要なフィールドやundefinedなフィールドを取り除く
+      Object.keys(updateFields).forEach(key => updateFields[key] === undefined && delete updateFields[key]);
+
+      const result = await Problem.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
+
+      if (result) {
+        updatedCount++;
+      } else {
+        errors.push({ problemData, error: `ID ${id} の問題が見つからないか、更新に失敗しました。` });
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn(`[updateMultipleProblems] 更新中にエラーが発生した問題があります:`, errors);
+      return res.status(207).json({ // Multi-Status
+        success: false, // 部分的な成功だが、全体としてはエラーがあるためfalseにするか、あるいは別のステータスを返す
+        message: `一部の問題の更新に失敗しました。成功: ${updatedCount}件, 失敗: ${errors.length}件。詳細はエラーリストを確認してください。`,
+        updatedCount,
+        errors,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `${updatedCount}件の問題を正常に更新しました。`,
+      count: updatedCount,
+    });
+
   } catch (error) {
-    console.error('回答提出エラー:', error);
+    console.error('[updateMultipleProblems] Error:', error);
     res.status(500).json({
       success: false,
-      error: '回答の提出中にエラーが発生しました'
+      error: '問題の一括更新中にサーバーエラーが発生しました。',
+      details: error.message
     });
   }
 };
+
+// generateAndSaveProblems, getGenerationStatus, getProblem, checkAnswer, getPracticeProblems などは削除

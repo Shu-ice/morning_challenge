@@ -84,7 +84,7 @@ const UserHistory = () => {
       const response = await historyAPI.getUserHistory(10); // limit は 10 固定など
       
       console.log('[UserHistory] APIレスポンス:', response);
-      
+          
       if (response.success && response.history) {
         // ★ HistoryItem 型に合わせてデータを整形 (必要であれば)
         //    API が返す history 配列の各要素が HistoryItem と互換性があるか確認
@@ -96,13 +96,13 @@ const UserHistory = () => {
         
         // ★ APIレスポンスにページネーション情報があればセットする
         // setPagination(response.pagination || null);
-      } else {
+          } else {
         // API は成功したが、データがないか形式が違う場合
         console.warn('[UserHistory] APIレスポンスに有効な履歴データが含まれていません:', response);
         setError(response.message || '履歴データの取得に失敗しました (形式エラー)。');
-        setHistory([]);
+            setHistory([]);
         setPagination(null); // ★ エラー時もリセット
-      }
+          }
     } catch (err: any) {
       console.error('[UserHistory] 履歴取得エラー:', err);
       // AxiosError かどうかをチェックし、メッセージを抽出
@@ -124,13 +124,13 @@ const UserHistory = () => {
           } else {
             // リクエスト設定エラーなど
             errorMessage = err.message;
-          }
+        }
       } else if (err instanceof Error) {
           // Axios 以外のエラー
           errorMessage = err.message;
       }
       setError(errorMessage);
-      setHistory([]);
+        setHistory([]);
       setPagination(null); // ★ エラー時もリセット
     } finally {
       setIsLoading(false);

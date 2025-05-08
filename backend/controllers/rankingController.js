@@ -1,12 +1,12 @@
-const Result = require('../models/Result');
-const User = require('../models/User');
+import Result from '../models/Result.js';
+import User from '../models/User.js';
 
 /**
  * @desc    全期間のランキングを取得
  * @route   GET /api/rankings
  * @access  Private (auth)
  */
-exports.getAllRankings = async (req, res) => {
+export const getAllRankings = async (req, res) => {
   try {
     const { grade } = req.query;
     
@@ -74,56 +74,64 @@ exports.getAllRankings = async (req, res) => {
  * @route   GET /api/rankings/daily
  * @access  Public
  */
-exports.getDailyRanking = async (req, res) => {
+export const getDailyRanking = async (req, res) => {
   try {
-    const { grade } = req.query;
+    const { difficulty } = req.query;
     
-    // 今日の日付範囲
+    // ★ 今日の日付を "YYYY-MM-DD" 形式の文字列で取得
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
-    // クエリ条件
+    // クエリ条件 (date は文字列で完全一致)
     const query = {
-      date: { $gte: today, $lt: tomorrow }
+      date: todayString 
     };
     
-    // 学年フィルター（もし指定されていれば）
-    if (grade && !isNaN(parseInt(grade))) {
-      query.grade = parseInt(grade);
+    // 難易度フィルター（もし指定されていれば）
+    if (difficulty) {
+      query.difficulty = difficulty;
     }
     
     // スコア順にランキングを取得
     const rankings = await Result.find(query)
-      .sort({ score: -1, totalTime: 1 })
+      .sort({ score: -1, totalTime: 1 }) // scoreフィールドはResultモデルに存在
       .limit(50)
-      .populate('user', 'username avatar grade streak');
+      .populate('userId', 'username avatar grade streak');
     
     // レスポンス用にデータを整形
-    const formattedRankings = rankings.map((result, index) => ({
-      rank: index + 1,
-      id: result._id,
-      user: {
-        id: result.user._id,
-        username: result.user.username,
-        avatar: result.user.avatar,
-        grade: result.user.grade,
-        streak: result.user.streak
-      },
-      score: result.score,
-      correctAnswers: result.correctAnswers,
-      totalProblems: result.totalProblems,
-      totalTime: result.totalTime,
-      date: result.date
-    }));
+    const formattedRankings = rankings.map((result, index) => {
+      // ★★★ populate されたユーザー情報が存在するかチェック ★★★
+      const userPopulated = result.userId && typeof result.userId === 'object';
+      
+      return {
+        rank: index + 1,
+        id: result._id,
+        user: userPopulated ? { // ★ 存在する場合のみユーザー情報をセット
+          id: result.userId._id,
+          username: result.userId.username,
+          avatar: result.userId.avatar,
+          grade: result.userId.grade,
+          streak: result.userId.streak
+        } : { // ★ 存在しない場合のデフォルト値
+          id: null,
+          username: '不明なユーザー',
+          avatar: '',
+          grade: null,
+          streak: 0
+        },
+        correctAnswers: result.correctAnswers,
+        totalProblems: result.totalProblems,
+        totalTime: Math.round(result.totalTime / 1000),
+        date: result.date
+      }
+    }).filter(r => r.user.id !== null); // ★ populateできなかった結果を除外 (オプション)
     
     // 認証済みユーザーの場合、自分の順位も取得
     let userRanking = null;
     if (req.user) {
       const userResult = await Result.findOne({
         ...query,
-        user: req.user.id
+        userId: req.user.id
       }).sort({ score: -1, totalTime: 1 });
       
       if (userResult) {
@@ -171,30 +179,30 @@ exports.getDailyRanking = async (req, res) => {
  * @route   GET /api/rankings/weekly
  * @access  Public
  */
-exports.getWeeklyRanking = async (req, res) => {
+export const getWeeklyRanking = async (req, res) => {
   try {
-    const { grade } = req.query;
+    const { difficulty } = req.query;
     
-    // 週初め（月曜日）の計算
     const today = new Date();
-    const dayOfWeek = today.getDay() || 7; // 日曜が0なので7に変換
-    const diff = dayOfWeek - 1; // 月曜日からの差分
+    const dayOfWeek = today.getDay() || 7; 
+    const diff = dayOfWeek - 1; 
     
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - diff);
     weekStart.setHours(0, 0, 0, 0);
+    const weekStartString = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
     
     const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 7);
+    weekEnd.setDate(weekStart.getDate() + 6); // 月曜日から6日後が日曜日
+    weekEnd.setHours(23, 59, 59, 999); // 日曜日の終わりまで
+    const weekEndString = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, '0')}-${String(weekEnd.getDate()).padStart(2, '0')}`;
     
-    // クエリ条件
     const query = {
-      date: { $gte: weekStart, $lt: weekEnd }
+      date: { $gte: weekStartString, $lte: weekEndString } // 文字列で範囲比較
     };
     
-    // 学年フィルター
-    if (grade && !isNaN(parseInt(grade))) {
-      query.grade = parseInt(grade);
+    if (difficulty) {
+      query.difficulty = difficulty;
     }
     
     // 各ユーザーの最高スコアを集計（MongoDBのアグリゲーション）
@@ -202,7 +210,7 @@ exports.getWeeklyRanking = async (req, res) => {
       { $match: query },
       {
         $group: {
-          _id: '$user',
+          _id: '$userId',
           bestScore: { $max: '$score' },
           bestResult: { $first: '$$ROOT' }
         }
@@ -240,7 +248,7 @@ exports.getWeeklyRanking = async (req, res) => {
       // ユーザーの最高スコアを取得
       const userBestResult = await Result.findOne({
         ...query,
-        user: req.user.id
+        userId: req.user.id
       }).sort({ score: -1, totalTime: 1 });
       
       if (userBestResult) {
@@ -279,24 +287,24 @@ exports.getWeeklyRanking = async (req, res) => {
  * @route   GET /api/rankings/monthly
  * @access  Public
  */
-exports.getMonthlyRanking = async (req, res) => {
+export const getMonthlyRanking = async (req, res) => {
   try {
-    const { grade } = req.query;
+    const { difficulty } = req.query;
     
-    // 月初めの計算
     const today = new Date();
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    monthEnd.setHours(23, 59, 59, 999);
+    const monthStartString = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}-${String(monthStart.getDate()).padStart(2, '0')}`;
     
-    // クエリ条件
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0); // 月の最終日
+    monthEnd.setHours(23, 59, 59, 999);
+    const monthEndString = `${monthEnd.getFullYear()}-${String(monthEnd.getMonth() + 1).padStart(2, '0')}-${String(monthEnd.getDate()).padStart(2, '0')}`;
+    
     const query = {
-      date: { $gte: monthStart, $lte: monthEnd }
+      date: { $gte: monthStartString, $lte: monthEndString } // 文字列で範囲比較
     };
     
-    // 学年フィルター
-    if (grade && !isNaN(parseInt(grade))) {
-      query.grade = parseInt(grade);
+    if (difficulty) {
+      query.difficulty = difficulty;
     }
     
     // 各ユーザーの最高スコアを集計
@@ -304,11 +312,9 @@ exports.getMonthlyRanking = async (req, res) => {
       { $match: query },
       {
         $group: {
-          _id: '$user',
-          bestScore: { $max: '$score' },
+          _id: '$userId',
           totalScore: { $sum: '$score' },
           count: { $sum: 1 },
-          bestResult: { $first: '$$ROOT' }
         }
       },
       { $sort: { totalScore: -1, count: -1 } },
@@ -324,7 +330,6 @@ exports.getMonthlyRanking = async (req, res) => {
       const user = users.find(u => u._id.toString() === result._id.toString());
       return {
         rank: index + 1,
-        id: result.bestResult._id,
         user: user ? {
           id: user._id,
           username: user.username,
@@ -333,9 +338,7 @@ exports.getMonthlyRanking = async (req, res) => {
           streak: user.streak
         } : null,
         totalScore: result.totalScore,
-        bestScore: result.bestScore,
         count: result.count,
-        date: monthStart // 月の表示用
       };
     });
     
@@ -345,12 +348,11 @@ exports.getMonthlyRanking = async (req, res) => {
       // ユーザーの結果を集計
       const userResults = await Result.find({
         ...query,
-        user: req.user.id
+        userId: req.user.id
       });
       
       if (userResults.length > 0) {
         const totalScore = userResults.reduce((sum, result) => sum + result.score, 0);
-        const bestScore = Math.max(...userResults.map(result => result.score));
         
         // 自分より上位の集計結果の数を数える
         const userRankIndex = aggregatedResults.findIndex(
@@ -360,7 +362,6 @@ exports.getMonthlyRanking = async (req, res) => {
         userRanking = {
           rank: userRankIndex !== -1 ? userRankIndex + 1 : null,
           totalScore,
-          bestScore,
           count: userResults.length
         };
       }
@@ -386,7 +387,7 @@ exports.getMonthlyRanking = async (req, res) => {
  * @route   GET /api/rankings/grade/:grade
  * @access  Private (auth)
  */
-exports.getGradeRanking = async (req, res) => {
+export const getGradeRanking = async (req, res) => {
   try {
     const grade = parseInt(req.params.grade);
     
@@ -449,8 +450,8 @@ exports.getGradeRanking = async (req, res) => {
 };
 
 // rankingRoutes.jsのインポートに合わせて関数をエクスポート
-exports.getDailyRankings = exports.getDailyRanking;
-exports.getWeeklyRankings = exports.getWeeklyRanking;
-exports.getMonthlyRankings = exports.getMonthlyRanking;
-exports.getGradeRankings = exports.getGradeRanking;
-exports.getRankings = exports.getAllRankings;
+export const getDailyRankings = getDailyRanking;
+export const getWeeklyRankings = getWeeklyRanking;
+export const getMonthlyRankings = getMonthlyRanking;
+export const getGradeRankings = getGradeRanking;
+export const getRankings = getAllRankings;

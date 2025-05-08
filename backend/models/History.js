@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const HistorySchema = new mongoose.Schema({
   user: {
@@ -13,7 +13,7 @@ const HistorySchema = new mongoose.Schema({
   },
   grade: {
     type: Number, // 問題の学年
-    required: true 
+    required: false
   },
   totalProblems: {
     type: Number,
@@ -43,4 +43,4 @@ const HistorySchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('History', HistorySchema); 
+export default mongoose.model('History', HistorySchema); 

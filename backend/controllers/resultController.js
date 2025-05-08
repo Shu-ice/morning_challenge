@@ -1,97 +1,197 @@
-const Result = require('../models/Result');
-const Problem = require('../models/Problem');
-const User = require('../models/User');
-const History = require('../models/History');
+import Result from '../models/Result.js';
+import Problem from '../models/Problem.js';
+import User from '../models/User.js';
+import History from '../models/History.js';
 
 /**
  * @desc    問題の解答結果を保存
  * @route   POST /api/results
  * @access  Private (auth + timeWindow)
  */
-exports.saveResult = async (req, res) => {
+export const saveResult = async (req, res) => {
+  // ★★★ req.user の内容を詳細にログ出力 ★★★
+  // console.log('[saveResult] req.user details:', JSON.stringify(req.user, null, 2));
+  // console.log('[saveResult] req.user?.id:', req.user?.id);
+  // console.log('[saveResult] req.user?._id:', req.user?._id);
+  // console.log('[saveResult] req.user?.username:', req.user?.username);
+
   try {
     const {
-      problems,
-      totalTime,
-      score,
-      grade,
-      difficulty
+      problemIds,
+      answers,
+      timeSpentMs,
+      difficulty,
+      date
     } = req.body;
     
-    if (!problems || !Array.isArray(problems)) {
-      return res.status(400).json({
+    const userId = req.user?._id || req.user?.id;
+    const username = req.user?.username;
+
+    if (!userId || !username) {
+      console.error('[saveResult] Failed to get userId or username from req.user:', req.user);
+      return res.status(500).json({
         success: false,
-        error: '問題の解答データが無効です'
+        error: 'ユーザー情報の取得に失敗しました。結果を保存できません。'
       });
     }
     
-    // 問題IDの配列を抽出
-    const problemIds = problems.map(p => p.problemId);
+    if (!problemIds || !Array.isArray(problemIds) || !answers || !Array.isArray(answers) || problemIds.length !== answers.length) {
+      return res.status(400).json({
+        success: false,
+        error: '問題IDリストと解答リストの形式が無効か、数が一致しません。'
+      });
+    }
+
+    // ★★★ 既存の結果チェックを変更: difficulty も条件に含める ★★★
+    const specificDifficulty = difficulty.toLowerCase(); // 保存する難易度
+    const existingResultForDate = await Result.findOne({ userId, date }); // まずその日の結果があるか確認
+    const existingResultForSpecificDifficulty = await Result.findOne({ userId, date, difficulty: specificDifficulty }); // ★ 特定の難易度の結果を探す
+
+    if (existingResultForDate) { // その日に何らかの結果が既にある場合
+      if (req.user.isAdmin === true) {
+        console.log(`[saveResult] Admin override check: User ${userId}, Date ${date}, Attempting Difficulty ${specificDifficulty}`);
+        // ★ 特定の難易度の既存結果があれば削除する
+        if (existingResultForSpecificDifficulty) {
+          console.log(`[saveResult] Admin override: Deleting existing result for difficulty ${specificDifficulty}`);
+          await Result.findByIdAndDelete(existingResultForSpecificDifficulty._id);
+          // ★ 履歴も difficulty を含めて削除
+          console.log(`[saveResult] Admin override: Attempting to delete history for difficulty ${specificDifficulty}`);
+          const deletedHistory = await History.findOneAndDelete({ user: userId, date, difficulty: specificDifficulty });
+          if (deletedHistory) {
+             console.log(`[saveResult] Admin override: Successfully deleted history ID: ${deletedHistory._id}`);
+          } else {
+             console.log(`[saveResult] Admin override: No specific history found to delete for difficulty ${specificDifficulty}`);
+          }
+        } else {
+           console.log(`[saveResult] Admin override: No existing result found for specific difficulty ${specificDifficulty}, proceeding to create.`);
+        }
+        // ★★★ 管理者の場合は、ここで return せずに下の Result.create に進む ★★★
+      } else {
+        // 一般ユーザーで既に何らかの結果がある場合 (難易度問わず)
+        console.log(`[saveResult] Result already exists for user ${userId}, date ${date}. Skipping creation.`);
+        return res.status(200).json({
+          success: true, 
+          alreadyExists: true,
+          message: '本日は既に参加済みです。', // 修正済み
+          data: { // 既存の結果データ (最初に見つかったもの) を返す
+            id: existingResultForDate._id, 
+            totalProblems: existingResultForDate.totalProblems,
+            correctAnswers: existingResultForDate.correctAnswers,
+            incorrectAnswers: existingResultForDate.incorrectAnswers,
+            unanswered: existingResultForDate.unanswered,
+            totalTime: existingResultForDate.totalTime,
+            score: existingResultForDate.score,
+            date: existingResultForDate.date,
+            difficulty: existingResultForDate.difficulty
+          }
+        });
+      }
+    } // ★★★ 既存チェックの if ブロック終了 ★★★
     
-    // 問題の存在チェック
-    const dbProblems = await Problem.find({ _id: { $in: problemIds } });
+    const dbProblems = await Problem.find({ _id: { $in: problemIds } }).lean();
     if (dbProblems.length !== problemIds.length) {
       return res.status(400).json({
         success: false,
-        error: '一部の問題IDが無効です'
+        error: '一部の問題IDが無効です。データベースに存在しません。'
+      });
+    }
+
+    const problemMap = new Map(dbProblems.map(p => [p._id.toString(), p]));
+
+    let correctAnswersCount = 0;
+    let unansweredCount = 0;
+    const problemResults = [];
+
+    for (let i = 0; i < problemIds.length; i++) {
+      const problemId = problemIds[i];
+      const userAnswerString = answers[i];
+      const dbProblem = problemMap.get(problemId);
+
+      if (!dbProblem) {
+        problemResults.push({
+          problem: problemId,
+          userAnswer: userAnswerString,
+          isCorrect: false,
+          error: 'Problem not found in DB after initial check'
+        });
+        if (userAnswerString === '' || userAnswerString === null || userAnswerString === undefined) {
+            unansweredCount++;
+        }
+        continue;
+      }
+
+      let isCorrect = false;
+      if (userAnswerString === '' || userAnswerString === null || userAnswerString === undefined) {
+        unansweredCount++;
+      } else {
+        isCorrect = dbProblem.answer === Number(userAnswerString);
+        if (isCorrect) {
+          correctAnswersCount++;
+        }
+      }
+      
+      problemResults.push({
+        problem: dbProblem._id,
+        userAnswer: userAnswerString === '' || userAnswerString === null || userAnswerString === undefined ? null : Number(userAnswerString),
+        isCorrect,
       });
     }
     
-    // 正解数の計算
-    const correctAnswers = problems.filter(p => p.isCorrect).length;
-    const incorrectAnswers = problems.filter(p => p.userAnswer !== undefined && !p.isCorrect).length;
-    const unanswered = problems.length - correctAnswers - incorrectAnswers;
-    
-    // 結果の保存
+    const totalProblems = problemIds.length;
+    const incorrectAnswersCount = totalProblems - correctAnswersCount - unansweredCount;
+    const calculatedScore = correctAnswersCount * 10;
+    const timeSpentSeconds = Math.round(timeSpentMs / 1000);
+
     const result = await Result.create({
-      user: req.user.id,
-      problems: problems.map(p => ({
-        problem: p.problemId,
-        userAnswer: p.userAnswer,
-        isCorrect: p.isCorrect,
-        timeSpent: p.timeSpent || 0
-      })),
-      totalProblems: problems.length,
-      correctAnswers,
-      totalTime,
-      score,
-      grade
+      userId: userId,
+      username: username,
+      problems: problemResults,
+      totalProblems,
+      correctAnswers: correctAnswersCount,
+      incorrectAnswers: incorrectAnswersCount,
+      unanswered: unansweredCount,
+      totalTime: timeSpentMs,
+      timeSpent: timeSpentSeconds,
+      score: calculatedScore,
+      difficulty: difficulty.toLowerCase(),
+      date: date,
     });
     
-    // 履歴保存処理
     try {
-      // 問題の詳細情報を取得 (問題文と正解のため)
-      const detailedProblems = await Problem.find({ _id: { $in: problems.map(p => p.problemId) } }).lean();
-      const problemMap = detailedProblems.reduce((map, p) => {
-        map[p._id.toString()] = p;
-        return map;
-      }, {});
-
       await History.create({
-        user: req.user.id,
-        difficulty,
-        grade,
-        totalProblems: problems.length,
-        correctAnswers,
-        score,
-        timeSpent: totalTime,
-        problems: problems.map(p => ({
-          problem: problemMap[p.problemId.toString()]?.question || '問題不明',
-          userAnswer: p.userAnswer,
-          correctAnswer: problemMap[p.problemId.toString()]?.answer || '正解不明',
-          isCorrect: p.isCorrect
-        }))
+        user: userId,
+        username: username,
+        difficulty: difficulty.toLowerCase(),
+        totalProblems,
+        correctAnswers: correctAnswersCount,
+        incorrectAnswers: incorrectAnswersCount,
+        unanswered: unansweredCount,
+        score: calculatedScore,
+        timeSpent: timeSpentSeconds,
+        date,
+        problems: problemResults.map((pr, index) => {
+          const dbProblem = problemMap.get(problemIds[index]);
+          return {
+            problem: dbProblem?.question || '問題不明',
+            userAnswer: pr.userAnswer,
+            correctAnswer: dbProblem?.answer?.toString() || '正解不明',
+            isCorrect: pr.isCorrect
+          };
+        })
       });
       console.log('解答履歴が保存されました。');
     } catch (historyError) {
       console.error('履歴保存エラー:', historyError);
     }
     
-    // ユーザーのポイントを更新
-    const pointsEarned = Math.floor(score / 10);
-    const user = await User.findById(req.user.id);
-    user.points += pointsEarned;
-    await user.save();
+    const pointsEarned = Math.floor(calculatedScore / 10);
+    const userDoc = await User.findById(userId);
+    if (userDoc) {
+        userDoc.points = (userDoc.points || 0) + pointsEarned;
+        await userDoc.save();
+    } else {
+        console.error(`User not found for point update: ${userId}`);
+    }
     
     res.status(201).json({
       success: true,
@@ -100,11 +200,22 @@ exports.saveResult = async (req, res) => {
         id: result._id,
         totalProblems: result.totalProblems,
         correctAnswers: result.correctAnswers,
-        incorrectAnswers,
-        unanswered,
+        incorrectAnswers: result.incorrectAnswers,
+        unanswered: result.unanswered,
         totalTime: result.totalTime,
         score: result.score,
-        date: result.date
+        date: result.date,
+        difficulty: result.difficulty,
+        problems: problemResults.map((pr, index) => {
+          const dbProblem = problemMap.get(problemIds[index]);
+          return {
+            problemId: dbProblem?._id || problemIds[index],
+            question: dbProblem?.question || '問題不明',
+            userAnswer: pr.userAnswer,
+            correctAnswer: dbProblem?.answer,
+            isCorrect: pr.isCorrect
+          };
+        })
       }
     });
   } catch (error) {
@@ -121,7 +232,7 @@ exports.saveResult = async (req, res) => {
  * @route   GET /api/results
  * @access  Private (auth)
  */
-exports.getUserResults = async (req, res) => {
+export const getUserResults = async (req, res) => {
   try {
     // 最新の結果から順に取得
     const results = await Result.find({ user: req.user.id })
@@ -155,7 +266,7 @@ exports.getUserResults = async (req, res) => {
  * @route   GET /api/results/:id
  * @access  Private (auth)
  */
-exports.getResultDetail = async (req, res) => {
+export const getResultDetail = async (req, res) => {
   try {
     const result = await Result.findById(req.params.id)
       .populate('problems.problem', 'question answer type difficulty');
@@ -214,7 +325,7 @@ exports.getResultDetail = async (req, res) => {
  * @route   GET /api/results/today
  * @access  Private (auth)
  */
-exports.getTodayResult = async (req, res) => {
+export const getTodayResult = async (req, res) => {
   try {
     // 今日の日付範囲を設定
     const today = new Date();

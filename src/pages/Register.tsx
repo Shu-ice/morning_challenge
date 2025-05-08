@@ -47,23 +47,23 @@ function Register({ onRegister, onLogin }: RegisterProps) {
 
       console.log('[Register] 登録成功:', response);
       
-      if (response.token && response._id) {
+      if (response.success && response.token && response.user && response.user.id) {
         const token = response.token;
         const userDataFromResponse: UserData = {
-          _id: response._id,
-          username: response.username,
-          email: response.email,
-          grade: response.grade,
-          avatar: response.avatar,
+          _id: response.user.id,
+          username: response.user.username,
+          email: response.user.email,
+          grade: response.user.grade,
+          avatar: response.user.avatar,
           isLoggedIn: true,
           loginTime: new Date().toISOString(),
-          isAdmin: response.isAdmin || false,
+          isAdmin: response.user.isAdmin || false,
         };
         onRegister(userDataFromResponse, token);
       } else {
         let errorMessage = '登録レスポンスの形式が無効です。';
         if (!response.token) errorMessage += ' トークンがありません。';
-        if (!response._id && !response.user) errorMessage += ' ユーザー情報 (_id or user) がありません。';
+        if (!response.user || !response.user.id) errorMessage += ' ユーザー情報 (user.id) がありません。';
         console.error('[Register] Invalid response structure:', response);
         throw new Error(errorMessage);
       }

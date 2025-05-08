@@ -1,5 +1,5 @@
-const mongoose = require('mongoose');
-const { DifficultyRank } = require('../constants/difficulty');
+import mongoose from 'mongoose';
+import { DifficultyRank } from '../constants/difficulty.js';
 
 // 問題単位の結果のサブスキーマ
 const ProblemResultSchema = new mongoose.Schema({
@@ -16,7 +16,7 @@ const ResultSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: false
+    required: true
   },
   username: {
     type: String,
@@ -24,7 +24,7 @@ const ResultSchema = new mongoose.Schema({
   },
   difficulty: {
     type: String,
-    enum: Object.values(DifficultyRank),
+    enum: ['beginner', 'intermediate', 'advanced', 'expert'],
     required: true
   },
   date: {
@@ -82,4 +82,5 @@ const ResultSchema = new mongoose.Schema({
 // インデックスを作成（ユーザーID、日付、難易度の組み合わせでユニーク）
 ResultSchema.index({ userId: 1, date: 1, difficulty: 1 }, { unique: true });
 
-module.exports = mongoose.model('Result', ResultSchema);
+const Result = mongoose.model('Result', ResultSchema);
+export default Result;

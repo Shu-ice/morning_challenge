@@ -1,12 +1,12 @@
-const History = require('../models/History');
-const User = require('../models/User');
+import History from '../models/History.js';
+import User from '../models/User.js';
 
 /**
  * @desc    ユーザーの解答履歴を取得
  * @route   GET /api/history
  * @access  Private
  */
-exports.getUserHistory = async (req, res) => {
+export const getUserHistory = async (req, res) => {
   try {
     // req.user.idではなくreq.user._idを使用（認証ミドルウェアの標準形式に合わせる）
     const userId = req.user._id || req.user.id; 
@@ -80,7 +80,7 @@ exports.getUserHistory = async (req, res) => {
  * @route   GET /api/history/:id
  * @access  Private
  */
-exports.getHistoryDetail = async (req, res) => {
+export const getHistoryDetail = async (req, res) => {
   try {
     const historyId = req.params.id;
     const userId = req.user._id || req.user.id;

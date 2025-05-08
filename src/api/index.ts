@@ -92,7 +92,7 @@ API.interceptors.response.use(
 const testBackendConnection = async () => {
   console.log('[API] Testing backend connection...');
   try {
-    const response = await API.get('/');
+    const response = await API.get('/health');
     console.log('[API] Backend connection successful:', response.data);
     return true;
   } catch (error: any) {

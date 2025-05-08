@@ -27,6 +27,8 @@ const ProblemEditor: React.FC = () => {
 
   // 問題の読み込み関数
   const loadProblems = async () => {
+    // ★ 関数が呼ばれたことを確認するログ
+    console.log('[ProblemEditor] loadProblems function called.'); 
     try {
       setIsLoading(true);
       setError(null);
@@ -48,14 +50,35 @@ const ProblemEditor: React.FC = () => {
         timeout: 30000 // 30秒タイムアウトに延長
       });
 
-      if (response.data.success && response.data.problems) {
-        setProblems(response.data.problems.map((p: any) => ({
+      // ★★★ APIからのレスポンス全体をログに出力 ★★★
+      console.log('[ProblemEditor] Full API Response Data:', response.data);
+
+      if (response.data.success) {
+        if (response.data.data && Array.isArray(response.data.data)) {
+          // ★★★ APIからの応答データをログに出力 (dataキーを使用) ★★★
+          console.log('[ProblemEditor] API Response Data (data):', response.data.data);
+          
+          setProblems(response.data.data.map((p: any) => ({
           ...p,
+            id: p._id || p.id, 
+            correctAnswer: p.answer !== undefined ? Number(p.answer) : undefined, // answerを数値に変換、存在しない場合考慮
+            question: p.question,
           isEditing: false
+            // optionsも必要ならここでマッピング p.options
         })));
-        setMessage(`${response.data.problems.length}件の問題を読み込みました。`);
+          // messageではなく、成功時は一旦空にするか、件数表示のみにする
+          // setMessage(`${response.data.data.length}件の問題を読み込みました。`); 
+          setMessage(null); // エラーがなければメッセージはクリア
+          setError(null); // エラーもクリア
+        } else {
+          // success: true だが data がない/配列でない場合
+          setError('問題データの形式が正しくありません。');
+          setProblems([]);
+        }
       } else {
+        // success: false の場合
         setError(response.data.message || '問題の取得に失敗しました。');
+        setProblems([]);
       }
     } catch (err: any) {
       console.error('Problem loading error:', err);
@@ -142,6 +165,7 @@ const ProblemEditor: React.FC = () => {
         date: selectedDate,
         difficulty: selectedDifficulty,
         problems: problems.map(p => ({
+          id: p.id,
           question: p.question,
           correctAnswer: p.correctAnswer,
           options: p.options
@@ -156,6 +180,10 @@ const ProblemEditor: React.FC = () => {
 
       if (response.data.success) {
         setMessage(`問題を正常に保存しました。件数: ${response.data.count || problems.length}件`);
+        // ★ キャッシュをクリアする
+        const cacheKey = `problems_${selectedDifficulty}_${selectedDate}`;
+        sessionStorage.removeItem(cacheKey);
+        console.log(`[ProblemEditor] Cleared cache for key: ${cacheKey}`);
       } else {
         setError(response.data.message || '問題の保存に失敗しました。');
       }

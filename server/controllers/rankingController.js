@@ -1,4 +1,4 @@
-const Record = require('../models/recordModel');
+const Result = require('../models/resultModel');
 const User = require('../models/userModel');
 const mongoose = require('mongoose');
 
@@ -7,55 +7,68 @@ const mongoose = require('mongoose');
 // @access  Public
 exports.getDailyRankings = async (req, res) => {
   try {
-    // 日付の範囲設定（今日の0時から現在まで）
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // 今日の日付を "YYYY-MM-DD" 形式の文字列で取得
+    const todayStr = new Date().toISOString().split('T')[0];
     
-    // グレードフィルタリング
-    const gradeFilter = {};
-    if (req.query.grade) {
-      gradeFilter.grade = parseInt(req.query.grade);
+    // 難易度フィルタリング（例: req.query.difficulty が存在する場合）
+    const filterConditions = {
+      date: todayStr, // 日付は今日の日付文字列と完全一致
+    };
+    if (req.query.difficulty) {
+      filterConditions.difficulty = req.query.difficulty;
     }
+    // もしユーザーの段位(grade)で絞り込みたい場合は、populate後の処理や別途User検索が必要
+    // const gradeFilter = {};
+    // if (req.query.grade) {
+    //   gradeFilter.grade = parseInt(req.query.grade); // Userモデルのgradeを想定
+    // }
     
     // ランキングの取得（最大50件）
-    const rankings = await Record.find({
-      date: { $gte: today },
-      daily: true,
-      ...gradeFilter
-    })
+    const rankings = await Result.find(filterConditions) // RecordからResultに変更、daily: true を削除
     .sort({ score: -1, timeSpent: 1 })
     .limit(50)
-    .populate('user', 'username avatar grade streak')
+    .populate('userId', 'username avatar grade streak') // 'user' から 'userId' に変更
     .lean();
     
     if (!rankings.length) {
       return res.json({
-        date: today.toISOString().split('T')[0],
+        date: todayStr,
         message: 'まだランキングデータがありません',
         rankings: []
       });
     }
     
     // ランキングデータの整形
-    const formattedRankings = rankings.map((record, index) => ({
-      rank: index + 1,
-      userId: record.user._id,
-      username: record.user.username,
-      avatar: record.user.avatar,
-      grade: record.user.grade,
-      score: record.score,
-      timeSpent: record.timeSpent,
-      correctAnswers: record.correctAnswers,
-      streak: record.user.streak,
-      date: record.date
-    }));
+    const formattedRankings = rankings.map((result, index) => {
+      // populateが成功しているか確認
+      if (!result.userId) {
+        console.error(`User data not populated for result ID: ${result._id}. Skipping this result.`);
+        return null; // populate失敗したデータはスキップ
+      }
+      return {
+        rank: index + 1,
+        userId: result.userId._id,
+        username: result.userId.username,
+        avatar: result.userId.avatar,
+        grade: result.userId.grade, // Userモデルのgrade
+        difficulty: result.difficulty, // Resultモデルのdifficulty
+        score: result.score,
+        timeSpent: result.timeSpent,
+        correctAnswers: result.correctAnswers,
+        incorrectAnswers: result.incorrectAnswers, // 追加
+        unanswered: result.unanswered, // 追加
+        streak: result.userId.streak, // Userモデルのstreak
+        date: result.date
+      };
+    }).filter(Boolean); // nullを除去
     
     res.json({
-      date: today.toISOString().split('T')[0],
+      date: todayStr,
       rankings: formattedRankings
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error in getDailyRankings:", error); // エラーログを詳細に
+    res.status(500).json({ message: error.message, stack: process.env.NODE_ENV === 'development' ? error.stack : undefined });
   }
 };
 
@@ -78,7 +91,7 @@ exports.getWeeklyRankings = async (req, res) => {
     }
     
     // 各ユーザーごとに最高スコアを集計
-    const aggregatedRankings = await Record.aggregate([
+    const aggregatedRankings = await Result.aggregate([
       { 
         $match: { 
           date: { $gte: startOfWeek },
@@ -91,7 +104,7 @@ exports.getWeeklyRankings = async (req, res) => {
       },
       {
         $group: {
-          _id: '$user',
+          _id: '$userId',
           score: { $max: '$score' },
           timeSpent: { $first: '$timeSpent' },
           correctAnswers: { $first: '$correctAnswers' },
@@ -159,7 +172,7 @@ exports.getMonthlyRankings = async (req, res) => {
     }
     
     // 各ユーザーごとに最高スコアを集計
-    const aggregatedRankings = await Record.aggregate([
+    const aggregatedRankings = await Result.aggregate([
       { 
         $match: { 
           date: { $gte: startOfMonth },
@@ -172,7 +185,7 @@ exports.getMonthlyRankings = async (req, res) => {
       },
       {
         $group: {
-          _id: '$user',
+          _id: '$userId',
           score: { $max: '$score' },
           timeSpent: { $first: '$timeSpent' },
           correctAnswers: { $first: '$correctAnswers' },
@@ -242,13 +255,13 @@ exports.getUserRanking = async (req, res) => {
     startOfMonth.setHours(0, 0, 0, 0);
     
     // 今日のランキング
-    const dailyRank = await Record.countDocuments({
+    const dailyRank = await Result.countDocuments({
       date: { $gte: today },
       score: { $gt: (req.query.score ? parseInt(req.query.score) : 0) }
     }) + 1;
     
     // 週間ランキング
-    const weeklyRank = await Record.aggregate([
+    const weeklyRank = await Result.aggregate([
       { 
         $match: { 
           date: { $gte: startOfWeek },
@@ -257,7 +270,7 @@ exports.getUserRanking = async (req, res) => {
       },
       {
         $group: {
-          _id: '$user',
+          _id: '$userId',
           score: { $max: '$score' }
         }
       },
@@ -272,7 +285,7 @@ exports.getUserRanking = async (req, res) => {
     ]);
     
     // 月間ランキング
-    const monthlyRank = await Record.aggregate([
+    const monthlyRank = await Result.aggregate([
       { 
         $match: { 
           date: { $gte: startOfMonth },
@@ -281,7 +294,7 @@ exports.getUserRanking = async (req, res) => {
       },
       {
         $group: {
-          _id: '$user',
+          _id: '$userId',
           score: { $max: '$score' }
         }
       },

@@ -1,12 +1,12 @@
-const User = require('../models/User');
-const { validationResult } = require('express-validator');
+import User from '../models/User.js';
+import { validationResult } from 'express-validator';
 
 /**
  * @desc    ユーザー登録
  * @route   POST /api/auth/register
  * @access  Public
  */
-exports.register = async (req, res) => {
+export const register = async (req, res) => {
   // ★ デバッグログ追加: リクエストボディの内容を確認
   console.log('Register request body:', req.body);
 
@@ -19,11 +19,20 @@ exports.register = async (req, res) => {
 
   try {
     // メールアドレスの重複チェック
-    const existingUser = await User.findOne({ email });
+    let existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
         success: false,
         error: 'このメールアドレスは既に使用されています'
+      });
+    }
+
+    // ★ 追加: ユーザー名の重複チェック
+    existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: 'このユーザー名は既に使用されています'
       });
     }
 
@@ -65,26 +74,30 @@ exports.register = async (req, res) => {
  * @route   POST /api/auth/login
  * @access  Public
  */
-exports.login = async (req, res) => {
+export const login = async (req, res) => {
   // ★ デバッグログ追加: リクエストボディの内容を確認
   console.log('Login request body:', req.body);
 
-  const { username, email, password } = req.body;
+  const { username, email, password } = req.body; // email にメールアドレスが入力されている想定
 
-  // ユーザー名またはメールアドレスとパスワードがあるか確認
-  if ((!username && !email) || !password) {
+  // ★ 修正: email と password の存在をチェック
+  if (!email || !password) {
     return res.status(400).json({
       success: false,
-      error: 'ユーザー名（またはメールアドレス）とパスワードを入力してください'
+      error: 'メールアドレスとパスワードを入力してください'
     });
   }
 
   try {
-    // ユーザー検索（パスワードフィールドを含む）
-    const query = username ? { username } : { email };
+    // ★ 修正: email でユーザーを検索する
+    const query = { email: email }; // email フィールドで検索
+    console.log('[Login] Attempting to find user with query:', query);
+
     const user = await User.findOne(query).select('+password');
     
+    // ★ ユーザーが見つからなかった場合のログ
     if (!user) {
+      console.log('[Login] User not found with query:', query);
       return res.status(401).json({
         success: false,
         error: 'ユーザー名（またはメールアドレス）またはパスワードが正しくありません'
@@ -144,7 +157,7 @@ exports.login = async (req, res) => {
  * @route   GET /api/auth/me
  * @access  Private
  */
-exports.getMe = async (req, res) => {
+export const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
@@ -175,7 +188,7 @@ exports.getMe = async (req, res) => {
  * @route   PUT /api/auth/profile
  * @access  Private
  */
-exports.updateProfile = async (req, res) => {
+export const updateProfile = async (req, res) => {
   try {
     const { username, grade, avatar } = req.body;
     const updateData = {};
@@ -218,7 +231,7 @@ exports.updateProfile = async (req, res) => {
  * @route   PUT /api/auth/update-password
  * @access  Private
  */
-exports.updatePassword = async (req, res) => {
+export const updatePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   // 入力チェック
@@ -305,7 +318,7 @@ const updateLoginStreak = async (user) => {
  * @route   POST /api/auth/set-admin
  * @access  Private/Admin
  */
-exports.setAdmin = async (req, res) => {
+export const setAdmin = async (req, res) => {
   try {
     const { email } = req.body;
 

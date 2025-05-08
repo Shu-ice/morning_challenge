@@ -35,6 +35,7 @@ import Result from './models/Result.js';
 import { generateProblems, DifficultyRank } from './utils/problemGenerator.js';
 import authRoutes from './routes/authRoutes.js'; // 認証ルートをインポート
 import { generateProblems as generateProblemsUtil } from './utils/problemGenerator.js'; // 問題生成ユーティリティをインポート
+import rankingRoutes from './routes/rankingRoutes.js'; // ESM形式でインポート
 
 // --- dayjs プラグインの適用 (トップレベルで実行) ---
 dayjs.extend(utc);
@@ -414,14 +415,13 @@ const startServer = async () => {
           res.json({ message: '朝の計算チャレンジAPIへようこそ！' });
         });
 
-        // ★ /api/ ルートを追加 (接続テスト用)
         app.get('/api/', (req, res) => {
           console.log('[API] GET /api/ endpoint hit (connection test)');
           res.status(200).json({ success: true, message: 'Backend connection successful!' });
         });
 
-        // ★ 認証ルートのマウント
         app.use('/api/auth', authRoutes);
+        app.use('/api/rankings', rankingRoutes);
 
     app.get('/api/problems', protect, async (req, res) => {
       const { difficulty, date } = req.query;
@@ -778,388 +778,228 @@ const startServer = async () => {
       }
     });
 
-    app.get('/api/rankings', (req, res) => {
-      const users = [];
-      const avatars = ['😊', '🐱', '🐶', '🐼', '🦊', '🐰', '🐻', '🐨', '🦁', '🐯'];
-      
-      for (let i = 0; i < 10; i++) {
-        users.push({
-          _id: `user-${i}`,
-          username: `ユーザー${i + 1}`,
-          avatar: avatars[i % avatars.length],
-          grade: Math.floor(Math.random() * 6) + 1,
-          points: Math.floor(Math.random() * 1000),
-          streak: Math.floor(Math.random() * 10)
-        });
+    // ★ ユーザー履歴取得ルート
+    app.get('/api/history', protect, async (req, res) => {
+      const userId = req.user._id;
+      // ★ req.query.limit の型チェックとデフォルト値設定を修正
+      let limit = 10; // デフォルト値
+      if (req.query.limit && typeof req.query.limit === 'string') {
+        const parsedLimit = parseInt(req.query.limit, 10);
+        if (!isNaN(parsedLimit) && parsedLimit > 0) {
+          limit = parsedLimit;
+        }
       }
-      
-      res.json({
-        success: true,
-        users: users.sort((a, b) => b.points - a.points)
-      });
-    });
+      // TODO: ページネーション
+      // let page = 1;
+      // if (req.query.page && typeof req.query.page === 'string') {
+      //   const parsedPage = parseInt(req.query.page, 10);
+      //   if (!isNaN(parsedPage) && parsedPage > 0) {
+      //     page = parsedPage;
+      //   }
+      // }
+      // const skip = (page - 1) * limit;
 
-    // 日間ランキングAPI
-    app.get('/api/rankings/daily', async (req, res) => {
+      console.log(`[API] GET /api/history request for user: ${userId}, limit: ${limit}`);
+
       try {
-        const { difficulty, grade } = req.query;
-        const limit = parseInt(req.query.limit) || 10;
-        
-        console.log(`[DEBUG-RANKING] リクエストパラメータ:`, { difficulty, grade, limit });
-        
-        // 日付フィルターを一時的に無効化（すべてのデータを取得）
-        const filter = {};
-        if (difficulty) filter.difficulty = difficulty;
-        if (grade) filter.grade = parseInt(grade);
-        
-        console.log(`[DEBUG-RANKING] 使用フィルター:`, filter);
-        
-        // 全データ確認用ログ
-        const allResults = await Result.find({}).limit(20).lean();
-        console.log(`[DEBUG-RANKING] データベース内のデータ (最大20件):`, 
-          allResults.map(r => ({
-            id: r._id.toString().substring(0, 8) + '...',
-            username: r.username,
-            userId: r.userId ? r.userId.toString().substring(0, 8) + '...' : 'none',
-            date: r.date, 
-            difficulty: r.difficulty,
-            score: r.score
-          }))
-        );
-        
-        // Resultコレクションから取得
-        const results = await Result.find(filter)
-          .sort({ score: -1, timeSpent: 1 })
-          .limit(limit)
-          .lean();
-        
-        console.log(`[DEBUG-RANKING] Filter results:`, results.length);
-        if (results.length > 0) {
-          console.log(`[DEBUG-RANKING] First result:`, {
-            username: results[0].username,
-            userId: results[0].userId ? results[0].userId.toString().substring(0, 8) + '...' : 'none',
-            score: results[0].score,
-            date: results[0].date
-          });
-        }
-        
-        if (!results.length) {
-          return res.json({
-            success: true,
-            message: 'まだランキングデータがありません',
-            rankings: []
-          });
-        }
-        
-        // ユーザー情報を取得
-        // 1. まずuserIdでユーザーを検索
-        const userIds = [...new Set(results
-          .filter(r => r.userId) // userIdがあるものだけ抽出
-          .map(r => r.userId.toString())
-        )];
-        console.log(`[Ranking] Unique userIds to lookup:`, userIds.length);
-        
-        const usersByIdMap = new Map();
-        if (userIds.length > 0) {
-          const usersById = await User.find({ _id: { $in: userIds } }).lean();
-          console.log(`[Ranking] Found ${usersById.length} users by ID`);
-          
-          // IDをキーとするマップに変換
-          usersById.forEach(user => {
-            usersByIdMap.set(user._id.toString(), user);
-          });
-        }
-        
-        // 2. userIdで見つからなかったユーザーをusernameで検索
-        const usernamesToLookup = results
-          .filter(r => !r.userId || !usersByIdMap.has(r.userId.toString()))
-          .map(r => r.username);
-        
-        const uniqueUsernames = [...new Set(usernamesToLookup)];
-        console.log(`[Ranking] Additional usernames to lookup:`, uniqueUsernames.length);
-        
-        const usersByNameMap = new Map();
-        if (uniqueUsernames.length > 0) {
-          const usersByName = await User.find({ username: { $in: uniqueUsernames } }).lean();
-          console.log(`[Ranking] Found ${usersByName.length} users by username`);
-          
-          // ユーザー名をキーとするマップに変換
-          usersByName.forEach(user => {
-            usersByNameMap.set(user.username, user);
-          });
-        }
-        
-        // ランキング情報をユーザー情報と組み合わせる
-        const rankings = results.map((result, index) => {
-          // 1. まずuserIdでユーザーを検索
-          let user = null;
-          if (result.userId) {
-            user = usersByIdMap.get(result.userId.toString());
-          }
-          
-          // 2. userIdで見つからない場合はusernameで検索
-          if (!user) {
-            user = usersByNameMap.get(result.username);
-          }
-          
-          // 3. それでも見つからない場合は最低限の情報を使用
-          const avatar = user?.avatar || '👤';
-          const grade = result.grade || user?.grade || 1;
-          
-          return {
-            rank: index + 1,
-            username: result.username,
-            avatar: avatar,
-            grade: grade,
-            score: result.score,
-            timeSpent: result.timeSpent,
-            correctAnswers: result.correctAnswers,
-            totalProblems: result.totalProblems || 10,
-            incorrectAnswers: result.incorrectAnswers || 0,
-            unanswered: result.unanswered || 0,
-            totalTime: result.totalTime || result.timeSpent * 1000,
-            difficulty: result.difficulty,
-            date: result.date
-          };
-        });
-        
-        // レスポンス形式の改善 - フロントエンドが期待する形式に合わせる
-        res.json({
-          success: true,
-          date: new Date().toISOString().split('T')[0],
-          message: rankings.length ? null : 'まだランキングデータがありません',
-          rankings: rankings
-        });
-      } catch (error) {
-        console.error('[API] Error getting daily rankings:', error);
-        res.status(500).json({ 
-          success: false, 
-          message: 'ランキングの取得中にエラーが発生しました' 
-        });
-      }
-    });
+        const historyResults = await Result.find({ userId: userId })
+          .sort({ timestamp: -1 }) // 新しい順にソート
+        .limit(limit)
+          // .skip(skip) // ページネーション用
+          .lean(); // lean() で Mongoose ドキュメントではなく軽量な JS オブジェクトを取得
+
+        // TODO: ページネーション情報を取得する場合
+        // const totalItems = await Result.countDocuments({ userId: userId });
+        // const totalPages = Math.ceil(totalItems / limit);
+
+        console.log(`[API] Found ${historyResults.length} history items for user ${userId}`);
     
-        // ★ ユーザー履歴取得ルート
-        app.get('/api/history', protect, async (req, res) => {
-          const userId = req.user._id;
-          // ★ req.query.limit の型チェックとデフォルト値設定を修正
-          let limit = 10; // デフォルト値
-          if (req.query.limit && typeof req.query.limit === 'string') {
-            const parsedLimit = parseInt(req.query.limit, 10);
-            if (!isNaN(parsedLimit) && parsedLimit > 0) {
-              limit = parsedLimit;
-            }
-          }
-          // TODO: ページネーション
-          // let page = 1;
-          // if (req.query.page && typeof req.query.page === 'string') {
-          //   const parsedPage = parseInt(req.query.page, 10);
-          //   if (!isNaN(parsedPage) && parsedPage > 0) {
-          //     page = parsedPage;
-          //   }
+    res.json({
+      success: true,
+          message: '履歴を取得しました。',
+          history: historyResults,
+          // pagination: { // ページネーション用
+          //   currentPage: page,
+          //   totalPages: totalPages,
+          //   totalItems: totalItems
           // }
-          // const skip = (page - 1) * limit;
-
-          console.log(`[API] GET /api/history request for user: ${userId}, limit: ${limit}`);
-
-          try {
-            const historyResults = await Result.find({ userId: userId })
-              .sort({ timestamp: -1 }) // 新しい順にソート
-          .limit(limit)
-              // .skip(skip) // ページネーション用
-              .lean(); // lean() で Mongoose ドキュメントではなく軽量な JS オブジェクトを取得
-
-            // TODO: ページネーション情報を取得する場合
-            // const totalItems = await Result.countDocuments({ userId: userId });
-            // const totalPages = Math.ceil(totalItems / limit);
-
-            console.log(`[API] Found ${historyResults.length} history items for user ${userId}`);
-        
-        res.json({
-          success: true,
-              message: '履歴を取得しました。',
-              history: historyResults,
-              // pagination: { // ページネーション用
-              //   currentPage: page,
-              //   totalPages: totalPages,
-              //   totalItems: totalItems
-              // }
-            });
-      } catch (error) {
-            console.error(`[API] Error fetching history for user ${userId}:`, error);
-        res.status(500).json({ 
-          success: false, 
-              message: '履歴の取得中にサーバーエラーが発生しました。' 
         });
-      }
+    } catch (error) {
+      console.error(`[API] Error fetching history for user ${userId}:`, error);
+    res.status(500).json({ 
+      success: false, 
+          message: '履歴の取得中にサーバーエラーが発生しました。' 
     });
-
-    // ★ 管理者用: 問題生成ルート
-    // POST /api/problems/generate
-    app.post('/api/problems/generate', protect, admin, async (req, res) => {
-      const { date, difficulty, forceOverwrite } = req.body;
-
-      if (!date || !difficulty) {
-        return res.status(400).json({ success: false, message: '日付と難易度を指定してください。' });
-      }
-
-      try {
-        const existingSet = await DailyProblemSet.findOne({ date, difficulty });
-        
-        if (existingSet) {
-          if (forceOverwrite === true) {
-            console.log(`[API Generate] Force overwriting existing problem set for ${date} - ${difficulty}`);
-            await DailyProblemSet.deleteOne({ date, difficulty });
-            console.log(`[API Generate] Existing problem set deleted.`);
-          } else {
-            return res.status(400).json({ success: false, message: `${date} の ${difficulty} 難易度の問題セットは既に存在します。編集機能を使うか、既存のセットを削除してください。 (強制上書きするにはチェックを入れてください)` });
-          }
-        }
-
-        const seed = `${date}_${difficulty}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        const problems = await generateProblemsUtil(difficulty, 10, seed);
-        
-        if (!problems || problems.length === 0) {
-          console.error(`[API Generate] ${date}の${difficulty}難易度の問題生成に失敗しました。`);
-          return res.status(500).json({ success: false, message: '問題の生成に失敗しました。' });
-        }
-
-        const newProblemSet = new DailyProblemSet({
-          date,
-          difficulty,
-              problems: problems.map(p => ({
-            id: p.id,
-                question: p.question,
-                correctAnswer: p.answer,
-                options: p.options,
-              })),
-        });
-
-        await newProblemSet.save();
-        console.log(`[API Generate] ${date}の${difficulty}難易度の問題が管理者によって生成されました（${problems.length}問）`);
-            res.status(201).json({
-                success: true,
-          message: `${date} の ${difficulty} 難易度の問題が ${problems.length} 件生成されました。`,
-          problemSet: newProblemSet,
-        });
-        } catch (error) {
-        console.error(`[API Generate] Error generating problems for ${date} - ${difficulty}:`, error);
-        res.status(500).json({ success: false, message: '問題生成中にサーバーエラーが発生しました。', error: error.message });
-      }
-    });
-
-    // @desc    指定された日付と難易度の問題セットを取得 (編集用)
-    // @route   GET /api/problems/edit
-    // @access  Private/Admin
-    app.get('/api/problems/edit', protect, admin, async (req, res) => {
-      try {
-      const { date, difficulty } = req.query;
-      
-        if (!date || !difficulty) {
-          return res.status(400).json({ success: false, message: '日付と難易度を指定してください。' });
-        }
-
-        const problemSet = await DailyProblemSet.findOne({ date: date, difficulty: difficulty });
-
-        if (!problemSet) {
-          return res.status(404).json({ success: false, message: '指定された日付と難易度の問題セットは見つかりません。' });
-        }
-        // 追加: DBから取得した問題セットの内容をログに出力
-        console.log('DEBUG: problemSet.problems from DB:', JSON.stringify(problemSet.problems, null, 2));
-
-        const problemsToReturn = problemSet.problems.map((p, index) => ({
-          id: p.id, 
-            question: p.question,
-            correctAnswer: p.correctAnswer,
-          options: p.options,
-        }));
-        // 追加: フロントエンドに返す問題セットの内容をログに出力
-        console.log('DEBUG: problemsToReturn for frontend:', JSON.stringify(problemsToReturn, null, 2));
-        
-        res.json({
-          success: true,
-          problems: problemsToReturn,
-          message: `${problemsToReturn.length}件の問題を読み込みました。`
-        });
-
-      } catch (error) {
-        console.error('Error fetching problems for edit:', error);
-        res.status(500).json({ success: false, message: '問題の取得中にサーバーエラーが発生しました。', error: error.message });
-      }
-    });
-
-    // @desc    指定された日付と難易度の問題セットを更新 (編集用)
-    // @route   POST /api/problems/edit
-    // @access  Private/Admin
-    app.post('/api/problems/edit', protect, admin, async (req, res) => {
-      try {
-        const { date, difficulty, problems: updatedProblems } = req.body;
-
-        if (!date || !difficulty || !Array.isArray(updatedProblems)) {
-          return res.status(400).json({ success: false, message: '日付、難易度、問題配列を指定してください。' });
-        }
-
-        const problemSet = await DailyProblemSet.findOne({ date, difficulty });
-
-        if (!problemSet) {
-          return res.status(404).json({ success: false, message: '指定された日付と難易度の問題セットは見つかりません。新規作成は問題生成ルートを使用してください。' });
-        }
-
-        // 送られてきた問題配列で既存の問題を更新
-        // 注意: この実装では、送信された問題配列の順番と内容で完全に上書きします。
-        // IDが一致しない問題は消え、新しい問題が追加される可能性があります。
-        // より堅牢にするには、各問題のIDに基づいてマージするなどの処理が必要ですが、
-        // まずはフロントエンドからのデータで上書きするシンプルな実装とします。
-        problemSet.problems = updatedProblems.map(p => ({
-          id: p.id || uuidv4(), // フロントからIDが来ていればそれを使用、なければ新規生成 (ただし、既存IDは必須とすべき)
-          question: p.question,
-          correctAnswer: p.correctAnswer,
-          options: p.options || [], // optionsがなくてもエラーにならないように
-        }));
-        problemSet.isEdited = true; // 編集済みフラグ
-
-        await problemSet.save();
-
-        res.json({ 
-          success: true, 
-          message: '問題セットを正常に更新しました。',
-          count: problemSet.problems.length,
-          problemSet // 更新後の問題セットを返す (任意)
-        });
-
-      } catch (error) {
-        console.error('Error updating problems for edit:', error);
-        // Mongooseのバリデーションエラーなどもここでキャッチされる
-        if (error.name === 'ValidationError') {
-          return res.status(400).json({ success: false, message: 'データの検証に失敗しました。', errors: error.errors });
-        }
-        res.status(500).json({ success: false, message: '問題の更新中にサーバーエラーが発生しました。', error: error.message });
-      }
-    });
-
-        // ★ 未定義ルートの処理 (404 Not Found)
-        app.use(notFound);
-
-        // ★ グローバルエラーハンドラ (全てのルート定義の後)
-        app.use(errorHandler);
-
-        // サーバー起動
-        app.listen(PORT, () => {
-            console.log(`✅ サーバーが起動しました！ポート ${PORT} で待機中...`); // ログ修正
-            console.log(`⏰ チャレンジ時間制限 ${process.env.DISABLE_TIME_CHECK === 'true' ? '無効' : '有効'}`);
-            console.log(`💾 DBモード: ${process.env.MONGODB_MOCK === 'true' ? 'モック (InMemory)' : 'MongoDB'}`);
-
-            // MongoDB接続後に初期化処理を実行
-            mongoose.connection.once('open', async () => {
-                console.log('[Init] MongoDB接続確立 - 初期化処理呼び出し (500ms待機)');
-                await new Promise(resolve => setTimeout(resolve, 500));
-                await initializeApp();
-            });
-        });
-  } catch (error) {
-        console.error('サーバー起動中にエラーが発生しました:', error);
-        process.exit(1);
   }
+});
+
+// ★ 管理者用: 問題生成ルート
+// POST /api/problems/generate
+app.post('/api/problems/generate', protect, admin, async (req, res) => {
+  const { date, difficulty, forceOverwrite } = req.body;
+
+  if (!date || !difficulty) {
+    return res.status(400).json({ success: false, message: '日付と難易度を指定してください。' });
+  }
+
+  try {
+    const existingSet = await DailyProblemSet.findOne({ date, difficulty });
+    
+    if (existingSet) {
+      if (forceOverwrite === true) {
+        console.log(`[API Generate] Force overwriting existing problem set for ${date} - ${difficulty}`);
+        await DailyProblemSet.deleteOne({ date, difficulty });
+        console.log(`[API Generate] Existing problem set deleted.`);
+      } else {
+        return res.status(400).json({ success: false, message: `${date} の ${difficulty} 難易度の問題セットは既に存在します。編集機能を使うか、既存のセットを削除してください。 (強制上書きするにはチェックを入れてください)` });
+      }
+    }
+
+    const seed = `${date}_${difficulty}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const problems = await generateProblemsUtil(difficulty, 10, seed);
+    
+    if (!problems || problems.length === 0) {
+      console.error(`[API Generate] ${date}の${difficulty}難易度の問題生成に失敗しました。`);
+      return res.status(500).json({ success: false, message: '問題の生成に失敗しました。' });
+    }
+
+    const newProblemSet = new DailyProblemSet({
+      date,
+      difficulty,
+          problems: problems.map(p => ({
+        id: p.id,
+            question: p.question,
+            correctAnswer: p.answer,
+            options: p.options,
+          })),
+    });
+
+    await newProblemSet.save();
+    console.log(`[API Generate] ${date}の${difficulty}難易度の問題が管理者によって生成されました（${problems.length}問）`);
+        res.status(201).json({
+            success: true,
+      message: `${date} の ${difficulty} 難易度の問題が ${problems.length} 件生成されました。`,
+      problemSet: newProblemSet,
+    });
+    } catch (error) {
+    console.error(`[API Generate] Error generating problems for ${date} - ${difficulty}:`, error);
+    res.status(500).json({ success: false, message: '問題生成中にサーバーエラーが発生しました。', error: error.message });
+  }
+});
+
+// @desc    指定された日付と難易度の問題セットを取得 (編集用)
+// @route   GET /api/problems/edit
+// @access  Private/Admin
+app.get('/api/problems/edit', protect, admin, async (req, res) => {
+  try {
+  const { date, difficulty } = req.query;
+  
+    if (!date || !difficulty) {
+      return res.status(400).json({ success: false, message: '日付と難易度を指定してください。' });
+    }
+
+    const problemSet = await DailyProblemSet.findOne({ date: date, difficulty: difficulty });
+
+    if (!problemSet) {
+      return res.status(404).json({ success: false, message: '指定された日付と難易度の問題セットは見つかりません。' });
+    }
+    // 追加: DBから取得した問題セットの内容をログに出力
+    console.log('DEBUG: problemSet.problems from DB:', JSON.stringify(problemSet.problems, null, 2));
+
+    const problemsToReturn = problemSet.problems.map((p, index) => ({
+      id: p.id, 
+        question: p.question,
+        correctAnswer: p.correctAnswer,
+      options: p.options,
+    }));
+    // 追加: フロントエンドに返す問題セットの内容をログに出力
+    console.log('DEBUG: problemsToReturn for frontend:', JSON.stringify(problemsToReturn, null, 2));
+    
+    res.json({
+                    success: true,
+      problems: problemsToReturn,
+      message: `${problemsToReturn.length}件の問題を読み込みました。`
+    });
+
+    } catch (error) {
+    console.error('Error fetching problems for edit:', error);
+    res.status(500).json({ success: false, message: '問題の取得中にサーバーエラーが発生しました。', error: error.message });
+  }
+});
+
+// @desc    指定された日付と難易度の問題セットを更新 (編集用)
+// @route   POST /api/problems/edit
+// @access  Private/Admin
+app.post('/api/problems/edit', protect, admin, async (req, res) => {
+  try {
+    const { date, difficulty, problems: updatedProblems } = req.body;
+
+    if (!date || !difficulty || !Array.isArray(updatedProblems)) {
+      return res.status(400).json({ success: false, message: '日付、難易度、問題配列を指定してください。' });
+    }
+
+    const problemSet = await DailyProblemSet.findOne({ date, difficulty });
+
+    if (!problemSet) {
+      return res.status(404).json({ success: false, message: '指定された日付と難易度の問題セットは見つかりません。新規作成は問題生成ルートを使用してください。' });
+    }
+
+    // 送られてきた問題配列で既存の問題を更新
+    // 注意: この実装では、送信された問題配列の順番と内容で完全に上書きします。
+    // IDが一致しない問題は消え、新しい問題が追加される可能性があります。
+    // より堅牢にするには、各問題のIDに基づいてマージするなどの処理が必要ですが、
+    // まずはフロントエンドからのデータで上書きするシンプルな実装とします。
+    problemSet.problems = updatedProblems.map(p => ({
+      id: p.id || uuidv4(), // フロントからIDが来ていればそれを使用、なければ新規生成 (ただし、既存IDは必須とすべき)
+        question: p.question,
+        correctAnswer: p.correctAnswer,
+      options: p.options || [], // optionsがなくてもエラーにならないように
+    }));
+    problemSet.isEdited = true; // 編集済みフラグ
+
+    await problemSet.save();
+    
+    res.json({
+      success: true,
+      message: '問題セットを正常に更新しました。',
+      count: problemSet.problems.length,
+      problemSet // 更新後の問題セットを返す (任意)
+    });
+
+  } catch (error) {
+    console.error('Error updating problems for edit:', error);
+    // Mongooseのバリデーションエラーなどもここでキャッチされる
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: 'データの検証に失敗しました。', errors: error.errors });
+    }
+    res.status(500).json({ success: false, message: '問題の更新中にサーバーエラーが発生しました。', error: error.message });
+  }
+});
+
+// ★ 未定義ルートの処理 (404 Not Found)
+app.use(notFound);
+
+// ★ グローバルエラーハンドラ (全てのルート定義の後)
+app.use(errorHandler);
+
+// サーバー起動
+app.listen(PORT, () => {
+    console.log(`✅ サーバーが起動しました！ポート ${PORT} で待機中...`); // ログ修正
+    console.log(`⏰ チャレンジ時間制限 ${process.env.DISABLE_TIME_CHECK === 'true' ? '無効' : '有効'}`);
+    console.log(`💾 DBモード: ${process.env.MONGODB_MOCK === 'true' ? 'モック (InMemory)' : 'MongoDB'}`);
+
+    // MongoDB接続後に初期化処理を実行
+    mongoose.connection.once('open', async () => {
+        console.log('[Init] MongoDB接続確立 - 初期化処理呼び出し (500ms待機)');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await initializeApp();
+    });
+});
+
+} catch (error) {
+    console.error('サーバー起動中にエラーが発生しました:', error);
+    process.exit(1);
+}
 };
 
 // --- startServer 関数の呼び出し (ファイルの末尾) ---

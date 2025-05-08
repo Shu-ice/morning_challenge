@@ -1,10 +1,10 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 /**
  * ユーザー認証を確認するミドルウェア
  */
-exports.protect = async (req, res, next) => {
+export const protect = async (req, res, next) => {
   // ★ デバッグログ追加
   console.log('[authMiddleware.js] protect middleware is executing...');
   let token;
@@ -73,7 +73,7 @@ exports.protect = async (req, res, next) => {
  * 時間制限を確認するミドルウェア（6:30-8:00の間のみアクセス可能）
  * 問題挑戦機能にのみ適用し、ログインや履歴閲覧などには適用しない
  */
-exports.checkTimeWindow = (req, res, next) => {
+export const checkTimeWindow = (req, res, next) => {
   // 開発環境ではスキップ可能
   if (process.env.DISABLE_TIME_CHECK === 'true') {
     console.log('[TimeCheck] スキップ: DISABLE_TIME_CHECK=true');
@@ -109,7 +109,7 @@ exports.checkTimeWindow = (req, res, next) => {
 /**
  * 特定のロールを持つユーザーのみアクセスを許可する
  */
-exports.authorize = (...roles) => {
+export const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user.role || !roles.includes(req.user.role)) {
       return res.status(403).json({

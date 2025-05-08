@@ -52,6 +52,11 @@ const App = () => {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true); // ローディング状態を追加
 
+  // ★ currentPage変更時にログを出力するuseEffect
+  useEffect(() => {
+    console.log(`[App useEffect] currentPage changed to: ${currentPage}`);
+  }, [currentPage]);
+
   useEffect(() => {
     console.log('[App] Initializing app and checking user/token...');
     setLoading(true);
@@ -69,12 +74,14 @@ const App = () => {
         setUser({ ...userData, isLoggedIn: true });
         console.log('[App] User is logged in:', userData.username, 'isAdmin:', userData.isAdmin);
         setCurrentPage(AppPages.HOME); // ログイン済みならホームへ
+        console.log('[App after setCurrentPage (initial load, user found)\] currentPage:', AppPages.HOME);
       } catch (error) {
         console.error('[App] Failed to parse user data:', error);
         localStorage.removeItem('user');
         localStorage.removeItem('token');
         setUser(null);
         setCurrentPage(AppPages.LOGIN); // エラー時はログインへ
+        console.log('[App after setCurrentPage (initial load, parse error)\] currentPage:', AppPages.LOGIN);
       }
     } else {
       console.log('[App] No user data or token found. Redirecting to login.');
@@ -82,6 +89,7 @@ const App = () => {
       localStorage.removeItem('token');
       setUser(null);
       setCurrentPage(AppPages.LOGIN);
+      console.log('[App after setCurrentPage (initial load, no user/token)\] currentPage:', AppPages.LOGIN);
     }
     setLoading(false);
   }, []);
@@ -99,11 +107,13 @@ const App = () => {
   const handleStartPractice = (difficulty: DifficultyRank) => {
     setSelectedDifficulty(difficulty);
     setCurrentPage(AppPages.PROBLEMS);
+    console.log('[App after setCurrentPage (handleStartPractice)\] currentPage:', AppPages.PROBLEMS);
   };
 
   const handleProblemComplete = (results: any) => {
     setProblemResults(results);
     setCurrentPage(AppPages.RESULTS);
+    console.log('[App after setCurrentPage (handleProblemComplete)\] currentPage:', AppPages.RESULTS);
   };
 
   // Login コンポーネントから isAdmin を含むユーザー情報とトークンを受け取る想定
@@ -124,6 +134,7 @@ const App = () => {
     localStorage.setItem('token', token); // トークンも保存
     console.log('[App] User logged in and data saved:', userDataToSave);
     setCurrentPage(AppPages.HOME); // ホームへ遷移
+    console.log('[App after setCurrentPage (handleLogin)\] currentPage:', AppPages.HOME);
   };
 
   const handleLogout = () => {
@@ -132,10 +143,12 @@ const App = () => {
     localStorage.removeItem('token'); // トークンも削除
     setUser(null);
     setCurrentPage(AppPages.LOGIN);
+    console.log('[App after setCurrentPage (handleLogout)\] currentPage:', AppPages.LOGIN);
   };
 
   const handleViewHistory = () => {
     setCurrentPage(AppPages.HISTORY);
+    console.log('[App after setCurrentPage (handleViewHistory)\] currentPage:', AppPages.HISTORY);
   };
 
   const handleSaveProfile = (updatedUser: UserData) => {
@@ -160,6 +173,7 @@ const App = () => {
   };
 
   const renderPage = () => {
+    console.log(`[App] renderPage called. Current page state: ${currentPage}`); // ★ renderPage冒頭ログ
     // --- アクセス制御 ---
     const protectedPages = [
         AppPages.HOME, AppPages.PROBLEMS, AppPages.RESULTS,
@@ -189,12 +203,13 @@ const App = () => {
         const registerHandlerSwitch = () => {
             console.log('[App] onRegister が呼ばれました (switch)');
             setCurrentPage(AppPages.REGISTER);
+            console.log('[App after setCurrentPage (Login -> onRegister)\] currentPage:', AppPages.REGISTER);
         };
         console.log('[Debug] Type of onRegister (switch):', typeof registerHandlerSwitch); // 関数の型を確認
         return <Login onLogin={handleLogin} onRegister={registerHandlerSwitch} />;
       case AppPages.REGISTER:
         console.log('[App] Registerページを表示します');
-        return <Register onRegister={handleLogin} onLogin={() => setCurrentPage(AppPages.LOGIN)} />;
+        return <Register onRegister={handleLogin} onLogin={() => {setCurrentPage(AppPages.LOGIN); console.log('[App after setCurrentPage (Register -> onLogin)\] currentPage:', AppPages.LOGIN);}} />;
       case AppPages.HOME:
         return <Home onStartPractice={handleStartPractice} isTimeValid={isWithinTimeWindow()} defaultDifficulty={selectedDifficulty} />;
       case AppPages.PROBLEMS:
@@ -225,7 +240,10 @@ const App = () => {
       case AppPages.ADMIN_DASHBOARD:
         return <AdminDashboard />; // Adminチェック済
       case AppPages.ADMIN_GENERATE:
-        return <ProblemGenerator />; // Adminチェック済
+        console.log('[App.tsx] renderPage - Entering ADMIN_GENERATE case. CurrentPage:', currentPage); // ★ 追加ログ
+        const isActiveValue = currentPage === AppPages.ADMIN_GENERATE; // ★ 値を一度変数に入れる
+        console.log('[App.tsx] Rendering ProblemGenerator. Value passed to isActive:', isActiveValue, 'CurrentPage:', currentPage); // ★ 渡す直前の値とcurrentPageをログ出力
+        return <ProblemGenerator isActive={isActiveValue} />;
       case AppPages.ADMIN_EDIT:
         return <ProblemEditor />; // Adminチェック済
       default:
@@ -246,41 +264,46 @@ const App = () => {
       {/* ヘッダーは常に表示 */}
       <header className="app-header">
         <div className="header-container">
-          <div className="logo" onClick={() => setCurrentPage(AppPages.HOME)} style={{cursor: 'pointer'}}>
+          <div className="logo" onClick={() => {setCurrentPage(AppPages.HOME); console.log('[App after setCurrentPage (logo click)\] currentPage:', AppPages.HOME);}} style={{cursor: 'pointer'}}>
             <h1>朝の計算チャレンジ</h1>
           </div>
           <nav className="main-nav">
             <ul>
               <li className={currentPage === AppPages.HOME ? 'active' : ''}>
-                <button onClick={() => setCurrentPage(AppPages.HOME)}>ホーム</button>
+                <button onClick={() => {setCurrentPage(AppPages.HOME); console.log('[App after setCurrentPage (nav Home)\] currentPage:', AppPages.HOME);}}>ホーム</button>
               </li>
               <li className={currentPage === AppPages.RANKINGS ? 'active' : ''}>
-                <button onClick={() => setCurrentPage(AppPages.RANKINGS)}>ランキング</button>
+                <button onClick={() => {setCurrentPage(AppPages.RANKINGS); console.log('[App after setCurrentPage (nav Rankings)\] currentPage:', AppPages.RANKINGS);}}>ランキング</button>
               </li>
               <li className={currentPage === AppPages.HISTORY ? 'active' : ''}>
-                <button onClick={() => setCurrentPage(AppPages.HISTORY)}>学習履歴</button>
+                <button onClick={() => {setCurrentPage(AppPages.HISTORY); console.log('[App after setCurrentPage (nav History)\] currentPage:', AppPages.HISTORY);}}>学習履歴</button>
               </li>
               <li className={currentPage === AppPages.PROFILE ? 'active' : ''}>
-                <button onClick={() => setCurrentPage(AppPages.PROFILE)}>マイページ</button>
+                <button onClick={() => {setCurrentPage(AppPages.PROFILE); console.log('[App after setCurrentPage (nav Profile)\] currentPage:', AppPages.PROFILE);}}>マイページ</button>
               </li>
               {/* 管理者用メニュー */}
               {user?.isAdmin && (
                 <>
                   <li className={currentPage === AppPages.ADMIN_DASHBOARD ? 'active' : ''}>
-                    <button onClick={() => setCurrentPage(AppPages.ADMIN_DASHBOARD)}>管理DB</button>
+                    <button onClick={() => {setCurrentPage(AppPages.ADMIN_DASHBOARD); console.log('[App after setCurrentPage (nav Admin Dashboard)\] currentPage:', AppPages.ADMIN_DASHBOARD);}}>管理DB</button>
                   </li>
                   <li className={currentPage === AppPages.ADMIN_GENERATE ? 'active' : ''}>
-                    <button onClick={() => setCurrentPage(AppPages.ADMIN_GENERATE)}>問題生成</button>
+                    <button onClick={() => {
+                      alert('[Debug] 問題生成ボタンがクリックされました！'); // ★ 確認用アラート
+                      console.log('[App.tsx] Navigating to ADMIN_GENERATE (button click)');
+                      setCurrentPage(AppPages.ADMIN_GENERATE);
+                      console.log('[App after setCurrentPage (nav Admin Generate)\] currentPage:', AppPages.ADMIN_GENERATE);
+                    }}>問題生成</button>
                   </li>
                    <li className={currentPage === AppPages.ADMIN_EDIT ? 'active' : ''}>
-                    <button onClick={() => setCurrentPage(AppPages.ADMIN_EDIT)}>問題編集</button>
+                    <button onClick={() => {setCurrentPage(AppPages.ADMIN_EDIT); console.log('[App after setCurrentPage (nav Admin Edit)\] currentPage:', AppPages.ADMIN_EDIT);}}>問題編集</button>
                   </li>
                 </>
               )}
             </ul>
           </nav>
           <div className="user-info">
-            <span onClick={() => setCurrentPage(AppPages.PROFILE)} style={{ cursor: 'pointer' }}>
+            <span onClick={() => {setCurrentPage(AppPages.PROFILE); console.log('[App after setCurrentPage (user-info click)\] currentPage:', AppPages.PROFILE);}} style={{ cursor: 'pointer' }}>
               {user.username}さん {user.isAdmin ? '(Admin)' : ''}
             </span>
             {/* ログアウトボタンはマイページ内などに配置する方が一般的 */}

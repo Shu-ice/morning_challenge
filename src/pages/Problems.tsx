@@ -310,42 +310,62 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       return;
     }
     const endTime = Date.now();
-    // ★ timeSpentMs はミリ秒単位で
     const timeSpentMs = startTime ? (endTime - startTime) : 0;
-
-    // ★ problemIds を currentProblems から抽出
     const problemIds = currentProblems.map(p => p.id);
 
-    console.log('[Problems] Submitting answers. Payload problemIds:', JSON.stringify(problemIds, null, 2)); // ★ログ追加 (送信直前のproblemIds)
     console.log('[Problems] Submitting answers with IDs. Time(ms):', timeSpentMs, 'Problem IDs:', problemIds, 'Answers:', finalAnswers);
     setIsLoading(true);
 
     try {
-      const response = await problemsAPI.submitAnswers({
+      // problemsAPI.submitAnswers はバックエンドのJSONボディを直接返すと想定
+      const apiResponse = await problemsAPI.submitAnswers({
         difficulty,
         date: selectedDate,
-        problemIds, // ★ problemIds を追加
+        problemIds,
         answers: finalAnswers,
-        timeSpentMs, // ★ timeSpentMs を使用
+        timeSpentMs,
         userId: currentUser._id,
       });
-      
-      if (!response.success || !response.results || !response.results.problems) { 
-        setError(`結果の送信に失敗しました: ${response.message || '詳細結果がありません'}`);
-        console.error("回答提出エラー:", response.message, response);
-        setIsLoading(false);
-          return;
+
+      // ★★★ ログは一時的にコメントアウトまたは削除 ★★★
+      // console.log("[Problems] Raw response from problemsAPI.submitAnswers:", JSON.stringify(apiResponse, null, 2));
+      // if (apiResponse) { // apiResponse が null や undefined でないことの確認は下記で行う
+      //   console.log("[Problems] apiResponse (should be backend JSON body):", JSON.stringify(apiResponse, null, 2));
+      // }
+
+      const isAdmin = currentUser?.isAdmin === true;
+
+      if (apiResponse) { // apiResponse (バックエンドのJSONボディ) が存在するかチェック
+        if (apiResponse.alreadyExists && !isAdmin) {
+          // 一般ユーザーで既に存在する場合
+          setError(apiResponse.message || '本日は既に参加済みです。');
+          console.warn("回答提出済み (一般ユーザー):", apiResponse.message, apiResponse);
+        } else if (apiResponse.success && apiResponse.data && apiResponse.data.problems) {
+          // 初回成功時、または管理者が上書き成功した場合
+          // (管理者が上書きした場合、バックエンドは alreadyExists:false または undefined で、success:true, data:{problems:[...]} を返す)
+          console.log("回答提出成功:", apiResponse);
+          const detailedProblemResults: ProblemResult[] = apiResponse.data.problems;
+          endSession(detailedProblemResults);
+          onComplete({});
+          saveCompletionData(difficulty, currentUser);
+        } else {
+          // 上記以外の失敗ケース (success: false や期待するデータがないなど)
+          setError(`結果の送信に失敗しました: ${apiResponse.message || '応答データが不完全です'}`);
+          console.error("回答提出エラー (予期せぬデータ形式):", apiResponse.message, apiResponse);
         }
-        
-      console.log("回答提出成功 (API Response):", response);
-      const detailedProblemResults: ProblemResult[] = response.results.problems;
-      endSession(detailedProblemResults); 
-      onComplete({}); 
-      saveCompletionData(difficulty, currentUser);
-        
-      } catch (error) {
-        console.error('回答提出エラー:', error);
-        setError('サーバーとの通信に失敗しました。ネットワーク接続を確認してください。');
+      } else {
+        // apiResponse 自体が存在しない異常ケース (null や undefined など)
+        setError('サーバーから予期せぬ応答がありました (レスポンスボディが空または不正)。');
+        console.error("回答提出エラー (レスポンスボディが空または不正):", apiResponse);
+      }
+
+    } catch (error) {
+      console.error('回答提出エラー (catch節):', error);
+      if (isAxiosError(error) && error.response && error.response.data && error.response.data.message) {
+        setError(`結果の送信に失敗しました: ${error.response.data.message}`);
+      } else {
+        setError('サーバーとの通信中にエラーが発生しました。');
+      }
     } finally {
       setIsLoading(false);
     }

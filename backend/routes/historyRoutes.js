@@ -1,6 +1,6 @@
-const express = require('express');
-const { getUserHistory, getHistoryDetail } = require('../controllers/historyController');
-const { protect } = require('../middleware/authMiddleware');
+import express from 'express';
+import { getUserHistory, getHistoryDetail } from '../controllers/historyController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -13,4 +13,4 @@ router.get('/', getUserHistory);
 // 履歴の詳細を取得 - 時間制限なし（いつでも閲覧可能）
 router.get('/:id', getHistoryDetail);
 
-module.exports = router; 
+export default router; 

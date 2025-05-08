@@ -456,8 +456,8 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
     let questionStr = '';
     let answer = undefined; 
     let typeForProblemObject = problemType; 
-
-    if (difficulty === DifficultyRank.BEGINNER) {
+         
+         if (difficulty === DifficultyRank.BEGINNER) {
       if (problemType === 'multiplication_table') {
         const num1 = getRandomInt(1, 9, currentSeed + 10);
         const num2 = getRandomInt(1, 9, currentSeed + 20);
@@ -497,7 +497,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
             if (num1 < num2) { // num1がnum2より小さい場合のみ調整
                 if (num1Digits === 1 && num2Digits === 1) { // 両方1桁なら入れ替えOK
                     [num1, num2] = [num2, num1];
-    } else {
+         } else {
                     // num1が2桁でnum2より小さい場合、またはnum1が1桁でnum2より小さい場合
                     // num1 を num2 以上になるように再生成 (例: num2 から (num2+50) の範囲で)
                     // ただし、maxResultValue も考慮する必要がある。

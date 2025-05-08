@@ -1,7 +1,7 @@
-const express = require('express');
-const { check } = require('express-validator');
-const { register, login, getMe, updateProfile, updatePassword } = require('../controllers/authController');
-const { protect } = require('../middleware/authMiddleware');
+import express from 'express';
+import { check } from 'express-validator';
+import { register, login, getMe, updateProfile, updatePassword } from '../controllers/authController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -29,4 +29,4 @@ router.put('/profile', protect, updateProfile);
 // パスワード更新 - 認証は必要だが時間制限なし
 router.put('/update-password', protect, updatePassword);
 
-module.exports = router;
+export default router;

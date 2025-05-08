@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProblemProvider, useProblem } from './contexts/ProblemContext';
 import { MainLayout } from './layouts/MainLayout';
@@ -63,6 +63,7 @@ const AppRoutes: React.FC = () => {
   const { user, login, logout, updateUser, loading } = useAuth();
   const { startSession, currentSession } = useProblem();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // AuthContext のローディングが完了するまで待機
   if (loading) {
@@ -188,7 +189,11 @@ const AppRoutes: React.FC = () => {
         />
         <Route
           path="/admin/generate"
-          element={<AdminRoute><ProblemGenerator /></AdminRoute>}
+          element={(
+            <AdminRoute>
+              <ProblemGenerator isActive={location.pathname === '/admin/generate'} />
+            </AdminRoute>
+          )}
         />
         <Route
           path="/admin/edit"
@@ -196,7 +201,7 @@ const AppRoutes: React.FC = () => {
         />
 
         {/* --- Not Found --- */}
-        <Route path="*" element={<div><h2>404 Not Found</h2><p>ページが見つかりません。</p></div>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>
     </MainLayout>

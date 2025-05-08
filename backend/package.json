@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "朝の計算問題アプリのバックエンド",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "cross-env NODE_ENV=development DISABLE_TIME_CHECK=true nodemon server.js",

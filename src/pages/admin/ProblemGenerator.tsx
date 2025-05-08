@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios'; // API通信用
 import { format } from 'date-fns'; // 日付フォーマット用
 import { DifficultyRank, difficultyToJapanese } from '@/types/difficulty';
+// import '@/styles/ProblemGenerator.css'; // スタイルファイルが存在しないためコメントアウト
 
 // スタイル用のCSSファイルも後で作成想定
 // import '@/styles/ProblemGenerator.css'; 
@@ -11,16 +12,23 @@ const availableDifficulties: DifficultyRank[] = ['beginner', 'intermediate', 'ad
 
 // 進捗状況の型定義
 interface GenerationStatus {
-  status: 'processing' | 'completed' | 'timeout' | 'partial' | 'error';
-  progress: number;
-  elapsedTime: number;
-  startTime: number;
-  endTime?: number;
-  count?: number;
-  error?: string;
+  status: 'pending' | 'processing' | 'completed' | 'error' | 'timeout';
+  message: string;
+  progress?: number;
+  total?: number;
+  problemsGenerated?: number; 
+  errorDetails?: string;
+  requestId?: string;
+  startTime?: number; // UI表示用に経過時間を計算するために追加
+  elapsedTime?: string; // UI表示用に経過時間を計算して格納
 }
 
-const ProblemGenerator: React.FC = () => {
+// ★ Propsの型定義を追加
+interface ProblemGeneratorProps {
+  isActive?: boolean; // オプショナルに変更
+}
+
+const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false }) => { // デフォルト値をfalseに設定
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyRank>('beginner');
   const [numberOfProblems, setNumberOfProblems] = useState<number>(10); // デフォルト10問
@@ -30,93 +38,105 @@ const ProblemGenerator: React.FC = () => {
   const [forceUpdate, setForceUpdate] = useState<boolean>(false);
   const [requestId, setRequestId] = useState<string | null>(null);
   const [status, setStatus] = useState<GenerationStatus | null>(null);
-  const [statusCheckInterval, setStatusCheckInterval] = useState<number | null>(null);
+  const [statusCheckInterval, setStatusCheckInterval] = useState<NodeJS.Timeout | null>(null);
 
-  // リクエスト状態を定期的に確認
+  // ★ マウント・アンマウント、isActive変更時のログ出力useEffect
   useEffect(() => {
-    if (requestId && isLoading) {
-      // 前回のインターバルがあれば解除
+    console.log(`[ProblemGenerator] useEffect - Component mounted or isActive changed. isActive: ${isActive}`);
+    return () => {
+      console.log('[ProblemGenerator] useEffect - Component unmounted.');
       if (statusCheckInterval) {
-        window.clearInterval(statusCheckInterval);
+        clearInterval(statusCheckInterval);
       }
-      
-      // 新しいインターバルを設定
-      const intervalId = window.setInterval(async () => {
-        await checkGenerationStatus(requestId);
-      }, 2000); // 2秒ごとにチェック
-      
-      setStatusCheckInterval(intervalId);
-      
-      // クリーンアップ
-      return () => {
-        if (intervalId) {
-          window.clearInterval(intervalId);
-        }
-      };
-    } else if (!isLoading && statusCheckInterval) {
-      // 読み込みが完了したらインターバル停止
-      window.clearInterval(statusCheckInterval);
-      setStatusCheckInterval(null);
-    }
-  }, [requestId, isLoading]);
+    };
+  }, [isActive, statusCheckInterval]);
 
-  const checkGenerationStatus = async (id: string) => {
+  const formatTime = (ms: number | undefined) => {
+    if (ms === undefined) return 'N/A';
+    const seconds = Math.floor((ms / 1000) % 60);
+    const minutes = Math.floor((ms / (1000 * 60)) % 60);
+    return `${minutes}分 ${seconds}秒`;
+  };
+
+  const checkGenerationStatus = useCallback(async (currentRequestId: string) => {
+    if (!currentRequestId) return;
     try {
-      // APIのベースURLを取得
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5003/api';
+      // ★ トークンを取得
       const token = localStorage.getItem('token');
-      
       if (!token) {
-        setError('認証トークンが見つかりません。ログインし直してください。');
+        console.error('[checkGenerationStatus] No token found. Cannot check status.');
+        // 必要に応じてエラーメッセージをユーザーに表示
+        setMessage('認証エラーが発生しました。再ログインしてください。');
         setIsLoading(false);
+        if (statusCheckInterval) clearInterval(statusCheckInterval);
         return;
       }
 
-      const response = await axios.get(
-        `${baseUrl}/problems/status/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      const response = await axios.get(`/api/problems/status/${currentRequestId}`, {
+        // ★ headers に Authorization を追加
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data: GenerationStatus = response.data.data;
+      
+      const currentElapsedTime = data.startTime ? formatTime(Date.now() - data.startTime) : 'N/A';
 
-      if (response.data.success) {
-        const generationStatus = response.data.data as GenerationStatus;
-        setStatus(generationStatus);
-        
-        // 状態に応じた処理
-        if (['completed', 'timeout', 'partial', 'error'].includes(generationStatus.status)) {
-          // 生成完了またはエラー時は読み込み状態を解除
-          setIsLoading(false);
-          
-          if (generationStatus.status === 'completed') {
-            setMessage(`問題の生成に成功しました (${selectedDate}, ${difficultyToJapanese(selectedDifficulty)}): ${generationStatus.count}問`);
-          } else if (generationStatus.status === 'timeout' || generationStatus.status === 'partial') {
-            setMessage(`一部の問題のみ生成されました (${generationStatus.count || 0}問)。詳細: ${generationStatus.status === 'timeout' ? 'タイムアウト' : '部分的に成功'}`);
-          } else if (generationStatus.status === 'error') {
-            setError(`問題生成中にエラーが発生しました: ${generationStatus.error || '不明なエラー'}`);
-          }
-          
-          // 完了時にリクエストIDをリセット
-          setRequestId(null);
+      setStatus(prevStatus => ({
+        ...data,
+        elapsedTime: currentElapsedTime,
+        // progress と total がない場合や、statusによって調整
+        progress: data.progress ?? prevStatus?.progress ?? 0,
+        total: data.total ?? prevStatus?.total ?? numberOfProblems, 
+      }));
+
+      if (data.status === 'completed' || data.status === 'error' || data.status === 'timeout') {
+        if (statusCheckInterval) {
+          clearInterval(statusCheckInterval);
+          setStatusCheckInterval(null);
+        }
+        setIsLoading(false);
+        setMessage(data.message || (data.status === 'completed' ? '問題生成が完了しました。' : '問題生成中にエラーが発生しました。'));
+        if (data.status === 'completed' && data.problemsGenerated) {
+            setMessage(prev => `${prev} ${data.problemsGenerated}問がデータベースに保存されました。`);
         }
       }
-    } catch (err) {
-      console.error('Status check error:', err);
-      // エラー時も読み込み状態を解除
+    } catch (error) {
+      console.error('ステータス確認エラー:', error);
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+        setStatusCheckInterval(null);
+      }
       setIsLoading(false);
-      setRequestId(null);
+      setStatus(prev => ({ 
+        status: 'error', 
+        message: 'ステータス確認中にエラーが発生しました。',
+        errorDetails: error instanceof Error ? error.message : String(error),
+        requestId: currentRequestId,
+        elapsedTime: prev?.elapsedTime || formatTime(prev?.startTime ? Date.now() - prev.startTime : undefined)
+      }));
     }
-  };
+  }, [statusCheckInterval, numberOfProblems]);
 
   const handleGenerate = async () => {
+    // ★ is Active チェック直前のログ
+    console.log('[ProblemGenerator] handleGenerate - Checking isActive:', isActive);
+    // ★ ガード節を追加: 非アクティブなら処理中断
+    if (!isActive) {
+      console.warn('[ProblemGenerator.tsx] handleGenerate called but component is not active. Aborting.');
+      return;
+    }
+    
+    console.log('[ProblemGenerator.tsx] handleGenerate called. Current view might be ProblemEditor.');
     setIsLoading(true);
     setMessage(null);
     setError(null);
     setStatus(null);
     setRequestId(null);
+    if (statusCheckInterval) {
+      clearInterval(statusCheckInterval);
+      setStatusCheckInterval(null);
+    }
 
     try {
       // 認証トークンを取得（localStorage または sessionStorage から）
@@ -150,16 +170,24 @@ const ProblemGenerator: React.FC = () => {
 
       if (response.data.success) {
         if (response.data.requestId) {
+          const newRequestIdFromServer = response.data.requestId as string;
           // リクエストIDを保存して進捗状況確認を開始
-          setRequestId(response.data.requestId);
+          setRequestId(newRequestIdFromServer);
           setStatus({
+            requestId: newRequestIdFromServer,
             status: 'processing',
+            message: response.data.message || '生成処理を開始しました。進捗を確認しています...',
             progress: 0,
+            total: numberOfProblems,
             startTime: Date.now(),
-            elapsedTime: 0
+            elapsedTime: undefined
           });
+          // 進捗確認のインターバルを開始
+          if (statusCheckInterval) clearInterval(statusCheckInterval);
+          const intervalId = setInterval(() => checkGenerationStatus(newRequestIdFromServer), 2000);
+          setStatusCheckInterval(intervalId);
         } else {
-          // 従来の即時応答の場合
+          // 従来の即時応答の場合 (requestIdがない場合)
           setMessage(`${response.data.message || '問題の生成に成功しました。'} (${selectedDate}, ${difficultyToJapanese(selectedDifficulty)})`);
           setForceUpdate(false); // 成功したらforceUpdateをリセット
           setIsLoading(false);
@@ -225,6 +253,9 @@ const ProblemGenerator: React.FC = () => {
       setNumberOfProblems(maxProblems);
     }
   };
+
+  // ★ レンダリング時の isActive ログ
+  console.log('[ProblemGenerator] Rendering. isActive:', isActive);
 
   return (
     <div className="problem-generator-container">
@@ -301,17 +332,23 @@ const ProblemGenerator: React.FC = () => {
       </div>
 
       {isLoading && status && (
-        <div className="progress-container">
-          <div className="progress-bar">
-            <div 
-              className="progress-bar-fill" 
-              style={{ width: `${status.progress}%` }}
-            ></div>
-          </div>
-          <div className="progress-info">
-            <p>進捗: {Math.round(status.progress)}%</p>
-            <p>経過時間: {Math.floor(status.elapsedTime / 1000)}秒</p>
-          </div>
+        <div className="status-container">
+          <h4>生成ステータス (ID: {status.requestId})</h4>
+          <p>状態: {status.status}</p>
+          <p>メッセージ: {status.message}</p>
+          {status.progress !== undefined && status.total !== undefined && (
+            <div className="progress-bar-container">
+              <div 
+                className="progress-bar"
+                style={{ width: `${(status.progress / (status.total || 1)) * 100}%` }}
+              >
+                {Math.round((status.progress / (status.total || 1)) * 100)}%
+              </div>
+            </div>
+          )}
+          <p>経過時間: {status.elapsedTime || formatTime(status.startTime ? Date.now() - status.startTime : undefined)}</p>
+          {status.problemsGenerated !== undefined && <p>生成済み問題数: {status.problemsGenerated}</p>}
+          {status.errorDetails && <p className="error-details">詳細: {status.errorDetails}</p>}
         </div>
       )}
 

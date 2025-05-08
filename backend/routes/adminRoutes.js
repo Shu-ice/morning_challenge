@@ -1,13 +1,13 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { protect } = require('../middleware/authMiddleware');
-const { admin } = require('../middleware/adminMiddleware');
-const { 
+import { protect } from '../middleware/authMiddleware.js';
+import { admin } from '../middleware/adminMiddleware.js';
+import { 
     generateProblemsByAdmin, 
     getProblemsForAdmin,      // インポート
     updateProblemByAdmin,     // インポート
     getDashboardData         // 新しく追加
-} = require('../controllers/adminController');
+} from '../controllers/adminController.js';
 
 // 全ての管理者ルートに認証と管理者チェックを適用
 router.use(protect, admin);
@@ -24,4 +24,4 @@ router.put('/problems/:id', updateProblemByAdmin);
 // 管理者用ダッシュボード情報取得
 router.get('/dashboard', getDashboardData);
 
-module.exports = router; 
+export default router; 
