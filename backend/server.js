@@ -99,6 +99,7 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api/auth', authRoutes);
 app.use('/api/problems', problemRoutes);
 app.use('/api/results', resultRoutes);
+
 app.use('/api/rankings', rankingRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/admin', adminRoutes);
@@ -145,7 +146,7 @@ async function startServer() {
     await connectDB(); // DB接続を待つ
     await ensureAdminUser(); // 管理者アカウントの確認/作成を待つ
 
-    const PORT = process.env.PORT || 5000;
+    const PORT = process.env.PORT || 5001;
     const serverInstance = app.listen(PORT, () => { // listenの戻り値をserverInstanceに
       console.log(`サーバーが${PORT}番ポートで起動しました（${process.env.NODE_ENV || 'not set'}モード）`);
       console.log(`サーバータイムアウト: ${serverTimeout / 1000}秒`);

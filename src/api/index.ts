@@ -400,15 +400,15 @@ const rankingAPI = {
     if (difficulty) params.append('difficulty', difficulty);
     return API.get(`/rankings?${params.toString()}`);
   },
-  getDaily: async (limit: number = 10, difficulty?: DifficultyRank) => {
+  getDaily: async (limit: number = 10, difficulty?: DifficultyRank, date?: string) => {
     try {
-      console.log(`[API] ランキング取得リクエスト: difficulty=${difficulty || 'すべて'}, limit=${limit}`);
+      console.log(`[API] ランキング取得リクエスト: difficulty=${difficulty || 'すべて'}, limit=${limit}, date=${date || '今日'}`);
       
       const params = new URLSearchParams();
       if (limit) params.append('limit', limit.toString());
       if (difficulty) params.append('difficulty', difficulty);
+      if (date) params.append('date', date);
       
-      // トークンがあるか確認（認証済みユーザーのみランキング取得可能）
       const token = localStorage.getItem('token');
       if (!token) {
         console.warn('[API] 認証トークンがありません。ランキング取得に失敗する可能性があります。');

@@ -27,8 +27,12 @@ const HistorySchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  timeSpent: { // 解答にかかった時間 (秒)
+  timeSpent: { // 解答にかかった時間 (ミリ秒)
     type: Number, 
+    required: true
+  },
+  totalTime: { // 解答にかかった時間 (ミリ秒、timeSpentと冗長だがフロント互換性のため)
+    type: Number,
     required: true
   },
   problems: [{ // 解答した問題の詳細 (オプション)

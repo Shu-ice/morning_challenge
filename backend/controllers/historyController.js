@@ -49,7 +49,7 @@ export const getUserHistory = async (req, res) => {
       totalProblems: item.totalProblems,
       correctAnswers: item.correctAnswers,
       score: item.score,
-      timeSpent: item.timeSpent,
+      totalTime: item.totalTime,
       timestamp: item.timestamp
       // 問題詳細はデータ量が多いので、ここでは返さない。詳細APIを別途作ることも可能
     }));

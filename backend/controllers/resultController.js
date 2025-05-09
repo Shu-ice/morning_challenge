@@ -140,7 +140,6 @@ export const saveResult = async (req, res) => {
     const totalProblems = problemIds.length;
     const incorrectAnswersCount = totalProblems - correctAnswersCount - unansweredCount;
     const calculatedScore = correctAnswersCount * 10;
-    const timeSpentSeconds = Math.round(timeSpentMs / 1000);
 
     const result = await Result.create({
       userId: userId,
@@ -151,7 +150,7 @@ export const saveResult = async (req, res) => {
       incorrectAnswers: incorrectAnswersCount,
       unanswered: unansweredCount,
       totalTime: timeSpentMs,
-      timeSpent: timeSpentSeconds,
+      timeSpent: timeSpentMs,
       score: calculatedScore,
       difficulty: difficulty.toLowerCase(),
       date: date,
@@ -167,7 +166,8 @@ export const saveResult = async (req, res) => {
         incorrectAnswers: incorrectAnswersCount,
         unanswered: unansweredCount,
         score: calculatedScore,
-        timeSpent: timeSpentSeconds,
+        timeSpent: timeSpentMs,
+        totalTime: timeSpentMs,
         date,
         problems: problemResults.map((pr, index) => {
           const dbProblem = problemMap.get(problemIds[index]);

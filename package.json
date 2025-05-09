@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev:frontend": "vite",
-    "dev:backend": "cross-env BACKEND_PORT=5003 DISABLE_TIME_CHECK=true MONGODB_MOCK=true node --experimental-modules backend/server.js",
+    "dev:backend": "cross-env DISABLE_TIME_CHECK=true MONGODB_MOCK=true node --experimental-modules backend/server.js",
     "dev:prod": "concurrently \"npm run dev:frontend\" \"npm run dev:backend:prod\"",
     "dev:backend:prod": "cd server && cross-env DISABLE_TIME_CHECK=true MONGODB_MOCK=false node server.js",
     "build": "tsc && vite build",

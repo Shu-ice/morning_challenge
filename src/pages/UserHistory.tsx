@@ -167,15 +167,17 @@ const UserHistory = () => {
     }
   };
   
-  // 時間をフォーマットする関数 (秒 -> 0.01秒単位)
-  const formatTime = (seconds: number | undefined): string => {
-    if (seconds === undefined || seconds === null) return '-'; // undefined/null 対応
+  // 時間をフォーマットする関数 (ミリ秒 -> 0.01秒単位)
+  const formatTime = (milliseconds: number | undefined): string => {
+    if (milliseconds === undefined || milliseconds === null || isNaN(milliseconds)) return '-'; // undefined/null/NaN 対応
     try {
-      // 秒を小数点以下2桁まで表示
+      // ミリ秒を秒に変換し、小数点以下2桁まで表示
+      const seconds = milliseconds / 1000;
       return `${seconds.toFixed(2)}秒`;
     } catch (e) {
       console.error('時間フォーマットエラー:', e);
-      return `${seconds}秒`;
+      // エラーの場合は元のミリ秒数をそのまま表示（デバッグ用）
+      return `${milliseconds} ms`;
     }
   };
 
@@ -250,7 +252,7 @@ const UserHistory = () => {
                     <td className="difficulty-column">{difficultyToJapanese(item.difficulty as DifficultyRank)}</td>
                     <td className="rank-column">{item.rank || '-'}</td>
                     <td className="correct-column">{`${item.correctAnswers ?? '?'} / ${item.totalProblems ?? 10}`}</td>
-                    <td className="time-column">{formatTime(item.timeSpent)}</td>
+                    <td className="time-column">{formatTime(item.totalTime)}</td>
                   </tr>
                 ))}
               </tbody>

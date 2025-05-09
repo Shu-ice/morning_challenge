@@ -32,12 +32,12 @@ const ResultSchema = new mongoose.Schema({
     required: true
   },
   timeSpent: {
-    type: Number, // 秒単位
+    type: Number, // ミリ秒単位
     required: true
   },
   totalTime: {
     type: Number, // ミリ秒単位（フロントエンドとの一貫性のため）
-    required: false
+    required: true
   },
   correctAnswers: {
     type: Number,

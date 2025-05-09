@@ -5,6 +5,7 @@ import { ProblemResult } from '@/types/index';
 import { difficultyToJapanese, DifficultyRank, japaneseToDifficulty } from '@/types/difficulty';
 import { GRADE_OPTIONS } from '@/types/grades';
 import { rankingAPI } from '../api/index';
+import { format, subDays, eachDayOfInterval } from 'date-fns';
 
 interface RankingsProps {
   results?: Results;
@@ -61,6 +62,12 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
     const savedDifficulty = localStorage.getItem('selectedDifficultyFromResults');
     return (savedDifficulty as DifficultyRank) || 'beginner';
   });
+  const today = new Date();
+  const lastWeek = subDays(today, 6);
+  const dateOptions = eachDayOfInterval({ start: lastWeek, end: today })
+    .map(date => format(date, 'yyyy-MM-dd'))
+    .reverse();
+  const [selectedDate, setSelectedDate] = useState<string>(dateOptions[0]);
   const [currentUser, setCurrentUser] = useState<UserData | null>(getUserData());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,22 +78,21 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
         setIsLoading(true);
         setError(null);
         
-        // APIからランキングデータを取得 (難易度で絞り込み)
-        const response = await rankingAPI.getDaily(20, selectedDifficulty);
+        console.log(`[RankingsPage] Fetching rankings for date: ${selectedDate}, difficulty: ${selectedDifficulty}`);
+        const response = await rankingAPI.getDaily(20, selectedDifficulty, selectedDate);
         console.log('ランキングデータ取得:', response);
         
-        if (response.success && response.data && response.data.rankings) {
-          setRankings(response.data.rankings.map((item: any) => ({
+        if (response.success && response.data && response.data.data) {
+          setRankings(response.data.data.map((item: any) => ({
             difficulty: selectedDifficulty,
             timestamp: new Date().toISOString(),
             correctAnswers: item.correctAnswers || 0,
             totalProblems: item.totalProblems || 10,
-            timeSpent: item.timeSpent || 0,
-            username: item.username || 'ゲスト',
-            grade: item.grade || '不明',
-            incorrectAnswers: item.incorrectAnswers || 0,
+            username: item.user?.username || '不明なユーザー',
+            grade: item.user?.grade || '不明',
+            incorrectAnswers: (item.totalProblems || 10) - (item.correctAnswers || 0),
             unanswered: 0,
-            totalTime: item.totalTime || item.timeSpent * 1000,
+            totalTime: item.totalTime || 0,
             score: item.score || 0,
             rank: item.rank,
             problems: []
@@ -107,7 +113,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
     };
     
     fetchRankings();
-  }, [selectedDifficulty]);
+  }, [selectedDifficulty, selectedDate]);
 
   // 難易度でフィルタリング
   const filteredRankings = rankings.filter(r => r && r.difficulty && r.difficulty === selectedDifficulty);
@@ -115,19 +121,20 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
   // ランキング計算とソート
   const sortedRankings = filteredRankings
     .sort((a, b) => {
-      if (a.correctAnswers !== b.correctAnswers) {
-        return b.correctAnswers - a.correctAnswers;
+      if (a.score !== b.score) {
+        return b.score - a.score;
       }
-      return a.timeSpent - b.timeSpent;
+      return a.totalTime - b.totalTime;
     })
     .map((item, index) => ({
       ...item,
       calculatedRank: index + 1
     }));
   
-  // 所要時間のフォーマット (秒単位で小数点以下2桁まで表示)
-  const formatTimeSpent = (timeInSeconds: number) => {
-    // 小数点以下が整数の場合も小数点以下2桁まで表示（四捨五入せず元の値を維持）
+  // 所要時間のフォーマット (ミリ秒 -> 秒単位で小数点以下2桁まで表示)
+  const formatTimeSpent = (timeInMilliseconds: number) => {
+    if (timeInMilliseconds === undefined || timeInMilliseconds === null || isNaN(timeInMilliseconds)) return '-';
+    const timeInSeconds = timeInMilliseconds / 1000;
     return `${timeInSeconds.toFixed(2)}秒`;
   };
 
@@ -171,6 +178,19 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
             <option value="expert">超級</option>
           </select>
         </div>
+        <div className="filter-group">
+          <label htmlFor="date-select">日付:</label>
+          <select 
+            id="date-select"
+            value={selectedDate} 
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="filter-select"
+          >
+            {dateOptions.map(dateStr => (
+              <option key={dateStr} value={dateStr}>{dateStr}</option>
+            ))}
+          </select>
+        </div>
       </div>
       
         <div className="rankings-list">
@@ -199,7 +219,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
                 <div className="grade-column">{formatGrade(ranking.grade)}</div>
                 <div className="score-column">{ranking.correctAnswers}/{ranking.totalProblems}</div>
                 <div className="time-column">
-                  {formatTimeSpent(ranking.timeSpent)}
+                  {formatTimeSpent(ranking.totalTime)}
                 </div>
               </div>
             );

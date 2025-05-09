@@ -76,43 +76,51 @@ export const getAllRankings = async (req, res) => {
  */
 export const getDailyRanking = async (req, res) => {
   try {
-    const { difficulty } = req.query;
+    const { difficulty, date: dateQuery } = req.query;
+    console.log(`[Rankings] getDailyRanking: difficulty query = ${difficulty}, date query = ${dateQuery}`);
     
-    // ★ 今日の日付を "YYYY-MM-DD" 形式の文字列で取得
-    const today = new Date();
-    const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    let targetDateString;
+    if (dateQuery && /^\d{4}-\d{2}-\d{2}$/.test(dateQuery)) {
+      targetDateString = dateQuery;
+      console.log(`[Rankings] getDailyRanking: Using date from query = ${targetDateString}`);
+    } else {
+      const today = new Date();
+      targetDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      console.log(`[Rankings] getDailyRanking: Using today date = ${targetDateString}`);
+    }
     
-    // クエリ条件 (date は文字列で完全一致)
     const query = {
-      date: todayString 
+      date: targetDateString
     };
-    
-    // 難易度フィルター（もし指定されていれば）
     if (difficulty) {
       query.difficulty = difficulty;
     }
+    console.log('[Rankings] getDailyRanking: Query conditions =', JSON.stringify(query, null, 2));
     
-    // スコア順にランキングを取得
+    const rankingsRaw = await Result.find(query)
+      .sort({ score: -1, totalTime: 1 })
+      .limit(50);
+    console.log('[Rankings] getDailyRanking: Results from DB (before populate) =', JSON.stringify(rankingsRaw, null, 2));
+
     const rankings = await Result.find(query)
-      .sort({ score: -1, totalTime: 1 }) // scoreフィールドはResultモデルに存在
+      .sort({ score: -1, totalTime: 1 })
       .limit(50)
       .populate('userId', 'username avatar grade streak');
+    console.log('[Rankings] getDailyRanking: Results from DB (after populate) =', JSON.stringify(rankings, null, 2));
     
-    // レスポンス用にデータを整形
     const formattedRankings = rankings.map((result, index) => {
-      // ★★★ populate されたユーザー情報が存在するかチェック ★★★
       const userPopulated = result.userId && typeof result.userId === 'object';
       
       return {
         rank: index + 1,
         id: result._id,
-        user: userPopulated ? { // ★ 存在する場合のみユーザー情報をセット
+        user: userPopulated ? {
           id: result.userId._id,
           username: result.userId.username,
           avatar: result.userId.avatar,
           grade: result.userId.grade,
           streak: result.userId.streak
-        } : { // ★ 存在しない場合のデフォルト値
+        } : {
           id: null,
           username: '不明なユーザー',
           avatar: '',
@@ -121,12 +129,11 @@ export const getDailyRanking = async (req, res) => {
         },
         correctAnswers: result.correctAnswers,
         totalProblems: result.totalProblems,
-        totalTime: Math.round(result.totalTime / 1000),
+        totalTime: result.totalTime,
         date: result.date
       }
-    }).filter(r => r.user.id !== null); // ★ populateできなかった結果を除外 (オプション)
+    }).filter(r => r.user.id !== null);
     
-    // 認証済みユーザーの場合、自分の順位も取得
     let userRanking = null;
     if (req.user) {
       const userResult = await Result.findOne({
@@ -135,7 +142,6 @@ export const getDailyRanking = async (req, res) => {
       }).sort({ score: -1, totalTime: 1 });
       
       if (userResult) {
-        // 自分より上位のスコアの数を数える
         const higherScoresCount = await Result.countDocuments({
           ...query,
           $or: [
@@ -159,12 +165,15 @@ export const getDailyRanking = async (req, res) => {
       }
     }
     
-    res.status(200).json({
+    const responseData = {
       success: true,
       count: formattedRankings.length,
       userRanking,
       data: formattedRankings
-    });
+    };
+    console.log('[Rankings] getDailyRanking: Final response data =', JSON.stringify(responseData, null, 2));
+
+    res.status(200).json(responseData);
   } catch (error) {
     console.error('日間ランキング取得エラー:', error);
     res.status(500).json({
