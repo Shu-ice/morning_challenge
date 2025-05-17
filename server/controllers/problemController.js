@@ -1,6 +1,7 @@
 const Record = require('../models/recordModel');
 const User = require('../models/userModel');
 const Result = require('../models/resultModel');
+const DailyProblemSet = require('../models/dailyProblemSetModel');
 
 // 問題生成の関数（フロントエンドの実装と同様のロジック）
 const generateProblems = (grade) => {
@@ -212,12 +213,32 @@ const submitAnswers = async (req, res) => {
     console.log(`[Submit] 問題セット取得: date=${date}, difficulty=${difficulty}`);
     
     // 問題セットを取得（DB連携またはモック）
-    const problemSet = await getProblemSetForDate({ date, difficulty });
+    const problemSet = await DailyProblemSet.findOne({ date, difficulty });
     
+    // ★ デバッグログ: 取得した問題セットとanswersの長さを確認
+    console.log(`[Submit Controller] Date: ${date}, Difficulty: ${difficulty}`);
+    if (problemSet && problemSet.problems) {
+      console.log(`[Submit Controller] Expected problems count from DB: ${problemSet.problems.length}`);
+    } else {
+      console.log(`[Submit Controller] Problem set not found in DB for date: ${date}, difficulty: ${difficulty}`);
+    }
+    console.log(`[Submit Controller] Received answers count: ${answers ? answers.length : 'N/A'}`);
+    // ★ デバッグログここまで
+
     if (!problemSet || !problemSet.problems || problemSet.problems.length === 0) {
       return res.status(404).json({ 
         success: false, 
         message: `指定された日付と難易度の問題が見つかりません: ${date} (${difficulty})` 
+      });
+    }
+    
+    // 問題IDリストと解答リストの形式と数を検証
+    // DailyProblemSet の problems は correctAnswer を持つので、 problem.id は不要
+    if (!Array.isArray(answers) || (problemSet && problemSet.problems && problemSet.problems.length !== answers.length)) {
+      console.error(`[Submit Controller] Validation Error: Expected ${problemSet?.problems?.length} problems, but received ${answers?.length} answers.`); // ★ エラー詳細ログ
+      return res.status(400).json({
+        success: false,
+        error: '問題IDリストと解答リストの形式が無効か、数が一致しません。'
       });
     }
     

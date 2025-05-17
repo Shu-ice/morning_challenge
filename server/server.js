@@ -430,16 +430,16 @@ const startServer = async () => {
         app.use('/api/rankings', rankingRoutes);
 
         app.get('/api/problems', protect, async (req, res) => { // コメントアウトを解除
-          const { difficulty, date } = req.query;
+      const { difficulty, date } = req.query;
           const userId = req.user._id; 
           const isAdmin = req.user.isAdmin; 
           // ...(元の処理)... 現状は省略し、動作確認後に復元
-          if (!difficulty || !Object.values(DifficultyRank).includes(difficulty)) {
-            return res.status(400).json({
-              success: false,
-              message: '有効な難易度(beginner, intermediate, advanced, expert)を指定してください。'
-            });
-          }
+      if (!difficulty || !Object.values(DifficultyRank).includes(difficulty)) {
+        return res.status(400).json({
+          success: false,
+          message: '有効な難易度(beginner, intermediate, advanced, expert)を指定してください。'
+        });
+      }
           // このルートの完全な処理は長いため、一旦ここまでとし、後で元のコードに戻す前提
           console.log(`[API /api/problems] User: ${userId}, Admin: ${isAdmin}, Difficulty: ${difficulty}, Date: ${date}`);
           res.json({success:true, message: "/api/problems accessed (server/server.js)"}); 
@@ -473,7 +473,7 @@ const startServer = async () => {
           // ...(元の処理)... 現状は省略
           console.log(`[API /api/problems/edit POST] User: ${req.user?._id}, Admin: ${req.user?.isAdmin}`);
           res.json({success:true, message: "/api/problems/edit POST accessed (server/server.js)"}); 
-        });
+    });
 
         // ★ 未定義ルートの処理 (404 Not Found)
         app.use(notFound);
@@ -495,10 +495,10 @@ const startServer = async () => {
             });
         });
 
-    } catch (error) {
+  } catch (error) {
         console.error('サーバー起動中にエラーが発生しました:', error);
         process.exit(1);
-    }
+  }
 };
 
 // --- startServer 関数の呼び出し (ファイルの末尾) ---

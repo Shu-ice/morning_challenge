@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Problem, ProblemResult, PracticeSession, DifficultyRank } from '../types';
+import { Problem, ProblemResult, PracticeSession, DifficultyRank, ApiResult } from '../types';
 
 interface ProblemContextType {
   currentProblem: Problem | null;
@@ -7,7 +7,7 @@ interface ProblemContextType {
   results: ProblemResult[];
   setCurrentProblem: (problem: Problem | null) => void;
   startSession: (difficulty: DifficultyRank) => void;
-  endSession: (detailedResults: ProblemResult[]) => void;
+  finalizeSession: (detailedResults: ProblemResult[], apiResult: ApiResult) => void;
   resetSession: () => void;
 }
 
@@ -32,18 +32,20 @@ export const ProblemProvider: React.FC<{ children: ReactNode }> = ({ children })
     setResults([]);
   };
 
-  const endSession = (detailedResults: ProblemResult[]) => {
+  const finalizeSession = (detailedResults: ProblemResult[], apiResult: ApiResult) => {
     if (currentSession) {
-      const finalScore = calculateScore(detailedResults, currentSession.difficulty);
+      const scoreFromServer = apiResult.score;
+      const timeSpentFromServer = apiResult.timeSpent;
+
       const finalSession: PracticeSession = {
         ...currentSession,
-        endTime: new Date().toISOString(),
+        endTime: currentSession.startTime ? new Date(new Date(currentSession.startTime).getTime() + timeSpentFromServer).toISOString() : new Date().toISOString(),
         results: detailedResults,
-        score: finalScore,
+        score: scoreFromServer,
       };
       setCurrentSession(finalSession);
       setResults(detailedResults);
-      console.log('[ProblemContext] Session ended with detailed results:', finalSession);
+      console.log('[ProblemContext] Session finalized with API results:', finalSession);
     }
   };
 
@@ -81,7 +83,7 @@ export const ProblemProvider: React.FC<{ children: ReactNode }> = ({ children })
         results,
         setCurrentProblem,
         startSession,
-        endSession,
+        finalizeSession,
         resetSession,
       }}
     >

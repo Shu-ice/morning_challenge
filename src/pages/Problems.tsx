@@ -166,7 +166,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 初回レンダリング時のみ実行
   const { count: remainingTime, startCountdown } = usePreciseCountdown(300);
-  const { endSession } = useProblem();
+  const { finalizeSession } = useProblem(); // ★ finalizeSession を使用
 
   // Load user data and token from localStorage
   useEffect(() => {
@@ -305,69 +305,66 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   // ★ handleComplete をサーバー送信ロジックに変更
   const handleComplete = async (finalAnswers: string[]) => {
-    if (!currentUser || !currentUser._id || !currentProblems || currentProblems.length === 0) {
-      setError('ユーザー情報または問題データが不足しています。結果を送信できませんでした。');
-      return;
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
     }
     const endTime = Date.now();
-    const timeSpentMs = startTime ? (endTime - startTime) : 0;
-    const problemIds = currentProblems.map(p => p.id);
+    const timeTaken = startTime ? endTime - startTime : 0;
 
-    console.log('[Problems] Submitting answers with IDs. Time(ms):', timeSpentMs, 'Problem IDs:', problemIds, 'Answers:', finalAnswers);
-    setIsLoading(true);
+    // ユーザー情報を取得（ローカルストレージから）
+    const storedUser = localStorage.getItem('user');
+    const userId = storedUser ? (JSON.parse(storedUser) as UserData)._id : 'unknown_user';
+
+    // デバッグログ
+    console.log('[Problems] handleComplete called.');
+    console.log('[Problems] Submitting with:', {
+      difficulty: difficulty,
+      date: selectedDate, // ★ 選択された日付を使用
+      answers: finalAnswers,
+      timeSpent: timeTaken, 
+      userId: userId
+    });
 
     try {
-      // problemsAPI.submitAnswers はバックエンドのJSONボディを直接返すと想定
-      const apiResponse = await problemsAPI.submitAnswers({
-        difficulty,
-        date: selectedDate,
-        problemIds,
+      // problemsAPI.submitAnswers を呼び出し
+      const response = await problemsAPI.submitAnswers({
+        difficulty: difficulty,
+        date: selectedDate, // ★ 選択された日付を使用
         answers: finalAnswers,
-        timeSpentMs,
-        userId: currentUser._id,
+        timeSpent: timeTaken, // ここはフロントエンドで計測した時間
+        userId: userId,
       });
+      
+      console.log('[Problems] API submitAnswers response:', response);
 
-      // ★★★ ログは一時的にコメントアウトまたは削除 ★★★
-      // console.log("[Problems] Raw response from problemsAPI.submitAnswers:", JSON.stringify(apiResponse, null, 2));
-      // if (apiResponse) { // apiResponse が null や undefined でないことの確認は下記で行う
-      //   console.log("[Problems] apiResponse (should be backend JSON body):", JSON.stringify(apiResponse, null, 2));
-      // }
+      if (response && response.success && response.result) {
+        // サーバーからの実績値を取得
+        const apiResultFromServer = response.result; // response.result が ApiResult 型と想定
 
-      const isAdmin = currentUser?.isAdmin === true;
+        // ProblemContext の finalizeSession を呼び出し、サーバーからの結果を渡す
+        // ProblemResult[] を作成する必要がある。現状 finalAnswers (string[]) しかない。
+        // ここでは仮に、サーバーレスポンスの problemResults を使うか、
+        // もしくは finalizeSession が finalAnswers を受け取れるように変更する必要がある。
+        // 今回は、サーバーから返る problemResults を使うことにする。
+        finalizeSession(apiResultFromServer.problemResults, apiResultFromServer);
 
-      if (apiResponse) { // apiResponse (バックエンドのJSONボディ) が存在するかチェック
-        if (apiResponse.alreadyExists && !isAdmin) {
-          // 一般ユーザーで既に存在する場合
-          setError(apiResponse.message || '本日は既に参加済みです。');
-          console.warn("回答提出済み (一般ユーザー):", apiResponse.message, apiResponse);
-        } else if (apiResponse.success && apiResponse.data && apiResponse.data.problems) {
-          // 初回成功時、または管理者が上書き成功した場合
-          // (管理者が上書きした場合、バックエンドは alreadyExists:false または undefined で、success:true, data:{problems:[...]} を返す)
-          console.log("回答提出成功:", apiResponse);
-          const detailedProblemResults: ProblemResult[] = apiResponse.data.problems;
-          endSession(detailedProblemResults);
-          onComplete({});
-          saveCompletionData(difficulty, currentUser);
-        } else {
-          // 上記以外の失敗ケース (success: false や期待するデータがないなど)
-          setError(`結果の送信に失敗しました: ${apiResponse.message || '応答データが不完全です'}`);
-          console.error("回答提出エラー (予期せぬデータ形式):", apiResponse.message, apiResponse);
-        }
+        // ローカルストレージに完了情報を保存
+        saveCompletionData(difficulty, currentUser);
+        onComplete(response); // onComplete にはAPIレスポンス全体を渡す
       } else {
-        // apiResponse 自体が存在しない異常ケース (null や undefined など)
-        setError('サーバーから予期せぬ応答がありました (レスポンスボディが空または不正)。');
-        console.error("回答提出エラー (レスポンスボディが空または不正):", apiResponse);
+        console.error('[Problems] Answer submission failed or unexpected response:', response);
+        setError(response?.message || '回答の送信に失敗しました。データ形式を確認してください。');
+        // finalizeSession を呼ぶべきか検討。エラー時は呼ばない方が良いかもしれない。
+        // あるいは、エラー用のセッション終了処理を設ける。
+        // ここでは、エラー時は古い endSession のような形で、フロントエンド時間でセッションを終了する想定はしない。
       }
-
     } catch (error) {
-      console.error('回答提出エラー (catch節):', error);
-      if (isAxiosError(error) && error.response && error.response.data && error.response.data.message) {
-        setError(`結果の送信に失敗しました: ${error.response.data.message}`);
+      console.error('[Problems] Error submitting answers:', error);
+      if (isAxiosError(error) && error.response) {
+        setError(error.response.data.message || '回答の送信中にエラーが発生しました。');
       } else {
-        setError('サーバーとの通信中にエラーが発生しました。');
+        setError('回答の送信中に不明なエラーが発生しました。');
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 

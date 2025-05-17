@@ -77,4 +77,22 @@ export interface Results {
   date?: string; // YYYY-MM-DD 形式の日付
   // username?: string; // ユーザー名も必要なら追加
   // userId?: string; // ユーザーIDも必要なら追加
+}
+
+// APIレスポンスの result 部分の型 (submitAnswers)
+export interface ApiResult {
+  _id: string;
+  userId: string;
+  username: string;
+  problemResults: ProblemResult[]; 
+  totalProblems: number;
+  correctAnswers: number;
+  incorrectAnswers: number;
+  unanswered: number;
+  totalTime: number; // ミリ秒単位の timeSpent
+  timeSpent: number; // ミリ秒単位の timeSpent
+  score: number;
+  difficulty: DifficultyRank; 
+  date: string;
+  // rank?: number; // ランキングはレスポンスのトップレベルにあることが多い
 } 
