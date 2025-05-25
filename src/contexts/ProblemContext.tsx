@@ -35,17 +35,23 @@ export const ProblemProvider: React.FC<{ children: ReactNode }> = ({ children })
   const finalizeSession = (detailedResults: ProblemResult[], apiResult: ApiResult) => {
     if (currentSession) {
       const scoreFromServer = apiResult.score;
-      const timeSpentFromServer = apiResult.timeSpent;
+      
+      // APIレスポンスからサーバー基準の startTime と endTime (数値タイムスタンプ) を取得
+      const serverStartTimeMs = apiResult.startTime;
+      const serverEndTimeMs = apiResult.endTime;
+      const serverTotalTimeMs = apiResult.totalTime; // APIからtotalTimeを取得
 
       const finalSession: PracticeSession = {
-        ...currentSession,
-        endTime: currentSession.startTime ? new Date(new Date(currentSession.startTime).getTime() + timeSpentFromServer).toISOString() : new Date().toISOString(),
-        results: detailedResults,
+        ...currentSession, // id, userId, difficulty は元のセッションのものを維持
+        startTime: new Date(serverStartTimeMs).toISOString(), // サーバーの開始時刻 (ISO文字列に変換)
+        endTime: new Date(serverEndTimeMs).toISOString(),   // サーバーの終了時刻 (ISO文字列に変換)
+        results: detailedResults, // これは引数で渡ってくるのでそのまま使用
         score: scoreFromServer,
+        totalTime: serverTotalTimeMs, // ★ totalTime を設定
       };
       setCurrentSession(finalSession);
-      setResults(detailedResults);
-      console.log('[ProblemContext] Session finalized with API results:', finalSession);
+      setResults(detailedResults); // results は問題ごとの詳細なので、これも引数のものをセット
+      console.log('[ProblemContext] Session finalized with API results (using server times):', finalSession);
     }
   };
 

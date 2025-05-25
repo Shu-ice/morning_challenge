@@ -16,6 +16,7 @@ const generateToken = (userId) => {
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = async (req, res, next) => {
+  console.log('[authController] registerUser function started');
   const { username, email, password, grade, avatar } = req.body;
 
   try {
@@ -76,16 +77,24 @@ const registerUser = async (req, res, next) => {
 // @route   POST /api/auth/login
 // @access  Public
 const loginUser = async (req, res, next) => {
+  const startTime = Date.now();
+  console.log(`[${new Date(startTime).toISOString()}] [authController] loginUser function started`);
   const { email, password } = req.body;
   console.log(`[Login attempt] Email: ${email}, Password provided: ${password ? 'Yes' : 'No'}`);
 
   try {
+    console.log(`[${new Date().toISOString()}] [authController] Searching for user by email: ${email}`);
     const user = await User.findOne({ email }).select('+password');
+    const userSearchTime = Date.now();
+    console.log(`[${new Date(userSearchTime).toISOString()}] [authController] User search completed. Duration: ${userSearchTime - startTime}ms. User found: ${user ? user.username : 'null'}`);
     console.log(`[Login user found] User: ${user ? user.username : 'null'}, Password in DB: ${user && user.password ? 'Exists' : 'Missing or null'}`);
 
     if (user) {
+      console.log(`[${new Date().toISOString()}] [authController] Comparing password for user: ${user.username}`);
       console.log(`[Login user.password type] ${typeof user.password}, length: ${user.password ? user.password.length : 'N/A'}`);
       const isMatch = await user.matchPassword(password);
+      const passwordMatchTime = Date.now();
+      console.log(`[${new Date(passwordMatchTime).toISOString()}] [authController] Password comparison completed. Duration: ${passwordMatchTime - userSearchTime}ms. Is match: ${isMatch}`);
       console.log(`[Login password match result] Is match: ${isMatch}`);
 
       if (isMatch) {
@@ -108,17 +117,25 @@ const loginUser = async (req, res, next) => {
           isAdmin: user.isAdmin,
           token: token,
         });
+        const endTime = Date.now();
+        console.log(`[${new Date(endTime).toISOString()}] [authController] loginUser successful for ${email}. Total duration: ${endTime - startTime}ms`);
       } else {
+        const endTime = Date.now();
+        console.log(`[${new Date(endTime).toISOString()}] [authController] Login attempt failed for ${email}: Password mismatch. Total duration: ${endTime - startTime}ms`);
         console.log('[Login attempt failed] User not found or password mismatch.');
         res.status(401); // Unauthorized
         throw new Error('メールアドレスまたはパスワードが無効です');
       }
     } else {
+      const endTime = Date.now();
+      console.log(`[${new Date(endTime).toISOString()}] [authController] Login attempt failed for ${email}: User not found. Total duration: ${endTime - startTime}ms`);
       console.log('[Login attempt failed] User not found or password mismatch.');
       res.status(401); // Unauthorized
       throw new Error('メールアドレスまたはパスワードが無効です');
     }
   } catch (error) {
+    const endTime = Date.now();
+    console.error(`[${new Date(endTime).toISOString()}] [authController] loginUser error for ${email}. Total duration: ${endTime - startTime}ms. Error: ${error.message}`);
     next(error);
   }
 };

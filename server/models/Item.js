@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const ItemSchema = new mongoose.Schema({
   name: {
@@ -12,7 +12,7 @@ const ItemSchema = new mongoose.Schema({
   },
   image: {
     type: String,
-    default: '🎁' // デフォルトの絵文字
+    default: 'gift-box' // アイコン名に変更
   },
   pointCost: {
     type: Number,
@@ -52,4 +52,5 @@ const ItemSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('Item', ItemSchema);
+const Item = mongoose.model('Item', ItemSchema);
+export default Item; 

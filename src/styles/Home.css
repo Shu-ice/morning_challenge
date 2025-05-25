@@ -1,163 +1,591 @@
-/* Home Page Styles */
-.home-container {
-  width: 100%;
-  max-width: 1000px;
-  margin: 0 auto;
-  position: relative;
-  padding-bottom: 50px; /* 管理者リンク用の余白 */
+/* Apple風の究極に洗練されたHome.css - 2024年最新デザイン */
+@import url('./Rankings.css'); /* グローバルスタイルを継承 */
+
+/* ===== システムフォント定義 ===== */
+:root {
+  --system-font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono-font: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+  --ultra-light: 100;
+  --light: 300;
+  --regular: 400;
+  --medium: 500;
+  --semibold: 600;
+  --bold: 700;
+  --heavy: 800;
+  --black: 900;
 }
 
+/* ===== HOME CONTAINER ===== */
+.home-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 120px 40px 80px;
+  min-height: 100vh;
+  background: 
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(0, 122, 255, 0.02) 0%, transparent 60%),
+    linear-gradient(180deg, #FAFAFA 0%, #F5F5F7 50%, #FAFAFA 100%);
+  position: relative;
+  overflow-x: hidden;
+  font-family: var(--system-font);
+}
+
+/* 極めて微妙な背景の動き */
+.home-container::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  right: -10%;
+  bottom: -10%;
+  background: 
+    radial-gradient(circle at 25% 25%, rgba(0, 122, 255, 0.015) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(88, 86, 214, 0.01) 0%, transparent 50%);
+  z-index: -1;
+  animation: gentle-breathe 20s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes gentle-breathe {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg); 
+    opacity: 1;
+  }
+  50% { 
+    transform: scale(1.02) rotate(0.1deg); 
+    opacity: 0.98;
+  }
+}
+
+/* ===== HERO SECTION ===== */
 .hero-section {
   text-align: center;
-  padding: var(--spacing-xl) 0;
+  margin-bottom: 140px;
+  padding: 100px 60px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(60px) saturate(1.5);
+  border-radius: 40px;
+  border: 0.5px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    0 100px 200px rgba(0, 0, 0, 0.03),
+    0 50px 100px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  position: relative;
+  overflow: hidden;
 }
 
-.hero-subtitle {
-  font-size: var(--font-size-lg);
-  color: var(--text-secondary);
-  margin-bottom: var(--spacing-xl);
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 122, 255, 0.3) 50%, transparent 100%);
+  border-radius: 40px 40px 0 0;
 }
 
-.time-notice {
-  background-color: rgba(255, 59, 48, 0.1);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
+/* 極めて控えめなシャイン効果 */
+.hero-section::after {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: -60%;
+  width: 220%;
+  height: 220%;
+  background: linear-gradient(45deg, transparent 0%, rgba(255, 255, 255, 0.03) 50%, transparent 100%);
+  animation: ultra-subtle-shine 25s linear infinite;
+  z-index: -1;
+}
+
+@keyframes ultra-subtle-shine {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.home-title {
+  font-size: clamp(4rem, 10vw, 7rem);
+  font-weight: var(--ultra-light);
+  color: #1D1D1F !important;
+  margin-bottom: 40px;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+  position: relative;
+  z-index: 10;
+  font-family: var(--system-font);
+}
+
+.welcome-message {
+  font-size: 1.75rem;
+  color: #424245 !important;
+  font-weight: var(--light);
+  margin-bottom: 60px;
+  line-height: 1.5;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+  z-index: 10;
+  position: relative;
+  font-family: var(--system-font);
+}
+
+.motivation-badge {
+  display: inline-block;
+  background: rgba(0, 122, 255, 0.06);
+  color: #1D1D1F !important;
+  padding: 20px 40px;
+  border-radius: 24px;
+  font-size: 1.1rem;
+  font-weight: var(--medium);
+  border: 0.5px solid rgba(0, 122, 255, 0.08);
+  backdrop-filter: blur(40px);
+  box-shadow: 
+    0 20px 40px rgba(0, 122, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 10;
+  position: relative;
+  font-family: var(--system-font);
+}
+
+.motivation-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 
+    0 25px 50px rgba(0, 122, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: rgba(0, 122, 255, 0.08);
+}
+
+/* ===== DIFFICULTY SECTION ===== */
+.difficulty-section {
+  margin-bottom: 120px;
+}
+
+.section-title {
+  text-align: center;
+  font-size: 3rem;
+  font-weight: var(--light);
+  color: #1D1D1F !important;
+  margin-bottom: 100px;
+  letter-spacing: -0.04em;
+  position: relative;
+  z-index: 10;
+  font-family: var(--system-font);
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 122, 255, 0.3) 50%, transparent 100%);
+}
+
+.difficulty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.difficulty-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(60px) saturate(1.5);
+  border-radius: 32px;
+  padding: 60px 40px;
+  border: 0.5px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    0 60px 120px rgba(0, 0, 0, 0.02),
+    0 30px 60px rgba(0, 0, 0, 0.01);
+  transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.difficulty-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--card-gradient, linear-gradient(90deg, rgba(0, 122, 255, 0.3) 0%, rgba(88, 86, 214, 0.2) 100%));
+  border-radius: 32px 32px 0 0;
+  transition: all 0.4s ease;
+}
+
+.difficulty-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.02) 100%);
+  opacity: 0;
+  transition: all 0.4s ease;
+  pointer-events: none;
+}
+
+.difficulty-card:hover {
+  transform: translateY(-8px) scale(1.01);
+  box-shadow: 
+    0 80px 160px rgba(0, 0, 0, 0.04),
+    0 40px 80px rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 122, 255, 0.1);
+}
+
+.difficulty-card:hover::before {
+  height: 3px;
+}
+
+.difficulty-card:hover::after {
+  opacity: 1;
+}
+
+.difficulty-card.recommended {
+  border-color: rgba(0, 122, 255, 0.15);
+  box-shadow: 
+    0 60px 120px rgba(0, 0, 0, 0.03),
+    0 0 0 1px rgba(0, 122, 255, 0.05);
+}
+
+.difficulty-card.recommended::before {
+  background: linear-gradient(90deg, #007AFF 0%, #5856D6 100%);
+  height: 3px;
+}
+
+.difficulty-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 40px;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-md);
+  border-radius: 24px;
+  background: var(--icon-bg, linear-gradient(135deg, rgba(52, 199, 89, 0.1) 0%, rgba(52, 199, 89, 0.05) 100%));
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.time-icon {
-  font-size: var(--font-size-xl);
+.difficulty-card:hover .difficulty-icon {
+  transform: scale(1.05);
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.start-challenge-card {
-  background-color: white;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: var(--spacing-xl);
-  margin: 0 auto;
-  max-width: 500px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+/* 各難易度のアイコン色 */
+.difficulty-card[data-difficulty="beginner"] {
+  --card-gradient: linear-gradient(90deg, rgba(52, 199, 89, 0.2) 0%, rgba(48, 209, 88, 0.1) 100%);
+  --icon-bg: linear-gradient(135deg, rgba(52, 199, 89, 0.1) 0%, rgba(52, 199, 89, 0.05) 100%);
 }
 
-.start-challenge-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+.difficulty-card[data-difficulty="beginner"] .difficulty-icon::before {
+  content: '';
+  width: 28px;
+  height: 28px;
+  background: rgba(52, 199, 89, 0.8);
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(52, 199, 89, 0.2);
 }
 
-.start-challenge-card.disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.difficulty-card[data-difficulty="intermediate"] {
+  --card-gradient: linear-gradient(90deg, rgba(255, 149, 0, 0.2) 0%, rgba(255, 140, 0, 0.1) 100%);
+  --icon-bg: linear-gradient(135deg, rgba(255, 149, 0, 0.1) 0%, rgba(255, 149, 0, 0.05) 100%);
 }
 
-.grade-selector {
-  margin: var(--spacing-lg) 0;
+.difficulty-card[data-difficulty="intermediate"] .difficulty-icon::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 16px solid transparent;
+  border-right: 16px solid transparent;
+  border-bottom: 24px solid rgba(255, 149, 0, 0.8);
+  filter: drop-shadow(0 2px 8px rgba(255, 149, 0, 0.2));
 }
 
-.grade-selector label {
-  display: block;
-  margin-bottom: var(--spacing-sm);
+.difficulty-card[data-difficulty="advanced"] {
+  --card-gradient: linear-gradient(90deg, rgba(0, 122, 255, 0.2) 0%, rgba(88, 86, 214, 0.1) 100%);
+  --icon-bg: linear-gradient(135deg, rgba(0, 122, 255, 0.1) 0%, rgba(0, 122, 255, 0.05) 100%);
+}
+
+.difficulty-card[data-difficulty="advanced"] .difficulty-icon::before {
+  content: '';
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 122, 255, 0.8);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  filter: drop-shadow(0 2px 8px rgba(0, 122, 255, 0.2));
+}
+
+.difficulty-card[data-difficulty="expert"] {
+  --card-gradient: linear-gradient(90deg, rgba(255, 59, 48, 0.2) 0%, rgba(215, 0, 21, 0.1) 100%);
+  --icon-bg: linear-gradient(135deg, rgba(255, 59, 48, 0.1) 0%, rgba(255, 59, 48, 0.05) 100%);
+}
+
+.difficulty-card[data-difficulty="expert"] .difficulty-icon::before {
+  content: '';
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 59, 48, 0.8);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  filter: drop-shadow(0 2px 8px rgba(255, 59, 48, 0.2));
+}
+
+/* ===== DIFFICULTY TEXT ===== */
+.difficulty-title {
+  font-size: 1.75rem;
+  font-weight: var(--medium);
+  color: #1D1D1F !important;
+  margin-bottom: 16px;
+  letter-spacing: -0.02em;
+  z-index: 10;
+  position: relative;
+  font-family: var(--system-font);
+}
+
+.difficulty-description {
+  color: #424245 !important;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  font-weight: var(--regular);
+  z-index: 10;
+  position: relative;
+  font-family: var(--system-font);
+}
+
+.difficulty-problems {
+  color: #666666 !important;
+  font-size: 0.95rem;
+  font-weight: var(--medium);
+  margin-bottom: 16px;
+  font-style: italic;
+  z-index: 10;
+  position: relative;
+  font-family: var(--system-font);
+}
+
+.difficulty-recommendation {
+  color: #666666 !important;
+  font-size: 0.9rem;
+  margin-bottom: 32px;
+  font-weight: var(--regular);
+  z-index: 10;
+  position: relative;
+  font-family: var(--system-font);
+}
+
+.difficulty-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #007AFF !important;
+  font-weight: var(--medium);
+  font-size: 1rem;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  padding: 16px 32px;
+  background: rgba(0, 122, 255, 0.04);
+  border-radius: 20px;
+  border: 0.5px solid rgba(0, 122, 255, 0.08);
+  z-index: 10;
+  position: relative;
+  font-family: var(--system-font);
+}
+
+.difficulty-card:hover .difficulty-arrow {
+  color: white !important;
+  background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+  border-color: transparent;
+  transform: translateX(2px);
+  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.2);
+}
+
+/* ===== TIME RESTRICTION ===== */
+.time-restriction {
+  background: linear-gradient(135deg, rgba(255, 149, 0, 0.9) 0%, rgba(255, 140, 0, 0.85) 100%);
+  color: white;
+  padding: 80px 60px;
+  border-radius: 40px;
+  text-align: center;
+  margin-bottom: 80px;
+  box-shadow: 
+    0 60px 120px rgba(255, 149, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(40px);
+  border: 0.5px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.time-restriction::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: -60%;
+  width: 220%;
+  height: 220%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+  animation: ultra-subtle-shine 20s linear infinite;
+  z-index: 0;
+}
+
+.time-restriction-content {
+  position: relative;
+  z-index: 1;
+}
+
+.time-restriction h3 {
+  font-size: 2.5rem;
+  font-weight: var(--light);
+  margin-bottom: 24px;
+  letter-spacing: -0.02em;
+  color: white !important;
+  font-family: var(--system-font);
+}
+
+.time-restriction p {
+  font-size: 1.2rem;
+  font-weight: var(--regular);
+  margin: 0;
+  line-height: 1.5;
+  opacity: 0.95;
+  color: white !important;
+  font-family: var(--system-font);
+}
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .home-container {
+    padding: 80px 24px 60px;
+  }
+
+  .hero-section {
+    padding: 60px 32px;
+    margin-bottom: 80px;
+    border-radius: 32px;
+  }
+
+  .home-title {
+    font-size: clamp(2.5rem, 12vw, 4rem);
+    margin-bottom: 24px;
+  }
+
+  .welcome-message {
+    font-size: 1.4rem;
+  }
+
+  .section-title {
+    font-size: 2.2rem;
+    margin-bottom: 60px;
+  }
+
+  .difficulty-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .difficulty-card {
+    padding: 40px 32px;
+    border-radius: 24px;
+  }
+
+  .difficulty-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 20px;
+  }
+
+  .time-restriction {
+    padding: 60px 32px;
+    border-radius: 32px;
+  }
+}
+
+/* ===== SMALL MOBILE ===== */
+@media (max-width: 480px) {
+  .home-container {
+    padding: 60px 20px 40px;
+  }
+
+  .hero-section {
+    padding: 40px 24px;
+    border-radius: 24px;
+  }
+
+  .difficulty-card {
+    padding: 32px 24px;
+    border-radius: 20px;
+  }
+
+  .difficulty-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+  }
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  .home-container::before,
+  .hero-section::after,
+  .time-restriction::before {
+    animation: none;
+  }
+  
+  .difficulty-card:hover,
+  .motivation-badge:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* フッター */
+.home-footer {
+  margin-top: 60px;
+  padding: 30px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+}
+
+.home-footer p {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin: 0;
   font-weight: 500;
 }
 
-.grade-selector select {
-  width: 100%;
-  padding: var(--spacing-md);
-  font-size: var(--font-size-md);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--mid-gray);
-  background-color: white;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 1rem center;
-  background-size: 1em;
-}
-
-.start-button {
-  width: 100%;
-  padding: var(--spacing-md);
-  font-size: var(--font-size-md);
-  margin: var(--spacing-lg) 0;
-}
-
-.start-button.disabled {
-  background-color: var(--mid-gray);
-  cursor: not-allowed;
-}
-
-.time-info {
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.features-section {
-  padding: var(--spacing-xxl) 0;
-}
-
-.features-section h2 {
-  text-align: center;
-  margin-bottom: var(--spacing-xl);
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--spacing-lg);
-}
-
-.feature-card {
-  background-color: white;
-  border-radius: var(--radius-md);
-  padding: var(--spacing-lg);
-  box-shadow: var(--shadow-md);
-  transition: transform 0.2s ease;
-}
-
-.feature-card:hover {
-  transform: translateY(-3px);
-}
-
-.feature-icon {
-  font-size: var(--font-size-xl);
-  margin-bottom: var(--spacing-md);
-}
-
-.feature-card h3 {
-  margin-bottom: var(--spacing-sm);
-  color: var(--primary-color);
-}
-
-/* Mobile Responsive */
-@media (max-width: 768px) {
-  .features-grid {
+/* モバイル対応 */
+@media (max-width: 480px) {
+  .difficulty-cards {
     grid-template-columns: 1fr;
   }
-  
-  .start-challenge-card {
-    padding: var(--spacing-lg);
-  }
 }
 
-/* Animation for Start Button */
-@keyframes pulse {
+/* アニメーション効果 */
+@keyframes fadeInUp {
   0% {
-    box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(0, 122, 255, 0);
+    opacity: 0;
+    transform: translateY(30px);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(0, 122, 255, 0);
+    opacity: 1;
+    transform: translateY(0);
   }
-}
-
-.start-button:not(.disabled) {
-  animation: pulse 2s infinite;
 }
 
 /* 管理者設定リンク */

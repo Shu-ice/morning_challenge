@@ -34,23 +34,23 @@ function Login({ onLogin, onRegister }: LoginProps) {
       
       console.log('[Login] ログイン成功:', response);
       
-      if (response.success && response.token && response.user && response.user.id) {
+      if (response && response.token && response._id) {
         const token = response.token;
         const userDataFromResponse: UserData = {
-          _id: response.user.id,
-          username: response.user.username,
-          email: response.user.email,
-          grade: response.user.grade,
-          avatar: response.user.avatar,
+          _id: response._id,
+          username: response.username,
+          email: response.email,
+          grade: response.grade,
+          avatar: response.avatar,
           isLoggedIn: true,
           loginTime: new Date().toISOString(),
-          isAdmin: response.user.isAdmin || false,
+          isAdmin: response.isAdmin || false,
         };
         onLogin(userDataFromResponse, token);
       } else {
         let errorMessage = 'ログインレスポンスの形式が無効です。';
         if (!response.token) errorMessage += ' トークンがありません。';
-        if (!response.user || !response.user.id) errorMessage += ' ユーザー情報 (user.id) がありません。';
+        if (!response._id) errorMessage += ' ユーザーID (_id) がありません。';
         console.error('[Login] Invalid response structure:', response); 
         throw new Error(errorMessage);
       }
@@ -74,58 +74,84 @@ function Login({ onLogin, onRegister }: LoginProps) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-center text-gray-900">ログイン</h2>
+    <div className="login-container">
+      <div className="login-card">
+        {/* ヘッダーセクション */}
+        <div className="login-header">
+          <div className="login-icon"></div>
+          <h1 className="login-title">ログイン</h1>
+          <p className="login-subtitle">アカウントにサインインしてください</p>
+        </div>
+
+        {/* エラー表示 */}
         {error && (
-          <p className="text-sm text-red-600">{error}</p>
+          <div className="error-message">
+            <div className="error-icon"></div>
+            <p>{error}</p>
+          </div>
         )}
-        <form className="space-y-6" onSubmit={handleSubmit}>
+
+        {/* ログインフォーム */}
+        <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">メールアドレス</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="メールアドレスを入力"
-              disabled={isLoading}
-              autoFocus
-            />
+            <div className="input-wrapper">
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="メールアドレスを入力"
+                disabled={isLoading}
+                autoFocus
+                className="form-input"
+              />
+            </div>
           </div>
           
           <div className="form-group">
             <label htmlFor="password">パスワード</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="パスワードを入力"
-              disabled={isLoading}
-            />
+            <div className="input-wrapper">
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="パスワードを入力"
+                disabled={isLoading}
+                className="form-input"
+              />
+            </div>
           </div>
           
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {isLoading ? 'ログイン中...' : 'ログイン'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="login-button"
+          >
+            {isLoading ? (
+              <>
+                <div className="loading-spinner"></div>
+                ログイン中...
+              </>
+            ) : (
+              'ログイン'
+            )}
+          </button>
         </form>
-        <div className="text-sm text-center pt-4">
-          <p className="text-gray-600">
-            アカウントをお持ちでないですか？{' '}
-            <button
-              onClick={onRegister}
-              className="font-semibold text-indigo-600 hover:text-indigo-800 text-base underline"
-            >
-              新規登録はこちら
-            </button>
+
+        {/* 新規登録リンク */}
+        <div className="register-section">
+          <p className="register-text">
+            アカウントをお持ちでないですか？
           </p>
+          <button
+            onClick={onRegister}
+            className="register-link"
+            disabled={isLoading}
+          >
+            新規登録はこちら
+          </button>
         </div>
       </div>
     </div>

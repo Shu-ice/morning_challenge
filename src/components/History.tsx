@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { problemsAPI } from '../api';
+import '../styles/UserHistory.css';
 
 interface HistoryItem {
+  _id?: string;
   date: string;
   difficulty: string;
   timeSpent: number;
@@ -11,6 +13,10 @@ interface HistoryItem {
   correctAnswers: number;
   totalProblems: number;
   rank: number | null;
+  createdAt?: string;
+  userId?: string;
+  problems?: any[];
+  timestamp?: string;
 }
 
 interface HistoryResponse {
@@ -31,15 +37,48 @@ export const History: React.FC = () => {
     const fetchHistory = async () => {
       try {
         setLoading(true);
-        const response = await problemsAPI.getHistory();
-        console.log('履歴データ:', response);
-        setHistory(response.history || []);
-        setCurrentStreak(response.currentStreak || 0);
-        setMaxStreak(response.maxStreak || 0);
         setError(null);
-      } catch (err) {
-        setError('履歴の取得に失敗しました');
-        console.error('履歴取得エラー:', err);
+        console.log('[History] 履歴取得開始');
+        
+        const response = await problemsAPI.getHistory();
+        console.log('[History] API response:', response);
+        
+        if (response && response.success !== false) {
+          // APIレスポンスの構造を確認
+          // サーバーは { success: true, data: [], count?: number } の形式で返す
+          const historyData = response.data || [];
+          console.log('[History] 履歴データ:', historyData);
+          console.log('[History] 履歴データ数:', historyData.length);
+          
+          setHistory(historyData);
+          setCurrentStreak(response.currentStreak || 0);
+          setMaxStreak(response.maxStreak || 0);
+          setError(null);
+        } else {
+          console.warn('[History] API returned false success or empty data:', response);
+          setError(response?.message || '履歴データの取得に失敗しました');
+          setHistory([]);
+        }
+      } catch (err: any) {
+        console.error('[History] 履歴取得エラー:', err);
+        let errorMessage = '履歴の取得に失敗しました';
+        
+        if (err.response) {
+          if (err.response.status === 401) {
+            errorMessage = '認証が必要です。再ログインしてください。';
+          } else if (err.response.status === 403) {
+            errorMessage = 'アクセス権限がありません。';
+          } else {
+            errorMessage = err.response.data?.message || `サーバーエラー (${err.response.status})`;
+          }
+        } else if (err.request) {
+          errorMessage = 'サーバーに接続できませんでした。';
+        } else {
+          errorMessage = err.message || '予期せぬエラーが発生しました。';
+        }
+        
+        setError(errorMessage);
+        setHistory([]);
       } finally {
         setLoading(false);
       }
@@ -63,69 +102,98 @@ export const History: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="text-center p-4">読み込み中...</div>;
+    return (
+      <div className="history-container">
+        <h1><ruby>学習<rt>がくしゅう</rt></ruby><ruby>履歴<rt>りれき</rt></ruby></h1>
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p><ruby>履歴<rt>りれき</rt></ruby>を読み込み中...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-center text-red-500 p-4">{error}</div>;
+    return (
+      <div className="history-container">
+        <h1><ruby>学習<rt>がくしゅう</rt></ruby><ruby>履歴<rt>りれき</rt></ruby></h1>
+        <div className="error-message">
+          <p>{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="retry-button"
+          >
+            <ruby>再試行<rt>さいしこう</rt></ruby>
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <div className="mb-6 bg-white rounded-lg shadow p-4">
-        <h2 className="text-xl font-bold mb-4">連続記録</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">現在の連続記録</p>
-            <p className="text-2xl font-bold text-blue-600">{currentStreak}日</p>
+    <div className="history-container">
+      <h1><ruby>学習<rt>がくしゅう</rt></ruby><ruby>履歴<rt>りれき</rt></ruby></h1>
+      
+      {/* 連続記録セクション */}
+      <div className="streak-section">
+        <h2 className="streak-title"><ruby>連続<rt>れんぞく</rt></ruby><ruby>記録<rt>きろく</rt></ruby></h2>
+        <div className="streak-grid">
+          <div className="streak-card current-streak">
+            <p className="streak-label"><ruby>現在<rt>げんざい</rt></ruby>の<ruby>連続<rt>れんぞく</rt></ruby><ruby>記録<rt>きろく</rt></ruby></p>
+            <p className="streak-number">
+              {currentStreak > 0 ? `${currentStreak}日連続` : 'まだ記録がありません'}
+            </p>
           </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">自己最高連続記録</p>
-            <p className="text-2xl font-bold text-green-600">{maxStreak}日</p>
+          <div className="streak-card max-streak">
+            <p className="streak-label"><ruby>自己<rt>じこ</rt></ruby><ruby>最高<rt>さいこう</rt></ruby><ruby>連続<rt>れんぞく</rt></ruby><ruby>記録<rt>きろく</rt></ruby></p>
+            <p className="streak-number">
+              {maxStreak > 0 ? `${maxStreak}日連続` : 'まだ記録がありません'}
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <h2 className="text-xl font-bold p-4 border-b">解答履歴</h2>
-        {history.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            まだ履歴がありません
-          </div>
+      {/* 履歴リスト */}
+      <div className="history-list">
+        <div className="history-header">
+          <div><ruby>実施<rt>じっし</rt></ruby><ruby>日時<rt>にちじ</rt></ruby></div>
+          <div><ruby>難易度<rt>なんいど</rt></ruby></div>
+          <div><ruby>順位<rt>じゅんい</rt></ruby></div>
+          <div><ruby>正解数<rt>せいかいすう</rt></ruby></div>
+          <div><ruby>解答時間<rt>かいとうじかん</rt></ruby></div>
+        </div>
+        
+        {history.length > 0 ? (
+          history.map((item, index) => (
+            <div 
+              key={index}
+              className="history-item"
+            >
+              <div className="date-column">
+                {format(new Date(item.timestamp || item.createdAt || item.date), 'M月d日 (E) HH:mm', { locale: ja })}
+              </div>
+              <div className="difficulty-column">
+                {getDifficultyName(item.difficulty)}
+              </div>
+              <div className="rank-column">
+                {'-'}
+              </div>
+              <div className="score-column">
+                <span className="score-text">
+                  {item.correctAnswers}/{item.totalProblems}
+                </span>
+              </div>
+              <div className="time-column">
+                {formatTime(item.timeSpent)}秒
+              </div>
+            </div>
+          ))
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">日付</th>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">難易度</th>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">タイム</th>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">スコア (正解/問題数)</th>
-                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">順位</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {history.map((item, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm text-gray-900">
-                      {format(new Date(item.date), 'M月d日 (E)', { locale: ja })}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-900">
-                      {getDifficultyName(item.difficulty)}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-900">
-                      {formatTime(item.timeSpent)}秒
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-900">
-                      {item.score}点 ({item.correctAnswers}/{item.totalProblems})
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-900">
-                      {item.rank !== null && item.rank > 0 ? `${item.rank}位` : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="no-history">
+            <p>まだ<ruby>学習<rt>がくしゅう</rt></ruby><ruby>履歴<rt>りれき</rt></ruby>がありません</p>
+            <p className="no-history-hint">
+              <ruby>問題<rt>もんだい</rt></ruby>を<ruby>解<rt>と</rt></ruby>いて<ruby>履歴<rt>りれき</rt></ruby>を<ruby>作<rt>つく</rt></ruby>りましょう
+            </p>
           </div>
         )}
       </div>

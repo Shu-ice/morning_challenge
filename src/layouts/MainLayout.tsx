@@ -26,63 +26,232 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   }, [isAdminMenuOpen]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #F5F5F7 0%, #FAFAFA 50%, #F5F5F7 100%)' }}>
+      <header style={{ 
+        background: 'rgba(255, 255, 255, 0.9)', 
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
+      }}>
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
               <Link to="/" className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-gray-900 hover:text-blue-600">朝の計算チャレンジ</h1>
+                <h1 style={{
+                  fontSize: '1.5rem',
+                  fontWeight: '700',
+                  color: '#1D1D1F',
+                  letterSpacing: '-0.02em',
+                  textDecoration: 'none',
+                  transition: 'all 0.3s ease'
+                }} className="hover:text-blue-600">
+                  <ruby>
+                    朝<rt>あさ</rt>
+                  </ruby>
+                  の
+                  <ruby>
+                    計算<rt>けいさん</rt>
+                  </ruby>
+                  チャレンジ
+                </h1>
               </Link>
             </div>
             
             <div className="flex items-center space-x-4">
               {user?.isLoggedIn ? (
                 <>
-                  <Link to="/" className="text-gray-700 hover:text-blue-600">ホーム</Link>
-                  <Link to="/rankings" className="text-gray-700 hover:text-blue-600">ランキング</Link>
-                  <Link to="/history" className="text-gray-700 hover:text-blue-600">履歴</Link>
-                  <Link to="/profile" className="text-gray-700 hover:text-blue-600">マイページ</Link>
+                  <Link 
+                    to="/" 
+                    style={{
+                      color: '#424245',
+                      fontWeight: '500',
+                      textDecoration: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="hover:text-blue-600 hover:bg-blue-50"
+                  >
+                    ホーム
+                  </Link>
+                  <Link 
+                    to="/rankings" 
+                    style={{
+                      color: '#424245',
+                      fontWeight: '500',
+                      textDecoration: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="hover:text-blue-600 hover:bg-blue-50"
+                  >
+                    ランキング
+                  </Link>
+                  <Link 
+                    to="/history" 
+                    style={{
+                      color: '#424245',
+                      fontWeight: '500',
+                      textDecoration: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="hover:text-blue-600 hover:bg-blue-50"
+                  >
+                    <ruby>
+                      履歴<rt>りれき</rt>
+                    </ruby>
+                  </Link>
+                  <Link 
+                    to="/profile" 
+                    style={{
+                      color: '#424245',
+                      fontWeight: '500',
+                      textDecoration: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="hover:text-blue-600 hover:bg-blue-50"
+                  >
+                    マイページ
+                  </Link>
                   
                   {user.isAdmin && (
                     <div className="relative" ref={adminMenuRef}>
                       <button 
                         onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
-                        className="text-green-600 hover:text-green-800 font-semibold focus:outline-none px-3 py-1 rounded-md"
+                        style={{
+                          background: 'linear-gradient(135deg, #34C759 0%, #30D158 100%)',
+                          color: 'white',
+                          fontWeight: '600',
+                          border: 'none',
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          transition: 'all 0.3s ease',
+                          boxShadow: '0 4px 12px rgba(52, 199, 89, 0.25)'
+                        }}
+                        className="focus:outline-none hover:shadow-lg hover:scale-105"
                       >
-                        管理者メニュー
+                        <ruby>
+                          管理者<rt>かんりしゃ</rt>
+                        </ruby>
+                        メニュー
                       </button>
-                      <div className={`absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 ${isAdminMenuOpen ? 'block' : 'hidden'}`}>
+                      <div className={`absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-20 border border-gray-100 ${isAdminMenuOpen ? 'block' : 'hidden'}`} style={{
+                        backdropFilter: 'blur(20px)',
+                        background: 'rgba(255, 255, 255, 0.95)'
+                      }}>
                         <Link 
                           to="/admin/generate"
                           onClick={() => setIsAdminMenuOpen(false)}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          style={{
+                            display: 'block',
+                            padding: '10px 16px',
+                            fontSize: '0.9rem',
+                            color: '#424245',
+                            textDecoration: 'none',
+                            fontWeight: '500',
+                            transition: 'all 0.2s ease'
+                          }}
+                          className="hover:bg-blue-50 hover:text-blue-600"
                         >
-                          問題生成
+                          <ruby>
+                            問題生成<rt>もんだいせいせい</rt>
+                          </ruby>
                         </Link>
                         <Link 
                           to="/admin/edit"
                           onClick={() => setIsAdminMenuOpen(false)}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          style={{
+                            display: 'block',
+                            padding: '10px 16px',
+                            fontSize: '0.9rem',
+                            color: '#424245',
+                            textDecoration: 'none',
+                            fontWeight: '500',
+                            transition: 'all 0.2s ease'
+                          }}
+                          className="hover:bg-blue-50 hover:text-blue-600"
                         >
-                          問題編集
+                          <ruby>
+                            問題編集<rt>もんだいへんしゅう</rt>
+                          </ruby>
+                          ツール
                         </Link>
                       </div>
                     </div>
                   )}
                   
-                  <span className="text-gray-700">{user.username}</span>
+                  <span style={{
+                    color: '#424245',
+                    fontWeight: '500',
+                    padding: '8px 12px',
+                    background: 'rgba(0, 122, 255, 0.1)',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem'
+                  }}>
+                    {user.username}
+                  </span>
                   <button
                     onClick={logout}
-                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm font-medium"
+                    style={{
+                      background: 'linear-gradient(135deg, #FF3B30 0%, #D70015 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 4px 12px rgba(255, 59, 48, 0.25)',
+                      minWidth: '100px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    className="hover:shadow-lg hover:scale-105"
                   >
                     ログアウト
                   </button>
                 </>
               ) : (
                 <>
-                  <Link to="/login" className="text-gray-700 hover:text-blue-600">ログイン</Link>
-                  <Link to="/register" className="text-gray-700 hover:text-blue-600">新規登録</Link>
+                  <Link 
+                    to="/login" 
+                    style={{
+                      color: '#424245',
+                      fontWeight: '500',
+                      textDecoration: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="hover:text-blue-600 hover:bg-blue-50"
+                  >
+                    ログイン
+                  </Link>
+                  <Link 
+                    to="/register" 
+                    style={{
+                      color: '#424245',
+                      fontWeight: '500',
+                      textDecoration: 'none',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="hover:text-blue-600 hover:bg-blue-50"
+                  >
+                    <ruby>
+                      新規登録<rt>しんきとうろく</rt>
+                    </ruby>
+                  </Link>
                 </>
               )}
             </div>
@@ -94,10 +263,28 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         {children}
       </main>
 
-      <footer className="bg-white border-t border-gray-200">
+      <footer style={{
+        background: 'rgba(255, 255, 255, 0.9)',
+        backdropFilter: 'blur(20px)',
+        borderTop: '1px solid rgba(0, 0, 0, 0.06)'
+      }}>
         <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-gray-500 text-sm">
-            © 2024 朝の計算チャレンジ. All rights reserved.
+          <p style={{
+            textAlign: 'center',
+            color: '#86868B',
+            fontSize: '0.875rem',
+            fontWeight: '400',
+            margin: 0
+          }}>
+            © 2025 
+            <ruby>
+              朝<rt>あさ</rt>
+            </ruby>
+            の
+            <ruby>
+              計算<rt>けいさん</rt>
+            </ruby>
+            チャレンジ. All rights reserved.
           </p>
         </div>
       </footer>

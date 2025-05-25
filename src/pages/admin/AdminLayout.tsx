@@ -53,7 +53,7 @@ const AdminLayout: React.FC = () => {
         <Outlet /> {/* ここに各管理者ページの内容が表示される */}
       </main>
       <footer className="admin-footer">
-        <p>&copy; 2024 Morning Math Challenge Admin</p>
+        <p>&copy; 2025 Morning Math Challenge Admin</p>
       </footer>
     </div>
   );

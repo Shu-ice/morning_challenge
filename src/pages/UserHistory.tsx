@@ -82,19 +82,17 @@ const UserHistory = () => {
       
       // ★ historyAPI を使用
       const response = await historyAPI.getUserHistory(10); // limit は 10 固定など
-      
       console.log('[UserHistory] APIレスポンス:', response);
-          
-      if (response.success && response.history) {
-        // ★ HistoryItem 型に合わせてデータを整形 (必要であれば)
-        //    API が返す history 配列の各要素が HistoryItem と互換性があるか確認
-        setHistory(response.history);
-        
+      // historyAPI.getUserHistoryの戻り値は { success, message, history } 型
+      let historyArray = null;
+      if (response.success && Array.isArray(response.history)) {
+        historyArray = response.history;
+      }
+      if (historyArray) {
+        setHistory(historyArray);
         // ストリーク情報などもレスポンスに含まれていれば設定
         // setCurrentStreak(response.currentStreak || 0);
         // setMaxStreak(response.maxStreak || 0);
-        
-        // ★ APIレスポンスにページネーション情報があればセットする
         // setPagination(response.pagination || null);
           } else {
         // API は成功したが、データがないか形式が違う場合

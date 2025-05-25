@@ -5,7 +5,7 @@ export const DIFFICULTY_LABELS: Record<DifficultyRank, string> = {
   beginner: '初級',
   intermediate: '中級',
   advanced: '上級',
-  expert: 'エキスパート'
+  expert: '超級'
 };
 
 export const DIFFICULTY_COLORS: Record<DifficultyRank, string> = {

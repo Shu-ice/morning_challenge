@@ -5,7 +5,7 @@ import Problems from '@/pages/Problems';
 import Results from '@/pages/Results';
 import Rankings from '@/pages/Rankings';
 import Login from '@/pages/Login';
-import UserHistory from '@/pages/UserHistory';
+import { History } from './src/components/History';
 import ProfilePage from '@/pages/ProfilePage';
 import Register from '@/pages/Register';
 // 管理者コンポーネントのインポート
@@ -112,8 +112,15 @@ const App = () => {
 
   const handleProblemComplete = (results: any) => {
     setProblemResults(results);
+    // ランキング表示時に現在の難易度を引き継ぐためにローカルストレージに保存
+    localStorage.setItem('selectedDifficultyFromResults', selectedDifficulty);
     setCurrentPage(AppPages.RESULTS);
     console.log('[App after setCurrentPage (handleProblemComplete)\] currentPage:', AppPages.RESULTS);
+  };
+
+  const handleViewRankings = () => {
+    setCurrentPage(AppPages.RANKINGS);
+    console.log('[App after setCurrentPage (handleViewRankings)\] currentPage:', AppPages.RANKINGS);
   };
 
   // Login コンポーネントから isAdmin を含むユーザー情報とトークンを受け取る想定
@@ -220,13 +227,13 @@ const App = () => {
                />;
       case AppPages.RESULTS:
         // Results コンポーネントの props を確認
-        return <Results results={problemResults} onViewRankings={() => setCurrentPage(AppPages.RANKINGS)} />;
+        return <Results results={problemResults} onViewRankings={handleViewRankings} onBackToHome={() => setCurrentPage(AppPages.HOME)} />;
       case AppPages.RANKINGS:
         // Rankings コンポーネントの props を確認
-        return <Rankings /* results={problemResults} */ />;
+        return <Rankings results={problemResults} selectedDifficulty={selectedDifficulty} />;
       case AppPages.HISTORY:
         // UserHistory コンポーネントの props を確認
-        return user ? <UserHistory /* username={user.username} */ /> : null; // Loginチェック済
+        return user ? <History /> : null; // Loginチェック済
       case AppPages.PROFILE:
         return user ? (
           <ProfilePage
@@ -318,7 +325,7 @@ const App = () => {
 
       {/* フッターも常に表示 */}
       <footer className="app-footer">
-        <div>© 2024 朝の計算チャレンジ</div>
+        <div>© 2025 朝の計算チャレンジ</div>
       </footer>
     </div>
   );

@@ -1,40 +1,41 @@
-const Result = require('../models/resultModel');
-const User = require('../models/userModel');
-const mongoose = require('mongoose');
+import Result from '../models/Result.js';
+import User from '../models/User.js';
+import mongoose from 'mongoose';
 
 // @desc    日間ランキングの取得
 // @route   GET /api/rankings/daily
 // @access  Public
-exports.getDailyRankings = async (req, res) => {
+export const getDailyRankings = async (req, res) => {
   try {
-    // 今日の日付を "YYYY-MM-DD" 形式の文字列で取得
-    const todayStr = new Date().toISOString().split('T')[0];
+    // リクエストで指定された日付を使用、なければ今日の日付
+    const targetDate = req.query.date || new Date().toISOString().split('T')[0];
     
-    // 難易度フィルタリング（例: req.query.difficulty が存在する場合）
+    console.log(`[Ranking] 日間ランキング取得: date=${targetDate}, difficulty=${req.query.difficulty || 'all'}`);
+    
+    // 難易度フィルタリング
     const filterConditions = {
-      date: todayStr, // 日付は今日の日付文字列と完全一致
+      date: targetDate, // 指定された日付のデータを取得
     };
     if (req.query.difficulty) {
       filterConditions.difficulty = req.query.difficulty;
     }
-    // もしユーザーの段位(grade)で絞り込みたい場合は、populate後の処理や別途User検索が必要
-    // const gradeFilter = {};
-    // if (req.query.grade) {
-    //   gradeFilter.grade = parseInt(req.query.grade); // Userモデルのgradeを想定
-    // }
     
-    // ランキングの取得（最大50件）
-    const rankings = await Result.find(filterConditions) // RecordからResultに変更、daily: true を削除
-    .sort({ score: -1, timeSpent: 1 })
-    .limit(50)
-    .populate('userId', 'username avatar grade streak') // 'user' から 'userId' に変更
-    .lean();
+    // ランキングの取得（最大50件、limitが指定されていればそれを使用）
+    const limit = parseInt(req.query.limit) || 50;
+    const rankings = await Result.find(filterConditions)
+      .sort({ score: -1, timeSpent: 1, createdAt: 1 })
+      .limit(limit)
+      .populate('userId', 'username avatar grade streak')
+      .lean();
+    
+    console.log(`[Ranking] 取得件数: ${rankings.length}件`);
     
     if (!rankings.length) {
       return res.json({
-        date: todayStr,
-        message: 'まだランキングデータがありません',
-        rankings: []
+        success: true,
+        date: targetDate,
+        message: `${targetDate}のランキングデータがありません`,
+        data: []
       });
     }
     
@@ -43,39 +44,47 @@ exports.getDailyRankings = async (req, res) => {
       // populateが成功しているか確認
       if (!result.userId) {
         console.error(`User data not populated for result ID: ${result._id}. Skipping this result.`);
-        return null; // populate失敗したデータはスキップ
+        return null;
       }
       return {
         rank: index + 1,
         userId: result.userId._id,
         username: result.userId.username,
         avatar: result.userId.avatar,
-        grade: result.userId.grade, // Userモデルのgrade
-        difficulty: result.difficulty, // Resultモデルのdifficulty
+        grade: result.userId.grade,
+        difficulty: result.difficulty,
         score: result.score,
         timeSpent: result.timeSpent,
+        totalTime: result.totalTime, // フロントエンドで使用される
         correctAnswers: result.correctAnswers,
-        incorrectAnswers: result.incorrectAnswers, // 追加
-        unanswered: result.unanswered, // 追加
-        streak: result.userId.streak, // Userモデルのstreak
+        totalProblems: result.totalProblems,
+        incorrectAnswers: result.incorrectAnswers,
+        unanswered: result.unanswered,
+        streak: result.userId.streak,
         date: result.date
       };
     }).filter(Boolean); // nullを除去
     
     res.json({
-      date: todayStr,
-      rankings: formattedRankings
+      success: true,
+      date: targetDate,
+      count: formattedRankings.length,
+      data: formattedRankings
     });
   } catch (error) {
-    console.error("Error in getDailyRankings:", error); // エラーログを詳細に
-    res.status(500).json({ message: error.message, stack: process.env.NODE_ENV === 'development' ? error.stack : undefined });
+    console.error("Error in getDailyRankings:", error);
+    res.status(500).json({ 
+      success: false,
+      message: 'ランキングの取得に失敗しました',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
 // @desc    週間ランキングの取得
 // @route   GET /api/rankings/weekly
 // @access  Public
-exports.getWeeklyRankings = async (req, res) => {
+export const getWeeklyRankings = async (req, res) => {
   try {
     // 週の始まり（日曜日の0時）を計算
     const today = new Date();
@@ -84,43 +93,49 @@ exports.getWeeklyRankings = async (req, res) => {
     startOfWeek.setDate(today.getDate() - dayOfWeek);
     startOfWeek.setHours(0, 0, 0, 0);
     
-    // グレードフィルタリング
-    const gradeFilter = {};
-    if (req.query.grade) {
-      gradeFilter.grade = parseInt(req.query.grade);
+    const startDateStr = startOfWeek.toISOString().split('T')[0];
+    const endDateStr = today.toISOString().split('T')[0];
+    
+    console.log(`[Ranking] 週間ランキング取得: ${startDateStr} - ${endDateStr}`);
+    
+    // 難易度フィルタリング
+    const matchConditions = {
+      date: { 
+        $gte: startDateStr,
+        $lte: endDateStr
+      }
+    };
+    if (req.query.difficulty) {
+      matchConditions.difficulty = req.query.difficulty;
     }
     
-    // 各ユーザーごとに最高スコアを集計
+    // 各ユーザーごとに最高スコアを集計（期間内の最高記録）
     const aggregatedRankings = await Result.aggregate([
-      { 
-        $match: { 
-          date: { $gte: startOfWeek },
-          weekly: true,
-          ...gradeFilter
-        } 
-      },
-      { 
-        $sort: { score: -1, timeSpent: 1 } 
-      },
+      { $match: matchConditions },
+      { $sort: { score: -1, timeSpent: 1 } },
       {
         $group: {
           _id: '$userId',
           score: { $max: '$score' },
           timeSpent: { $first: '$timeSpent' },
+          totalTime: { $first: '$totalTime' },
           correctAnswers: { $first: '$correctAnswers' },
-          grade: { $first: '$grade' },
+          totalProblems: { $first: '$totalProblems' },
+          difficulty: { $first: '$difficulty' },
           date: { $first: '$date' }
         }
       },
       { $sort: { score: -1, timeSpent: 1 } },
-      { $limit: 50 }
+      { $limit: parseInt(req.query.limit) || 50 }
     ]);
     
     if (!aggregatedRankings.length) {
       return res.json({
-        startDate: startOfWeek.toISOString().split('T')[0],
-        message: 'まだランキングデータがありません',
-        rankings: []
+        success: true,
+        startDate: startDateStr,
+        endDate: endDateStr,
+        message: '週間ランキングデータがありません',
+        data: []
       });
     }
     
@@ -136,72 +151,86 @@ exports.getWeeklyRankings = async (req, res) => {
         userId: record._id,
         username: user ? user.username : 'Unknown User',
         avatar: user ? user.avatar : '😶',
-        grade: record.grade,
+        grade: user ? user.grade : '不明',
+        difficulty: record.difficulty,
         score: record.score,
         timeSpent: record.timeSpent,
+        totalTime: record.totalTime,
         correctAnswers: record.correctAnswers,
+        totalProblems: record.totalProblems,
         streak: user ? user.streak : 0,
         date: record.date
       };
     });
     
     res.json({
-      startDate: startOfWeek.toISOString().split('T')[0],
-      endDate: today.toISOString().split('T')[0],
-      rankings: formattedRankings
+      success: true,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      count: formattedRankings.length,
+      data: formattedRankings
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error in getWeeklyRankings:", error);
+    res.status(500).json({ 
+      success: false,
+      message: '週間ランキングの取得に失敗しました' 
+    });
   }
 };
 
 // @desc    月間ランキングの取得
 // @route   GET /api/rankings/monthly
 // @access  Public
-exports.getMonthlyRankings = async (req, res) => {
+export const getMonthlyRankings = async (req, res) => {
   try {
     // 月の始まり（1日の0時）を計算
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     startOfMonth.setHours(0, 0, 0, 0);
     
-    // グレードフィルタリング
-    const gradeFilter = {};
-    if (req.query.grade) {
-      gradeFilter.grade = parseInt(req.query.grade);
+    const startDateStr = startOfMonth.toISOString().split('T')[0];
+    const endDateStr = today.toISOString().split('T')[0];
+    
+    console.log(`[Ranking] 月間ランキング取得: ${startDateStr} - ${endDateStr}`);
+    
+    // 難易度フィルタリング
+    const matchConditions = {
+      date: { 
+        $gte: startDateStr,
+        $lte: endDateStr
+      }
+    };
+    if (req.query.difficulty) {
+      matchConditions.difficulty = req.query.difficulty;
     }
     
     // 各ユーザーごとに最高スコアを集計
     const aggregatedRankings = await Result.aggregate([
-      { 
-        $match: { 
-          date: { $gte: startOfMonth },
-          monthly: true,
-          ...gradeFilter
-        } 
-      },
-      { 
-        $sort: { score: -1, timeSpent: 1 } 
-      },
+      { $match: matchConditions },
+      { $sort: { score: -1, timeSpent: 1 } },
       {
         $group: {
           _id: '$userId',
           score: { $max: '$score' },
           timeSpent: { $first: '$timeSpent' },
+          totalTime: { $first: '$totalTime' },
           correctAnswers: { $first: '$correctAnswers' },
-          grade: { $first: '$grade' },
+          totalProblems: { $first: '$totalProblems' },
+          difficulty: { $first: '$difficulty' },
           date: { $first: '$date' }
         }
       },
       { $sort: { score: -1, timeSpent: 1 } },
-      { $limit: 50 }
+      { $limit: parseInt(req.query.limit) || 50 }
     ]);
     
     if (!aggregatedRankings.length) {
       return res.json({
-        month: `${today.getFullYear()}/${today.getMonth() + 1}`,
-        message: 'まだランキングデータがありません',
-        rankings: []
+        success: true,
+        month: `${today.getFullYear()}年${today.getMonth() + 1}月`,
+        message: '月間ランキングデータがありません',
+        data: []
       });
     }
     
@@ -217,10 +246,13 @@ exports.getMonthlyRankings = async (req, res) => {
         userId: record._id,
         username: user ? user.username : 'Unknown User',
         avatar: user ? user.avatar : '😶',
-        grade: record.grade,
+        grade: user ? user.grade : '不明',
+        difficulty: record.difficulty,
         score: record.score,
         timeSpent: record.timeSpent,
+        totalTime: record.totalTime,
         correctAnswers: record.correctAnswers,
+        totalProblems: record.totalProblems,
         streak: user ? user.streak : 0,
         date: record.date
       };
@@ -229,91 +261,88 @@ exports.getMonthlyRankings = async (req, res) => {
     const monthName = today.toLocaleString('ja-JP', { month: 'long' });
     
     res.json({
+      success: true,
       month: `${today.getFullYear()}年${monthName}`,
-      rankings: formattedRankings
+      count: formattedRankings.length,
+      data: formattedRankings
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error in getMonthlyRankings:", error);
+    res.status(500).json({ 
+      success: false,
+      message: '月間ランキングの取得に失敗しました' 
+    });
   }
 };
 
 // @desc    ユーザーのランキング取得
 // @route   GET /api/rankings/me
 // @access  Private
-exports.getUserRanking = async (req, res) => {
+export const getUserRanking = async (req, res) => {
   try {
-    // 日付の範囲設定
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false,
+        message: '認証が必要です' 
+      });
+    }
     
-    const dayOfWeek = today.getDay();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek);
-    startOfWeek.setHours(0, 0, 0, 0);
+    const targetDate = req.query.date || new Date().toISOString().split('T')[0];
+    const difficulty = req.query.difficulty;
     
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    // 検索条件
+    const baseConditions = { date: targetDate };
+    if (difficulty) {
+      baseConditions.difficulty = difficulty;
+    }
     
-    // 今日のランキング
-    const dailyRank = await Result.countDocuments({
-      date: { $gte: today },
-      score: { $gt: (req.query.score ? parseInt(req.query.score) : 0) }
-    }) + 1;
+    // ユーザーの結果を取得
+    const userResult = await Result.findOne({
+      ...baseConditions,
+      userId: userId
+    });
     
-    // 週間ランキング
-    const weeklyRank = await Result.aggregate([
-      { 
-        $match: { 
-          date: { $gte: startOfWeek },
-          weekly: true
-        } 
-      },
-      {
-        $group: {
-          _id: '$userId',
-          score: { $max: '$score' }
+    if (!userResult) {
+      return res.json({
+        success: true,
+        rank: null,
+        message: '該当するデータがありません'
+      });
+    }
+    
+    // 同条件でより良いスコアのユーザー数を数える
+    const betterScoreCount = await Result.countDocuments({
+      ...baseConditions,
+      $or: [
+        { score: { $gt: userResult.score } },
+        { 
+          score: userResult.score,
+          timeSpent: { $lt: userResult.timeSpent }
+        },
+        {
+          score: userResult.score,
+          timeSpent: userResult.timeSpent,
+          createdAt: { $lt: userResult.createdAt }
         }
-      },
-      { 
-        $match: { 
-          score: { $gt: (req.query.score ? parseInt(req.query.score) : 0) } 
-        } 
-      },
-      { 
-        $count: 'count' 
-      }
-    ]);
+      ]
+    });
     
-    // 月間ランキング
-    const monthlyRank = await Result.aggregate([
-      { 
-        $match: { 
-          date: { $gte: startOfMonth },
-          monthly: true
-        } 
-      },
-      {
-        $group: {
-          _id: '$userId',
-          score: { $max: '$score' }
-        }
-      },
-      { 
-        $match: { 
-          score: { $gt: (req.query.score ? parseInt(req.query.score) : 0) } 
-        } 
-      },
-      { 
-        $count: 'count' 
-      }
-    ]);
+    const rank = betterScoreCount + 1;
     
     res.json({
-      dailyRank,
-      weeklyRank: weeklyRank.length > 0 ? weeklyRank[0].count + 1 : 1,
-      monthlyRank: monthlyRank.length > 0 ? monthlyRank[0].count + 1 : 1
+      success: true,
+      rank: rank,
+      score: userResult.score,
+      timeSpent: userResult.timeSpent,
+      date: targetDate,
+      difficulty: difficulty || 'all'
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error in getUserRanking:", error);
+    res.status(500).json({ 
+      success: false,
+      message: 'ランキング取得に失敗しました' 
+    });
   }
 };

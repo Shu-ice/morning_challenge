@@ -28,6 +28,7 @@ export interface PracticeSession {
   difficulty: DifficultyRank;
   results: ProblemResult[];
   score: number;
+  totalTime?: number; // ミリ秒単位の合計解答時間
 }
 
 export interface UserProfile extends UserData {
@@ -81,18 +82,24 @@ export interface Results {
 
 // APIレスポンスの result 部分の型 (submitAnswers)
 export interface ApiResult {
-  _id: string;
-  userId: string;
-  username: string;
-  problemResults: ProblemResult[]; 
+  _id?: string; // _id はランキングや履歴用で、submit直後にはない可能性も考慮
+  userId?: string;
+  username?: string;
+  // problemResults: ProblemResult[]; // これは results.problems にあるので、ApiResult直下には不要かも。
+                                     // Problems.tsxのログでは APIレスポンスの `results` オブジェクトがこの型に相当し、
+                                     // その中に `problems` 配列がある。
   totalProblems: number;
   correctAnswers: number;
   incorrectAnswers: number;
   unanswered: number;
-  totalTime: number; // ミリ秒単位の timeSpent
-  timeSpent: number; // ミリ秒単位の timeSpent
+  totalTime: number;    // ミリ秒単位の合計解答時間 (サーバーレスポンスの totalTime)
+  timeSpent: number;    // 秒単位の合計解答時間 (totalTime / 1000) (サーバーレスポンスの timeSpent)
+  problems: ProblemResult[]; // 詳細な問題ごとの結果 (サーバーレスポンスの problems)
   score: number;
   difficulty: DifficultyRank; 
   date: string;
-  // rank?: number; // ランキングはレスポンスのトップレベルにあることが多い
+  startTime: number; // サーバーで計算された開始時刻 (ミリ秒タイムスタンプ)
+  endTime: number;   // サーバーで計算された終了時刻 (ミリ秒タイムスタンプ)
+  rank?: number;
+  // rank?: number; // ランキングはレスポンスのトップレベルにあることが多い <- これはApiResultには不要で、SubmitApiResponseのような親の型で持つべき
 } 

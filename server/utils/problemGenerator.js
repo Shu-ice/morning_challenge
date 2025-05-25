@@ -1,5 +1,8 @@
 // server/utils/problemGenerator.js
 
+import dayjs from 'dayjs'; // 追加: generateProblemsForNextDay で使用
+import DailyProblemSet from '../models/DailyProblemSet.js'; // 追加: generateProblemsForNextDay で使用
+
 // ★ DifficultyRank をバックエンドで定義
 export const DifficultyRank = {
   BEGINNER: 'beginner',
@@ -142,13 +145,50 @@ const calculateAnswer = (nums, ops, maxDecimalPlaces) => {
 };
 
 const isCleanNumber = (num, allowedDecimalPlaces) => {
-    if (Number.isInteger(num)) return true;
+    console.log(`[isCleanNumber DEBUG] Input: num=${num}, allowedDecimalPlaces=${allowedDecimalPlaces}`);
+
+    if (!Number.isFinite(num)) {
+        console.log(`[isCleanNumber DEBUG] Result: false (num is not finite: ${num})`);
+        return false;
+    }
+
+    // 整数チェック (ほぼ整数とみなせるか)
+    if (Math.abs(num - Math.round(num)) < 1e-9) {
+        if (allowedDecimalPlaces >= 0) { // どんな小数点以下の桁数指定でも整数はOK
+            console.log(`[isCleanNumber DEBUG] Result: true (num is effectively integer: ${num})`);
+            return true;
+        }
+    }
+
+    // 小数点以下の桁数チェック
     const s = String(num);
     const decimalPart = s.split('.')[1];
-    if (!decimalPart) return true;
-    if (decimalPart.length > allowedDecimalPlaces) return false;
+
+    if (!decimalPart) { // 小数点がない (整数だが上記でtrueにならなかったケース、例: allowedDecimalPlaces < 0 はありえないが念のため)
+        console.log(`[isCleanNumber DEBUG] Result: true (num is integer string: ${s}, no decimal part)`);
+        return true; 
+    }
+
+    // 末尾の0を除いた実際の小数部の長さを取得
+    const actualDecimalLength = decimalPart.replace(/0+$/, '').length;
+    
+    if (actualDecimalLength > allowedDecimalPlaces) {
+        console.log(`[isCleanNumber DEBUG] Result: false (actualDecimalLength ${actualDecimalLength} > allowedDecimalPlaces ${allowedDecimalPlaces} for num ${num})`);
+        return false;
+    }
+
+    // 指定された桁数で丸めた際に元の数値とほぼ同じかチェック (浮動小数点誤差対策)
+    // allowedDecimalPlaces が 0 の場合は整数との比較になる
     const factor = Math.pow(10, allowedDecimalPlaces);
-    return Math.abs(num - Math.round(num * factor) / factor) < 1e-9;
+    const roundedNum = Math.round(num * factor) / factor;
+
+    if (Math.abs(num - roundedNum) >= 1e-9) { // 1e-9 は許容誤差
+        console.log(`[isCleanNumber DEBUG] Result: false (num ${num} vs roundedNum ${roundedNum} difference is too large)`);
+        return false;
+    }
+    
+    console.log(`[isCleanNumber DEBUG] Result: true (num ${num} passed all checks for allowedDecimalPlaces ${allowedDecimalPlaces})`);
+    return true;
 };
 
 // ★ 難易度に基づくパラメータ設定（学習指導要領に基づいて調整）
@@ -176,86 +216,73 @@ const getParamsForDifficulty = (difficulty) => {
         case DifficultyRank.INTERMEDIATE: // 小学3・4年生
             return {
                 problemTypes: [
-                    'add_subtract_2_3digit',      // 3年生：3桁の加減
-                    'multiply_2_3digit_by_1digit', // 3年生：2桁×1桁、3年生：3桁×1桁
-                    'multiply_2digit_by_2digit',   // 4年生：2桁×2桁
-                    'divide_with_remainder',       // 3年生：2桁÷1桁、4年生：3桁÷1桁
-                    'simple_decimals_add_subtract' // 4年生：小数の加減（小数点以下1桁）
+                    'add_subtract_2_3digit',
+                    'multiply_2_3digit_by_1digit',
+                    'multiply_2digit_by_2digit',
+                    'divide_with_remainder',
+                    'simple_decimals_add_subtract'
                 ],
-                termsRange: [2, 2], // 基本的に2項の計算
+                termsRange: [2, 2],
                 digitRanges: {
                     default: [2, 3],
-                    add_subtract_2_3digit: [[2, 3], [2, 3]], // 3桁までの加減
-                    multiply_2_3digit_by_1digit: [[2, 3], [1, 1]], // (2-3桁) × (1桁)
-                    multiply_2digit_by_2digit: [[2, 2], [2, 2]],   // (2桁) × (2桁)
-                    divide_with_remainder: [[2, 3], [1, 1]],       // (2-3桁) ÷ (1桁)
-                    simple_decimals_add_subtract: [[1, 2], [1, 2]] // 小数点以下1桁までの数の加減
+                    add_subtract_2_3digit: [[2, 3], [2, 3]],
+                    multiply_2_3digit_by_1digit: [[2, 3], [1, 1]],
+                    multiply_2digit_by_2digit: [[2, 2], [2, 2]],
+                    divide_with_remainder: [[2, 3], [1, 1]],
+                    // simple_decimals_add_subtract: [[1, 2], [1, 2]] // This was for integer parts, now using termValueRangesForDecimal
+                },
+                termValueRangesForDecimal: { // For simple_decimals_add_subtract
+                    simple_decimals_add_subtract: [[0.1, 99.9], [0.1, 9.9]] // Example: num1 from 0.1-99.9, num2 from 0.1-9.9
                 },
                 ops: ['+', '-', '×', '÷'],
-                forceIntegerResult: true, // 割り算は必ず割り切れる数を使用
+                forceIntegerResult: true,
                 allowNegativeResult: false,
-                maxResultValue: 10000, // 3桁×3桁の最大値（999×9=8991）を考慮
-                decimals: 1, // 小数第一位まで
+                maxResultValue: 10000,
+                decimals: 1, // tiểu số thứ nhất
                 intermediateSpecific: {
-                    divisionRemainderPercentage: 0.0, // 余りのある割り算は出さない
-                    decimalProblemPercentage: 0.2, // 小数問題の割合（4年生レベル）
-                    multiplicationPercentage: 0.4, // かけ算の割合
-                    divisionPercentage: 0.2, // わり算の割合
-                    addSubtractPercentage: 0.2 // たし算・ひき算の割合
+                    divisionRemainderPercentage: 0.0,
+                    decimalProblemPercentage: 0.2,
+                    multiplicationPercentage: 0.4,
+                    divisionPercentage: 0.2,
+                    addSubtractPercentage: 0.2
                 }
             };
         case DifficultyRank.ADVANCED: // 小学5・6年生
             return {
-                problemTypes: [
-                    'decimal_multiply_divide', // 5年生: 小数の乗除
-                    'fraction_add_subtract_different_denominators', // 5年生: 異分母分数の加減
-                    'fraction_multiply_divide', // 6年生: 分数の乗除
-                    'mixed_calculations_parentheses' // 5・6年生: 括弧を含む四則混合
-                ],
-                termsRange: [2, 4], // 計算に関わる項の数
-                digitRanges: { // 各問題タイプでの整数部の桁数や分子分母の桁数
-                    default: [1, 3], // フォールバック用
-                    decimal_multiply_divide: [[1, 3], [1, 2]], // 例: 12.3 × 4.5 や 123.4 ÷ 5.67
-                    fraction_add_subtract_different_denominators: [[1, 2], [1, 2]], // 分数の分子/分母の桁数
-                    fraction_multiply_divide: [[1, 2], [1, 2]],
-                    mixed_calculations_parentheses: [[1, 3], [1, 3], [1, 2]], // 混合計算で扱う数値の桁数
-                },
-                ops: ['+', '-', '×', '÷'],
-                forceIntegerResult: false, // 小数・分数の結果を許可
-                allowNegativeResult: false, // 負の数はなし
-                maxResultValue: 100000, // 結果の最大値 (調整可能)
-                decimals: 2, // 小数第二位まで
-                allowParentheses: true, // 括弧の使用を許可
-                advancedSpecific: {
-                    decimalProblemPercentage: 0.3,   // 小数問題の割合 30%
-                    fractionProblemPercentage: 0.4,  // 分数問題の割合 40%
-                    mixedProblemPercentage: 0.3,     // 混合計算問題の割合 30%
-                }
-            };
-        case DifficultyRank.EXPERT: // 超級 (すごい小学生)
-            return {
-                problemTypes: [
-                    'complex_mixed_calculations_parentheses', // より複雑な括弧付き混合計算
-                    'large_number_operations', // 大きな桁数の整数の計算
-                    'strategic_calculations' // 工夫を要する計算 (問題生成で表現)
-                ],
-                termsRange: [3, 5],
+                // Temporarily simplify to avoid unimplemented types causing timeouts
+                problemTypes: ['add_subtract_2_3digit'], // Use a known, implemented type
+                termsRange: [2, 3], 
                 digitRanges: {
                     default: [2, 4],
-                    complex_mixed_calculations_parentheses: [[2, 4], [2, 3], [1, 3]],
-                    large_number_operations: [[3, 5], [2, 4]],
-                    strategic_calculations: [[2, 4], [2, 4]] // 例: (A × B) + (A × C)
+                    add_subtract_2_3digit: [[3, 5], [2, 4]] // Widened range: e.g., (3-5 digits) +/- (2-4 digits)
                 },
                 ops: ['+', '-', '×', '÷'],
-                forceIntegerResult: false, // 結果が整数でなくても良い
-                allowNegativeResult: false, // 負の数はなし (ユーザー指示)
-                maxResultValue: 1000000, // 結果の最大値
-                decimals: 3, // 小数第三位まで考慮 (問題による)
-                allowParentheses: true,
-                expertSpecific: {
-                    complexMixedPercentage: 0.5, // 複雑な混合計算 50%
-                    largeNumPercentage: 0.3,     // 大きな数 30%
-                    strategicPercentage: 0.2     // 工夫する計算 20%
+                forceIntegerResult: false, 
+                allowNegativeResult: true,
+                maxResultValue: 100000,
+                decimals: 2, // Up to two decimal places
+                advancedSpecific: { // Ensure the placeholder type is selected
+                    add_subtract_2_3digit: 1.0 // 100%
+                    // Add other specific percentages if more types were included
+                }
+            };
+        case DifficultyRank.EXPERT: // 中学生以上（より複雑な問題や代数も視野）
+            return {
+                // Temporarily simplify to avoid unimplemented types causing timeouts
+                problemTypes: ['add_subtract_2_3digit'], // Use a known, implemented type
+                termsRange: [2, 4],
+                digitRanges: {
+                    default: [3, 5], 
+                    add_subtract_2_3digit: [[4, 6], [3, 5]] // Widened range: e.g., (4-6 digits) +/- (3-5 digits)
+                },
+                ops: ['+', '-', '×', '÷'],
+                forceIntegerResult: false,
+                allowNegativeResult: true,
+                maxResultValue: 1000000,
+                decimals: 3, // Up to three decimal places for more complex calculations
+                expertSpecific: { // Ensure the placeholder type is selected
+                    add_subtract_2_3digit: 1.0 // 100%
+                    // Add other specific percentages if more types were included
                 }
             };
         default: // フォールバック (基本的に使われない想定)
@@ -288,24 +315,114 @@ const generateOptions = (answer, difficulty, seed) => {
 
     const range = isDecimal ? rangeMagnitude / factor : rangeMagnitude;
 
-    while (options.length < 4 && attempts < maxAttempts * 4) {
+    while (options.length < 4 && attempts < maxAttempts * 4) { // maxAttempts * 4 = 400
         attempts++;
         let option;
         const offsetMagnitude = getRandomInt(-rangeMagnitude, rangeMagnitude, seed + attempts * 10);
         const offset = isDecimal ? offsetMagnitude / factor : offsetMagnitude;
 
         option = Math.round((roundedAnswer + offset) * factor) / factor;
+        if (Object.is(option, -0)) option = 0; // Avoid -0
 
-        if (!options.includes(option) && option !== roundedAnswer && option >= 0) {
+        // CORRECTED CONDITION: Allow negative options if params.allowNegativeResult is true
+        if (!options.includes(option) && option !== roundedAnswer && (params.allowNegativeResult || option >= 0)) {
             options.push(option);
         }
     }
 
-    while(options.length < 4) {
-       let fallbackOption = Math.round(getRandomInt(0, Math.abs(roundedAnswer) * 2 + 10, seed + attempts + options.length * 2) * factor)/factor;
-        if (!options.includes(fallbackOption) && fallbackOption !== roundedAnswer && fallbackOption >= 0) {
+    // Loop 2: Fallback options if not enough were generated
+    const fallbackMaxAttempts = maxAttempts * 4; // Ensure this loop also contributes to total attempts and terminates
+    while(options.length < 4 && attempts < fallbackMaxAttempts) { 
+       attempts++; // Increment total attempts
+       
+       let fallbackOptionBaseValue = Math.max(10, Math.abs(roundedAnswer) * 2 + 10); 
+       let fallbackOption = getRandomInt(0, Math.round(fallbackOptionBaseValue * factor), seed + attempts + options.length * 2) / factor;
+       
+       if (params.allowNegativeResult && roundedAnswer < 0 && seededRandom(seed + attempts * 5) > 0.5) {
+           fallbackOption = -fallbackOption;
+       }
+       if (isDecimal) fallbackOption = parseFloat(fallbackOption.toFixed(decimals));
+       if (Object.is(fallbackOption, -0)) fallbackOption = 0; // Avoid -0
+
+        // CORRECTED CONDITION: Allow negative options if params.allowNegativeResult is true
+        if (!options.includes(fallbackOption) && fallbackOption !== roundedAnswer && (params.allowNegativeResult || fallbackOption >= 0)) {
              options.push(fallbackOption);
         }
+    }
+
+    // Ensure options array always has 4 elements (robust padding)
+    if (options.length < 4) {
+        console.warn(`[BE_generateOptions] Generated only ${options.length} options for answer ${roundedAnswer} (difficulty: ${difficulty}). Padding to ensure 4.`);
+        let padAttempt = 0;
+        const baseStep = Number.isInteger(roundedAnswer) ? 1 : Math.pow(10, -decimals); // Define a base step for padding, e.g., 1 or 0.1 or 0.01
+
+        while (options.length < 4 && padAttempt < 20) { // Limit padding attempts
+            padAttempt++;
+            // Try positive and negative offsets from the answer, scaled by attempt
+            let potentialOption = roundedAnswer + (baseStep * padAttempt * (padAttempt % 2 === 0 ? 1 : -1));
+
+            if (isDecimal) {
+                potentialOption = parseFloat(potentialOption.toFixed(decimals));
+            } else {
+                potentialOption = Math.round(potentialOption);
+            }
+            if (Object.is(potentialOption, -0)) potentialOption = 0;
+
+            if (!options.includes(potentialOption) &&
+                potentialOption !== roundedAnswer &&
+                (params.allowNegativeResult || potentialOption >= 0)) {
+                options.push(potentialOption);
+            }
+        }
+
+        // If still not enough, add more distinct, potentially random, valid options
+        let finalPadAttempt = 0;
+        while (options.length < 4 && finalPadAttempt < 20) { // Limit final padding attempts
+            finalPadAttempt++;
+            let genericOption;
+            // Generate a somewhat random number, then adjust to be valid
+            genericOption = (Math.random() - 0.5) * 2 * Math.max(10, Math.abs(roundedAnswer) * 2); // Spread around answer's magnitude
+            genericOption += roundedAnswer; // Center it near answer initially
+
+            if (isDecimal) genericOption = parseFloat(genericOption.toFixed(decimals));
+            else genericOption = Math.round(genericOption);
+            
+            if (!params.allowNegativeResult && genericOption < 0) {
+                genericOption = Math.abs(genericOption); // Make positive if needed
+            }
+            if (isDecimal) genericOption = parseFloat(genericOption.toFixed(decimals)); // Re-apply decimal fix
+            if (Object.is(genericOption, -0)) genericOption = 0;
+
+            if (!options.includes(genericOption) && genericOption !== roundedAnswer) {
+                 options.push(genericOption);
+            }
+        }
+        
+        // Ultra-final resort: ensure 4 unique numbers, can be very random if all else failed
+        options = Array.from(new Set(options)); // Make unique
+        let emergencyIdx = 0;
+        while(options.length < 4){
+            let fillValue = parseFloat((Math.random() * 200 - 100 + emergencyIdx).toFixed(decimals));
+            if(!params.allowNegativeResult && fillValue < 0) fillValue = Math.abs(fillValue);
+            if(Object.is(fillValue, -0)) fillValue = 0;
+            
+            // Ensure it's distinct from existing options and the answer
+            if(!options.includes(fillValue) && fillValue !== roundedAnswer) {
+                options.push(fillValue);
+            } else { // if collision, just use a timestamp-randomized value
+                options.push(parseFloat((Date.now()%10000 + Math.random()*100 + emergencyIdx).toFixed(decimals)));
+            }
+            emergencyIdx++;
+            if (emergencyIdx > 20 && options.length < 4) { // Prevent infinite loop in extreme edge case
+                 options.push(Date.now() + Math.random()); // Push definitely unique value
+            }
+        }
+        options = Array.from(new Set(options)).slice(0,4); // Final cut to 4 unique
+         // One last check for length, if Set reduced it below 4
+        while(options.length < 4) {
+            options.push(parseFloat((Date.now() + Math.random() + options.length).toFixed(decimals)));
+        }
+        options = options.slice(0,4); // Absolutely ensure it is 4
     }
 
     for (let i = options.length - 1; i > 0; i--) {
@@ -421,282 +538,301 @@ const selectProblemType = (difficulty, seed) => {
 
 // 単一問題生成関数
 const generateSingleProblemInternal = async (difficulty, seed) => {
-  const params = getParamsForDifficulty(difficulty);
-  const allowedDecimalPlaces = params.decimals;
-  const startTime = Date.now();
+    const funcStartTime = Date.now();
+    console.log(`[ProblemGenerator DEBUG] generateSingleProblemInternal CALLED - difficulty: ${difficulty}, seed: ${seed}`);
 
-  const cacheKey = `${difficulty}_${seed}`; 
-  if (problemCache[difficulty] && problemCache[difficulty].has(cacheKey)) {
-    return problemCache[difficulty].get(cacheKey);
-  }
-
+    const params = getParamsForDifficulty(difficulty);
   let attempts = 0;
-  const maxAttempts = difficulty === DifficultyRank.BEGINNER ? 70 : // BEGINNERの試行回数を少し増やす
-                      difficulty === DifficultyRank.INTERMEDIATE ? 80 :
-                      difficulty === DifficultyRank.ADVANCED ? 120 : 150;
-  
-  while (attempts < maxAttempts) {
+    const MAX_ATTEMPTS_INTERNAL = params.maxAttempts || 200; // 難易度ごとに設定可能に、デフォルト200
+    let problem = null;
+    let problemType = "unknown"; // 初期化
+    let lastError = null;
+
+    try {
+        while (attempts < MAX_ATTEMPTS_INTERNAL) {
     attempts++;
-    if (checkTimeout(startTime, 20000)) { 
-      console.warn(`[ProblemGenerator] Timeout during generation for difficulty ${difficulty}, seed ${seed} (attempt ${attempts})`);
-      return generateFallbackProblem(difficulty, seed + attempts);
-    }
+            const currentSeed = seed + attempts; // 試行ごとにシードを変更
+            problemType = selectProblemType(difficulty, currentSeed); // ループ内で問題タイプを再選択する可能性も考慮
 
-    const currentSeed = seed + attempts / 100; 
-    const problemType = selectProblemType(difficulty, currentSeed);
+            console.log(`[ProblemGenerator DEBUG] Attempt #${attempts}/${MAX_ATTEMPTS_INTERNAL} for ${difficulty} (seed: ${currentSeed}, type: ${problemType})`);
 
-    if (!problemType || (problemType === 'generic_calculation' && params.problemTypes.length > 1)) {
-        if (problemType === 'generic_calculation' && attempts < maxAttempts / 2) continue;
-        console.warn(`[ProblemGenerator] Could not reliably select a specific problem type for ${difficulty} (selected: ${problemType}). Using fallback or generic.`);
-        if (!problemType) return generateFallbackProblem(difficulty, currentSeed);
-    }
+            let question, answer, options;
+            let nums = [], ops = [];
+            let generatedDetails = null;
 
-    let nums = [];
-    let ops = [];
-    let questionStr = '';
-    let answer = undefined; 
-    let typeForProblemObject = problemType; 
-         
-         if (difficulty === DifficultyRank.BEGINNER) {
-      if (problemType === 'multiplication_table') {
-        const num1 = getRandomInt(1, 9, currentSeed + 10);
-        const num2 = getRandomInt(1, 9, currentSeed + 20);
-        nums = [num1, num2];
-        ops = ['×'];
-        questionStr = `${num1} × ${num2}`;
-        answer = num1 * num2;
-        typeForProblemObject = 'multiplication_9x9'; 
-      } else if (problemType === 'add_subtract_2digit_1digit') {
-        const digitConfig = params.digitRanges.add_subtract_2digit_1digit; // [[1,2], [1,1]]
-        // 第1項 (1-2桁)
-        const num1Digits = getRandomInt(digitConfig[0][0], digitConfig[0][1], currentSeed + 30);
-        const num1Min = Math.pow(10, num1Digits - 1);
-        const num1Max = Math.pow(10, num1Digits) - 1;
-        let num1 = getRandomInt(num1Min, num1Max, currentSeed + 31);
+            // --- ここから各問題タイプの生成ロジック (既存のものをベースにログ追加) ---
+            // この部分は元の関数の構造に大きく依存するため、以下は例示的なログポイントです。
+            // 実際のコードに合わせてログを挿入する必要があります。
 
-        // 第2項 (1桁)
-        const num2Digits = getRandomInt(digitConfig[1][0], digitConfig[1][1], currentSeed + 40); // 実質1桁
-        const num2Min = Math.pow(10, num2Digits - 1);
-        const num2Max = Math.pow(10, num2Digits) - 1;
-        let num2 = getRandomInt(num2Min, num2Max, currentSeed + 41);
-        
-        // 0を避ける
-        if (num1 === 0) num1 = getRandomInt(1, num1Max, currentSeed + 32) || 1;
-        if (num2 === 0) num2 = getRandomInt(1, num2Max, currentSeed + 42) || 1;
+            if (problemType === 'add_subtract_2digit_1digit') {
+                const [range1, range2] = params.digitRanges.add_subtract_2digit_1digit;
+                let num1 = getRandomInt(Math.pow(10, range1[0]-1), Math.pow(10, range1[1])-1, currentSeed + 1);
+                let num2 = getRandomInt(Math.pow(10, range2[0]-1), Math.pow(10, range2[1])-1, currentSeed + 2);
+                const opIndex = getRandomInt(0, 1, currentSeed + 3); // 0: +, 1: -
+                const op = opIndex === 0 ? '+' : '-';
 
-        const opIndex = getRandomInt(0, 1, currentSeed + 50);
-        const op = (opIndex === 0 || !params.ops.includes('-')) ? '+' : '-';
-        ops = [op];
-
-        if (op === '-') {
-          if (num1 < num2 && !params.allowNegativeResult) {
-             // num1 < num2 の場合、単純な入れ替えだと num2 が2桁になる可能性がある
-             // num1 (1-2桁) - num2 (1桁) で負にならないように num1 を num2 より大きくする必要がある
-             // しかし、num1の最大値は99, num2の最大値は9なので、num1 >= num2 となるように再生成するか調整する
-             // 簡単なのは、num1 < num2 なら再試行 (continue) するか、num1 を num2 以上の値で再生成
-            if (num1 < num2) { // num1がnum2より小さい場合のみ調整
-                if (num1Digits === 1 && num2Digits === 1) { // 両方1桁なら入れ替えOK
-                    [num1, num2] = [num2, num1];
-         } else {
-                    // num1が2桁でnum2より小さい場合、またはnum1が1桁でnum2より小さい場合
-                    // num1 を num2 以上になるように再生成 (例: num2 から (num2+50) の範囲で)
-                    // ただし、maxResultValue も考慮する必要がある。
-                    // ここではシンプルに再試行とする
-                    continue; 
+                if (op === '-' && num1 < num2 && !params.allowNegativeResult) {
+                    [num1, num2] = [num2, num1]; // 結果が負にならないように入れ替え
                 }
-            }
-          }
-        }
-        nums = [num1, num2];
-        answer = calculateAnswer(nums, ops, allowedDecimalPlaces);
-        if (answer === undefined || 
-            (answer < 0 && !params.allowNegativeResult) || 
-            (params.maxResultValue && (answer > params.maxResultValue || answer < (params.allowNegativeResult ? -params.maxResultValue : 0) ))
-           ) {
-          continue; 
-        }
-        questionStr = `${num1} ${op} ${num2}`;
-        typeForProblemObject = op === '+' ? 'addition_2d1d' : 'subtraction_2d1d';
-      } else {
-        console.warn(`[ProblemGenerator] Unknown problemType '${problemType}' for BEGINNER. Attempting fallback.`);
-        return generateFallbackProblem(difficulty, currentSeed + 1000); // 未知のタイプならフォールバック
-      }
-    } else { // INTERMEDIATE 以上、または汎用ロジックへ
-      const terms = getRandomInt(params.termsRange[0], params.termsRange[1], currentSeed + 60);
-      const currentTermDigitParams = params.digitRanges[problemType] || params.digitRanges.default || [1,2]; 
+                question = `${num1} ${op} ${num2} = ?`;
+                nums = [num1, num2];
+                ops = [op];
+                generatedDetails = { nums, ops, questionString: question };
+                console.log(`[ProblemGenerator DEBUG] Generated add_subtract_2digit_1digit: ${question}`);
 
-      // 問題タイプに応じた特別な処理
-      if (problemType === 'divide_with_remainder') {
-        // 割り算問題の場合、必ず割り切れる数を使用
-        const divisor = getRandomInt(1, 9, currentSeed + 70);
-        const quotient = getRandomInt(1, 99, currentSeed + 80);
-        const dividend = divisor * quotient;
-        nums = [dividend, divisor];
-        ops = ['÷'];
-        answer = quotient;
-        questionStr = `${dividend} ÷ ${divisor}`;
-        typeForProblemObject = 'division';
+            } else if (problemType === 'multiplication_table') {
+                const num1 = getRandomInt(1, 9, currentSeed + 1);
+                const num2 = getRandomInt(1, 9, currentSeed + 2);
+                question = `${num1} × ${num2} = ?`;
+        nums = [num1, num2];
+        ops = ['×'];
+                generatedDetails = { nums, ops, questionString: question };
+                console.log(`[ProblemGenerator DEBUG] Generated multiplication_table: ${question}`);
+
+            } else if (problemType === 'add_subtract_2_3digit') {
+                const op = seededRandom(currentSeed + 30) > 0.5 ? '+' : '-';
+                const termRanges = params.digitRanges.add_subtract_2_3digit || [[2,3],[2,3]]; // Default from getParamsForDifficulty
+                
+                const num1Digits = getRandomInt(termRanges[0][0], termRanges[0][1], currentSeed + 31);
+                const num2Digits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 32);
+
+                let num1 = getRandomInt(Math.pow(10, num1Digits - 1), Math.pow(10, num1Digits) - 1, currentSeed + 33);
+                let num2 = getRandomInt(Math.pow(10, num2Digits - 1), Math.pow(10, num2Digits) - 1, currentSeed + 34);
+
+                if (op === '-' && num1 < num2 && !params.allowNegativeResult) {
+                    // Ensure num1 is greater or equal to num2 for subtraction if negative results are not allowed.
+                    // This might involve swapping or regenerating one of the numbers.
+                    // For simplicity here, we swap. More complex logic could regenerate to ensure variety.
+                    [num1, num2] = [num2, num1];
+                }
+                // Further check if after potential swap, num1 - num2 would be negative
+                // This can happen if allowNegativeResult is false, and previous swap wasn't enough or numbers were equal.
+                if (op === '-' && (num1 - num2 < 0) && !params.allowNegativeResult) {
+                    // This case should ideally be handled by careful range settings or more robust generation.
+                    // If we reach here, it implies num1 was smaller, they were swapped, but num2 (original num1) is still too small.
+                    // Or, they were equal, resulting in 0, which is fine.
+                    // If it's still negative, one option is to regenerate or force a simpler case.
+                    // For now, we rely on the initial swap. If result is still negative and not allowed, validation will catch it.
+                    // console.warn(`[ProblemGenerator DEBUG] add_subtract_2_3digit: Subtraction might result in negative, num1=${num1}, num2=${num2}`);
+                }
+
+                question = `${num1} ${op} ${num2} = ?`;
+                nums = [num1, num2];
+                ops = [op];
+                generatedDetails = { nums, ops, questionString: question };
+                console.log(`[ProblemGenerator DEBUG] Generated add_subtract_2_3digit: ${question}, Seed: ${currentSeed}`);
       } else if (problemType === 'multiply_2_3digit_by_1digit') {
-        // 2-3桁 × 1桁
-        const num1 = getRandomInt(10, 999, currentSeed + 70);
-        const num2 = getRandomInt(1, 9, currentSeed + 80);
+                const termRanges = params.digitRanges.multiply_2_3digit_by_1digit || [[2,3],[1,1]]; // Default from getParamsForDifficulty
+                
+                const num1Digits = getRandomInt(termRanges[0][0], termRanges[0][1], currentSeed + 41);
+                const num2Digits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 42); // Should typically be 1-digit
+
+                const num1 = getRandomInt(Math.pow(10, num1Digits - 1), Math.pow(10, num1Digits) - 1, currentSeed + 43);
+                const num2 = getRandomInt(Math.pow(10, num2Digits - 1), Math.pow(10, num2Digits) - 1, currentSeed + 44);
+                
+                const op = '×';
+                question = `${num1} ${op} ${num2} = ?`;
         nums = [num1, num2];
-        ops = ['×'];
-        answer = num1 * num2;
-        questionStr = `${num1} × ${num2}`;
-        typeForProblemObject = 'multiplication';
+                ops = [op];
+                generatedDetails = { nums, ops, questionString: question };
+                console.log(`[ProblemGenerator DEBUG] Generated multiply_2_3digit_by_1digit: ${question}, Seed: ${currentSeed}`);
       } else if (problemType === 'multiply_2digit_by_2digit') {
-        // 2桁 × 2桁
-        const num1 = getRandomInt(10, 99, currentSeed + 70);
-        const num2 = getRandomInt(10, 99, currentSeed + 80);
+                const termRanges = params.digitRanges.multiply_2digit_by_2digit || [[2,2],[2,2]]; // Default from getParamsForDifficulty
+                
+                const num1Digits = getRandomInt(termRanges[0][0], termRanges[0][1], currentSeed + 51); // Should be 2-digit
+                const num2Digits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 52); // Should be 2-digit
+
+                const num1 = getRandomInt(Math.pow(10, num1Digits - 1), Math.pow(10, num1Digits) - 1, currentSeed + 53);
+                const num2 = getRandomInt(Math.pow(10, num2Digits - 1), Math.pow(10, num2Digits) - 1, currentSeed + 54);
+                
+                const op = '×';
+                question = `${num1} ${op} ${num2} = ?`;
         nums = [num1, num2];
-        ops = ['×'];
-        answer = num1 * num2;
-        questionStr = `${num1} × ${num2}`;
-        typeForProblemObject = 'multiplication';
-      } else if (problemType === 'simple_decimals_add_subtract') {
-        // 小数の加減算（小数点以下1桁まで）
-        const num1 = getRandomFloat(1, 99, currentSeed + 70, 1);
-        const num2 = getRandomFloat(1, 99, currentSeed + 80, 1);
-        nums = [num1, num2];
-        const opIndex = getRandomInt(0, 1, currentSeed + 90);
-        ops = [opIndex === 0 ? '+' : '-'];
-        answer = calculateAnswer(nums, ops, 1);
-        // 答えが負の数にならないように調整
-        if (answer < 0) {
-          [nums[0], nums[1]] = [nums[1], nums[0]];
-          answer = calculateAnswer(nums, ops, 1);
-        }
-        questionStr = `${nums[0]} ${ops[0]} ${nums[1]}`;
-        typeForProblemObject = ops[0] === '+' ? 'decimal_addition' : 'decimal_subtraction';
-      } else {
-        // 通常の整数計算（たし算・ひき算）
-        const num1 = getRandomInt(10, 999, currentSeed + 70);
-        const num2 = getRandomInt(10, 999, currentSeed + 80);
-        nums = [num1, num2];
-        const opIndex = getRandomInt(0, 1, currentSeed + 90);
-        ops = [opIndex === 0 ? '+' : '-'];
-        answer = calculateAnswer(nums, ops, 0);
-        // 答えが負の数にならないように調整
-        if (answer < 0) {
-          [nums[0], nums[1]] = [nums[1], nums[0]];
-          answer = calculateAnswer(nums, ops, 0);
-        }
-        questionStr = `${nums[0]} ${ops[0]} ${nums[1]}`;
-        typeForProblemObject = ops[0] === '+' ? 'addition' : 'subtraction';
-      }
-    }
+                ops = [op];
+                generatedDetails = { nums, ops, questionString: question };
+                console.log(`[ProblemGenerator DEBUG] Generated multiply_2digit_by_2digit: ${question}, Seed: ${currentSeed}`);
+            } else if (problemType === 'divide_with_remainder') {
+                // NOTE: params.intermediateSpecific.divisionRemainderPercentage is currently 0.0, so we generate clean divisions.
+                const termRanges = params.digitRanges.divide_with_remainder || [[2,3],[1,1]]; // Default: (2-3 digit) / (1 digit)
+                
+                const divisorDigits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 61);
+                let divisor = getRandomInt(Math.pow(10, divisorDigits - 1), Math.pow(10, divisorDigits) - 1, currentSeed + 62);
+                if (divisor === 0) divisor = 1; // Avoid division by zero, though range should prevent this.
 
-    // ADVANCED レベルの具体的な問題生成ロジック
-    if (difficulty === DifficultyRank.ADVANCED) {
-      const terms = getRandomInt(params.termsRange[0], params.termsRange[1], currentSeed + 60);
-      const currentTermDigitParams = params.digitRanges[problemType] || params.digitRanges.default || [[1,2],[1,2]];
+                // To ensure a clean division and respect dividend digit range, we can determine a quotient range.
+                const dividendMaxDigits = termRanges[0][1];
+                const dividendMinDigits = termRanges[0][0];
+                
+                // Max possible quotient such that quotient * divisor approx Math.pow(10, dividendMaxDigits) - 1
+                // Min possible quotient such that quotient * divisor approx Math.pow(10, dividendMinDigits - 1)
+                let maxQuotient = Math.floor((Math.pow(10, dividendMaxDigits) -1) / divisor) ;
+                let minQuotient = Math.ceil(Math.pow(10, dividendMinDigits - 1) / divisor);
 
-      if (problemType === 'decimal_multiply_divide') {
-        const num1Digits = currentTermDigitParams[0] || [1,3]; // 整数部の桁数範囲
-        const num2Digits = currentTermDigitParams[1] || [1,2]; // 整数部の桁数範囲
-        const decimalPlaces = params.decimals || 2;
+                if (minQuotient === 0 && (Math.pow(10, dividendMinDigits -1) > 0) ) minQuotient = 1; // Ensure quotient is at least 1 if dividend is non-zero
+                if (minQuotient > maxQuotient || maxQuotient <=0) { // Invalid quotient range, try to adjust divisor or skip
+                     // This can happen if divisor is too large for the dividend range.
+                     // Fallback: make divisor smaller or regenerate. For now, log and potentially skip.
+                     console.warn(`[ProblemGenerator WARN] divide_with_remainder: Divisor ${divisor} might be too large for dividend range ${dividendMinDigits}-${dividendMaxDigits} digits. MaxQ ${maxQuotient}, MinQ ${minQuotient}. Attempting to adjust divisor.`);
+                     // Attempt to reduce divisor to a single digit number if it's not already
+                     if (divisorDigits > 1) {
+                         divisor = getRandomInt(2, 9, currentSeed + 622); // Fallback to simple 1-digit divisor (2-9)
+                         maxQuotient = Math.floor((Math.pow(10, dividendMaxDigits) -1) / divisor) ;
+                         minQuotient = Math.ceil(Math.pow(10, dividendMinDigits - 1) / divisor);
+                         if (minQuotient === 0 && (Math.pow(10, dividendMinDigits -1) > 0) ) minQuotient = 1;
+                     }
+                     if (minQuotient > maxQuotient || maxQuotient <=0) { // Still bad
+                         console.error(`[ProblemGenerator ERROR] divide_with_remainder: Could not determine valid quotient range for divisor ${divisor}. Skipping.`);
+                         lastError = `Invalid quotient range for divisor ${divisor}`;
+                         continue; // Skip to next attempt in the while loop
+                     }
+                }
 
-        let num1 = getRandomFloat(Math.pow(10, num1Digits[0]-1), Math.pow(10, num1Digits[1])-1, currentSeed + 70, decimalPlaces);
-        let num2 = getRandomFloat(Math.pow(10, num2Digits[0]-1), Math.pow(10, num2Digits[1])-1, currentSeed + 80, decimalPlaces);
-        const op = seededRandom(currentSeed + 90) < 0.5 ? '×' : '÷';
+                const quotient = getRandomInt(minQuotient, maxQuotient, currentSeed + 63);
+                const dividend = divisor * quotient;
 
-        if (op === '÷') {
-          if (num2 === 0) num2 = getRandomFloat(1, Math.pow(10, num2Digits[1])-1, currentSeed + 81, decimalPlaces) || 1; // 0除算回避
-          answer = num1 / num2;
-          // 結果が指定小数桁で割り切れるか、または非常に近いかチェック (要改善)
-          if (!isCleanNumber(answer, decimalPlaces + 1)) { // 少し許容度を持たせる
-            // 割り切れるペアが見つかるまで再試行 (最大10回程度)
-            for (let i=0; i<10; i++) {
-              num1 = getRandomFloat(Math.pow(10, num1Digits[0]-1), Math.pow(10, num1Digits[1])-1, currentSeed + 70 + i, decimalPlaces);
-              num2 = getRandomFloat(Math.pow(10, num2Digits[0]-1), Math.pow(10, num2Digits[1])-1, currentSeed + 80 + i, decimalPlaces) || 1;
-              if (num2 === 0) num2 = 1;
-              answer = num1 / num2;
-              if (isCleanNumber(answer, decimalPlaces)) break;
-              if (i === 9) console.warn(`ADVANCED decimal division: clean pair not found for ${num1}/${num2}`);
-            }
-          }
+                const op = '÷';
+                question = `${dividend} ${op} ${divisor} = ?`;
+                nums = [dividend, divisor];
+                ops = [op];
+                generatedDetails = { nums, ops, questionString: question };
+                console.log(`[ProblemGenerator DEBUG] Generated divide_with_remainder (clean): ${question}, Quotient: ${quotient}, Seed: ${currentSeed}`);
+            } else if (problemType === 'simple_decimals_add_subtract') {
+                const precision = params.decimals || 1; 
+                const scale = Math.pow(10, precision);
+                
+                // Fallback to a generic range if not specified.
+                const decimalTermValueRangesFromParams = params.termValueRangesForDecimal && params.termValueRangesForDecimal[problemType]
+                    ? params.termValueRangesForDecimal[problemType]
+                    : null; 
+
+                const decimalTermValueRanges = decimalTermValueRangesFromParams && 
+                                               Array.isArray(decimalTermValueRangesFromParams) && decimalTermValueRangesFromParams.length === 2 &&
+                                               Array.isArray(decimalTermValueRangesFromParams[0]) && decimalTermValueRangesFromParams[0].length === 2 &&
+                                               Array.isArray(decimalTermValueRangesFromParams[1]) && decimalTermValueRangesFromParams[1].length === 2 &&
+                                               typeof decimalTermValueRangesFromParams[0][0] === 'number' && typeof decimalTermValueRangesFromParams[0][1] === 'number' &&
+                                               typeof decimalTermValueRangesFromParams[1][0] === 'number' && typeof decimalTermValueRangesFromParams[1][1] === 'number'
+                    ? decimalTermValueRangesFromParams
+                    : [[0.1, 9.9], [0.1, 4.9]]; // Default fallback if structure or content is invalid
+
+                let num1_unscaled_min = decimalTermValueRanges[0][0] * scale;
+                let num1_unscaled_max = decimalTermValueRanges[0][1] * scale;
+                let num2_unscaled_min = decimalTermValueRanges[1][0] * scale;
+                let num2_unscaled_max = decimalTermValueRanges[1][1] * scale;
+
+                // Ensure min/max are integers for getRandomInt after scaling
+                num1_unscaled_min = Math.ceil(num1_unscaled_min);
+                num1_unscaled_max = Math.floor(num1_unscaled_max);
+                num2_unscaled_min = Math.ceil(num2_unscaled_min);
+                num2_unscaled_max = Math.floor(num2_unscaled_max);
+                
+                if (num1_unscaled_min > num1_unscaled_max || num2_unscaled_min > num2_unscaled_max) {
+                    console.error(`[ProblemGenerator ERROR] simple_decimals_add_subtract: Invalid scaled ranges. N1: ${num1_unscaled_min}-${num1_unscaled_max}, N2: ${num2_unscaled_min}-${num2_unscaled_max}. Skipping.`);
+                    lastError = "Invalid scaled ranges for decimal problem";
+                    continue;
+                }
+
+                let num1_scaled = getRandomInt(num1_unscaled_min, num1_unscaled_max, currentSeed + 71);
+                let num2_scaled = getRandomInt(num2_unscaled_min, num2_unscaled_max, currentSeed + 72);
+
+                let num1 = parseFloat((num1_scaled / scale).toFixed(precision));
+                let num2 = parseFloat((num2_scaled / scale).toFixed(precision));
+
+                const op = seededRandom(currentSeed + 73) > 0.5 ? '+' : '-';
+
+                if (op === '-' && num1 < num2 && !params.allowNegativeResult) {
+                    [num1, num2] = [num2, num1];
+                }
+                
+                // Calculate result to check for -0
+                let tempAnswer = op === '+' ? num1 + num2 : num1 - num2;
+                tempAnswer = parseFloat(tempAnswer.toFixed(precision)); // Apply precision to result
+                if (Object.is(tempAnswer, -0)) {
+                    tempAnswer = 0;
+                }
+
+                // Ensure question strings use fixed precision
+                question = `${num1.toFixed(precision)} ${op} ${num2.toFixed(precision)} = ?`;
+                nums = [num1, num2]; 
+                ops = [op];
+                // `answer` will be calculated later by `calculateAnswer` which should also handle precision, 
+                // but `generatedDetails` could store the pre-calculated `tempAnswer` if needed for direct use or validation.
+                generatedDetails = { nums, ops, questionString: question /*, preCalculatedAnswer: tempAnswer */ };
+                console.log(`[ProblemGenerator DEBUG] Generated simple_decimals_add_subtract: ${question}, Nums: ${num1}, ${num2}, Seed: ${currentSeed}`);
         } else {
-          answer = num1 * num2;
-        }
-        questionStr = `${num1} ${op} ${num2}`;
-        typeForProblemObject = 'decimal_operation'; // より具体的に decimal_multiplication or decimal_division としても良い
-        nums = [num1, num2]; // 検証用に保持
-        ops = [op];
+                console.warn(`[ProblemGenerator WARN] Unknown or unhandled problemType: ${problemType} in attempt ${attempts}. Skipping.`);
+                lastError = `Unknown problemType: ${problemType}`;
+                continue; // 次の試行へ
+            }
+            
+            // 仮に generatedDetails が { nums: [...], ops: [...], questionString: "..." } を持つとする
+            if (generatedDetails) {
+                question = generatedDetails.questionString;
+                nums = generatedDetails.nums;
+                ops = generatedDetails.ops;
+                answer = calculateAnswer(nums, ops, params.decimals);
+                console.log(`[ProblemGenerator DEBUG] Attempt ${attempts}: type=${problemType}, Q=${question}, RawAnswer=${answer}, Seed=${currentSeed}`);
+            } else {
+                console.warn(`[ProblemGenerator WARN] No details generated for type ${problemType}, attempt ${attempts}`);
+                lastError = `No details for ${problemType}`;
+            }
 
-      } else if (problemType === 'mixed_calculations_parentheses') {
-        // 2項または3項の計算 (例)
-        const numTerms = getRandomInt(2, 3, currentSeed + 100);
-        nums = [];
-        for(let i=0; i<numTerms; i++) {
-          const digitRange = currentTermDigitParams[i] || currentTermDigitParams[0] || [1,3];
-          nums.push(getRandomInt(Math.pow(10, digitRange[0]-1), Math.pow(10, digitRange[1])-1, currentSeed + 110 + i));
-        }
-        
-        ops = [];
-        for(let i=0; i<numTerms-1; i++) {
-          ops.push(params.ops[getRandomInt(0, params.ops.length - 1, currentSeed + 120 + i)]);
+            // --- バリデーション (answer が計算できた後) ---
+            if (answer !== undefined && Number.isFinite(answer)) {
+                const isIntOk = params.forceIntegerResult ? Number.isInteger(answer) : true;
+                const isNegativeOk = params.allowNegativeResult ? true : answer >= 0;
+                const isValueOk = (params.maxResultValue === undefined || answer <= params.maxResultValue) && 
+                                  (params.minResultValue === undefined || answer >= params.minResultValue);
+                const isClean = isCleanNumber(answer, params.decimals);
+                const allConditions = {
+                    isIntOk, isNegativeOk, isValueOk, isClean,
+                    forceInt: params.forceIntegerResult, actualInt: Number.isInteger(answer),
+                    allowNeg: params.allowNegativeResult, actualNeg: answer < 0,
+                    maxVal: params.maxResultValue, minVal: params.minResultValue, actualVal: answer,
+                    decimals: params.decimals
+                };
+                console.log(`[ProblemGenerator DEBUG] Attempt ${attempts} Validation: Answer=${answer}, Conditions=${JSON.stringify(allConditions)}`);
+
+                if (isIntOk && isNegativeOk && isValueOk && isClean) {
+                    options = []; // ★ 選択肢生成をスキップし、空配列を設定
+                    problem = { question, answer, options, problemType };
+                    console.log(`[ProblemGenerator INFO] SUCCESS: ${difficulty}, type: ${problemType}, Q: ${question}, A: ${answer} (Attempts: ${attempts}, ${Date.now() - funcStartTime}ms)`);
+                    lastError = null;
+                    break; // ループ脱出
+                } else {
+                    lastError = `Validation failed: ${JSON.stringify(allConditions)}`;
+                }
+            } else {
+                console.log(`[ProblemGenerator DEBUG] Attempt ${attempts}: Answer is undefined or not finite (${answer})`);
+                lastError = `Answer undefined or not finite: ${answer}`;
+            }
+
+            // タイムアウトチェック (ループ内部)
+            if (checkTimeout(funcStartTime, 5000)) { // 5秒でこの内部ループは警告 (長すぎ)
+                console.warn(`[ProblemGenerator WARN] INNER LOOP TIMEOUT for ${difficulty}, type ${problemType}, attempt ${attempts}. Duration: ${Date.now() - funcStartTime}ms`);
+                lastError = `Inner loop timeout after 5s`;
+                // break; // このループを抜けるか、あるいは全体を抜けるかは設計次第
+            }
+        } // end while
+
+        if (!problem) {
+            console.warn(`[ProblemGenerator WARN] FAILED to generate ${difficulty} problem (type: ${problemType}) after ${MAX_ATTEMPTS_INTERNAL} attempts. LastError: ${lastError}. Duration: ${Date.now() - funcStartTime}ms. Trying fallback...`);
+            problem = await generateFallbackProblem(difficulty, seed + attempts + 1); // フォールバック
+            if (problem) {
+                console.log(`[ProblemGenerator INFO] Fallback problem generated for ${difficulty}. Duration: ${Date.now() - funcStartTime}ms`);
+            } else {
+                console.error(`[ProblemGenerator ERROR] FALLBACK FAILED for ${difficulty}. Duration: ${Date.now() - funcStartTime}ms`);
+            }
         }
 
-        // 簡単な括弧の挿入 (例: (A op B) op C or A op (B op C))
-        if (numTerms === 3) {
-          if (seededRandom(currentSeed + 130) < 0.5) { // (A op B) op C
-            questionStr = `(${nums[0]} ${ops[0]} ${nums[1]}) ${ops[1]} ${nums[2]}`;
-            const firstResult = calculateAnswer([nums[0], nums[1]], [ops[0]], 0);
-            if (firstResult !== undefined && firstResult >= 0) {
-              answer = calculateAnswer([firstResult, nums[2]], [ops[1]], 0);
-            } else { answer = undefined; } // 途中結果が不正なら全体も不正
-          } else { // A op (B op C)
-            questionStr = `${nums[0]} ${ops[0]} (${nums[1]} ${ops[1]} ${nums[2]})`;
-            const secondResult = calculateAnswer([nums[1], nums[2]], [ops[1]], 0);
-            if (secondResult !== undefined && secondResult >= 0) {
-              answer = calculateAnswer([nums[0], secondResult], [ops[0]], 0);
-            } else { answer = undefined; }
-          }
-        } else { // numTerms === 2
-          questionStr = `${nums[0]} ${ops[0]} ${nums[1]}`;
-          answer = calculateAnswer(nums, ops, 0);
-        }
-        typeForProblemObject = 'mixed_parentheses';
-      } else if (problemType === 'fraction_add_subtract_different_denominators' || problemType === 'fraction_multiply_divide'){
-        // TODO: 分数計算ロジック (別途実装)
-        // 現状はフォールバックに流すか、簡易的な整数問題で代替
-        console.warn(`ADVANCED: Fraction problem type '${problemType}' selected but not yet implemented. Falling back or using simple int.`);
-        return generateFallbackProblem(difficulty, currentSeed + 500); //仮
-      }
+    } catch (error) {
+        console.error(`[ProblemGenerator ERROR] EXCEPTION in generateSingleProblemInternal for ${difficulty}, seed ${seed}, attempt ${attempts}, type ${problemType}. Error: ${error.message}`, error.stack);
+        lastError = `Exception: ${error.message}`;
+        problem = null; // エラー時は問題なしとする
     }
 
-    if (answer === undefined || 
-        !Number.isFinite(answer) || 
-        (!params.allowNegativeResult && answer < 0) || 
-        (params.forceIntegerResult && !Number.isInteger(answer)) ||
-        (params.maxResultValue !== undefined && Math.abs(answer) > params.maxResultValue) ||
-        (questionStr.length === 0) || 
-        !isCleanNumber(answer, allowedDecimalPlaces)) 
-    {
-      console.log(`[genSingleInternal Debug] Validation failed (attempt ${attempts}, type: ${typeForProblemObject}, Q: ${questionStr || 'N/A'}, A: ${answer}). Conditions: answer=${answer}, finite=${Number.isFinite(answer)}, negativeOK=${params.allowNegativeResult}, integerOK=${!params.forceIntegerResult || Number.isInteger(answer)}, maxValueOK=${params.maxResultValue === undefined || Math.abs(answer) <= params.maxResultValue}, cleanNum=${answer !== undefined ? isCleanNumber(answer, allowedDecimalPlaces): 'N/A'}`);
-      continue; 
-    }
-    
-    const optionsForProblem = generateOptions(answer, difficulty, currentSeed + 2000); 
-
-    const problem = {
-      id: '', 
-      question: questionStr,
-        answer,
-      options: optionsForProblem,
-      difficulty, 
-      type: typeForProblemObject, 
-      seed: currentSeed 
-    };
-    
-    if (!problemCache[difficulty]) problemCache[difficulty] = new Map();
-    problemCache[difficulty].set(cacheKey, problem);
+    const funcEndTime = Date.now();
+    console.log(`[ProblemGenerator DEBUG] generateSingleProblemInternal COMPLETED - ${difficulty}, seed: ${seed}. Found: ${!!problem}. Attempts: ${attempts}. Total Duration: ${funcEndTime - funcStartTime}ms. LastError: ${lastError}`);
     return problem;
-  }
-
-  console.warn(`[ProblemGenerator] Max attempts reached for difficulty ${difficulty}, seed ${seed}. Generating fallback.`);
-  return generateFallbackProblem(difficulty, seed + attempts);
 };
 
 /**
@@ -1041,37 +1177,70 @@ export const getProcessingStatus = (requestId) => {
 };
 
 // ensureProblemsForToday と generateProblemsForNextDay を async に変更
+/* // コメントアウト開始: この ensureProblemsForToday は server.js のものと重複しており、未使用
 const ensureProblemsForToday = async () => {
+    const funcStartTime = Date.now();
+    console.log(`[ProblemGenerator INFO] ensureProblemsForToday CALLED.`);
+    const today = getTodayDateStringJST(); // この関数も problemGenerator.js 内にはない
+    let allProblemsGeneratedSuccessfully = true;
+
     try {
-        const today = getTodayDateStringJST();
-        console.log(`[Init] ${today} の問題存在確認...`);
-        let problemsGenerated = false;
+        console.log(`[ProblemGenerator DEBUG] Checking/Generating problems for date: ${today}`);
       for (const difficulty of Object.values(DifficultyRank)) {
-            const existingSet = await DailyProblemSet.findOne({ date: today, difficulty });
-        if (!existingSet) {
-                console.log(`[Init] ${today} の ${difficulty} 問題が存在しないため生成します...`);
-                const seed = `${today}_${difficulty}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                const problems = await generateProblems(difficulty, 10, seed);
-                if (problems && problems.length > 0) {
-                    await DailyProblemSet.create({
-                        date: today,
-                        difficulty,
-                        problems: problems.map(p => ({ id: p.id, question: p.question, correctAnswer: p.answer, options: p.options }))
-                    });
-                    console.log(`[Init] ${today} の ${difficulty} 問題 (${problems.length}問) を生成・保存しました。`);
-                    problemsGenerated = true;
-                } else {
-                    console.error(`[Init] ${today} の ${difficulty} 問題の生成に失敗しました。`);
-                }
+            const difficultyStartTime = Date.now();
+            console.log(`[ProblemGenerator DEBUG] Processing difficulty: ${difficulty} for date: ${today}`);
+            
+            let problemsExist = false; 
+            try {
+                 // ProblemModel は未定義
+                 // const count = await ProblemModel.countDocuments({ date: today, difficulty: difficulty });
+                 // problemsExist = count > 0;
+                 // console.log(`[ProblemGenerator DEBUG] Problems for ${today}, ${difficulty}: ${count} found (exists=${problemsExist})`);
+                 // 仮の処理として、DailyProblemSetで確認 (ただし、この関数自体が未使用)
+                 const setCount = await DailyProblemSet.countDocuments({ date: today, difficulty: difficulty });
+                 problemsExist = setCount > 0;
+                 console.log(`[ProblemGenerator (unused) DEBUG] Problems for ${today}, ${difficulty}: ${setCount} found (exists=${problemsExist})`);
+
+            } catch (dbError) {
+                console.error(`[ProblemGenerator ERROR] DB error checking problems for ${today}, ${difficulty}: ${dbError.message}`, dbError.stack);
+                allProblemsGeneratedSuccessfully = false;
+                continue; 
             }
+
+            if (!problemsExist) {
+                console.log(`[ProblemGenerator INFO] No problems for ${today}, ${difficulty}. Generating new set (10 problems).`);
+                const generationTaskStartTime = Date.now();
+                try {
+                    const generatedProblems = await generateProblems(difficulty, 10, Date.now(), null);
+                    
+                    // ★★★ DB保存処理がここにはない ★★★ (server.js側で対応済み)
+                    if (generatedProblems && generatedProblems.length > 0) {
+                        console.log(`[ProblemGenerator INFO] Successfully generated ${generatedProblems.length} problems for ${today}, ${difficulty}. Duration: ${Date.now() - generationTaskStartTime}ms`);
+                } else {
+                        console.warn(`[ProblemGenerator WARN] generateProblems returned empty or null for ${today}, ${difficulty}. Duration: ${Date.now() - generationTaskStartTime}ms`);
+                        allProblemsGeneratedSuccessfully = false; 
+                    }
+                } catch (error) {
+                    console.error(`[ProblemGenerator ERROR] EXCEPTION during generateProblems for ${today}, ${difficulty}. Duration: ${Date.now() - generationTaskStartTime}ms. Error: ${error.message}`, error.stack);
+                    allProblemsGeneratedSuccessfully = false;
+                }
+            } else {
+                console.log(`[ProblemGenerator INFO] Problems already exist for ${today}, ${difficulty}. Skipping generation.`);
+            }
+            console.log(`[ProblemGenerator DEBUG] Difficulty ${difficulty} processing time: ${Date.now() - difficultyStartTime}ms`);
         }
-        if (!problemsGenerated) {
-            console.log(`[Init] ${today} の全難易度の問題は既に存在します。`);
-        }
-    } catch (error) {
-        console.error('[Init] 今日の問題確認/生成中にエラー:', error);
+    } catch (overallError) {
+        console.error(`[ProblemGenerator ERROR] OVERALL EXCEPTION in ensureProblemsForToday for date ${today}. Error: ${overallError.message}`, overallError.stack);
+        allProblemsGeneratedSuccessfully = false;
+    }
+
+    const funcEndTime = Date.now();
+    console.log(`[ProblemGenerator INFO] ensureProblemsForToday COMPLETED. All successful: ${allProblemsGeneratedSuccessfully}. Total duration: ${funcEndTime - funcStartTime}ms`);
+    if (!allProblemsGeneratedSuccessfully) {
+        console.error(`[ProblemGenerator MAJOR ERROR] One or more problem sets FAILED to generate for ${today}.`);
     }
 };
+*/ // コメントアウト終了
 
 const generateProblemsForNextDay = async () => {
   try {
@@ -1112,3 +1281,16 @@ const generateProblemsForNextDay = async () => {
     console.error('[自動生成] 翌日問題の生成中にエラー:', error);
   }
 }; 
+
+// Final exports
+export {
+    // DifficultyRank, // Removed due to direct export at definition
+    // generateProblems, // Removed due to direct export at definition
+    // getProcessingStatus, // Removed due to direct export at definition
+    // ensureProblemsForToday, // コメントアウトしたため削除
+    generateProblemsForNextDay,
+    // Potentially other specific generator functions if they need to be called directly for testing/admin
+    // generateSingleProblem // Example if needed
+};
+
+// module.exports = { ... } // CommonJS alternative, ensure consistency with project type

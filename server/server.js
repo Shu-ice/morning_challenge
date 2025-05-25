@@ -34,8 +34,10 @@ import DailyProblemSet from './models/DailyProblemSet.js';
 import Result from './models/Result.js';
 import { generateProblems, DifficultyRank } from './utils/problemGenerator.js';
 import authRoutes from './routes/authRoutes.js'; // 認証ルートをインポート
+import problemRoutes from './routes/problemRoutes.js'; // ★ 問題ルートをインポート
 import { generateProblems as generateProblemsUtil } from './utils/problemGenerator.js'; // 問題生成ユーティリティをインポート
 import rankingRoutes from './routes/rankingRoutes.js'; // ESM形式でインポート
+import { getHistory } from './controllers/problemController.js';
 
 // --- dayjs プラグインの適用 (トップレベルで実行) ---
 dayjs.extend(utc);
@@ -263,28 +265,55 @@ const ensureProblemsForToday = async () => {
     try {
         const today = getTodayDateStringJST();
         console.log(`[Init] ${today} の問題存在確認...`);
-        let problemsGenerated = false;
+        let problemsGeneratedThisRun = false; // 変数名変更
       for (const difficulty of Object.values(DifficultyRank)) {
             const existingSet = await DailyProblemSet.findOne({ date: today, difficulty });
         if (!existingSet) {
                 console.log(`[Init] ${today} の ${difficulty} 問題が存在しないため生成します...`);
                 const seed = `${today}_${difficulty}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                const problems = generateProblems(difficulty, 10, seed);
-                if (problems && problems.length > 0) {
+                
+                // generateProblemsから返される値を詳細にログ出力
+                const problemsFromGenerator = generateProblems(difficulty, 10, seed); 
+                console.log(`[Init DEBUG] ensureProblemsForToday: For ${difficulty}, problemsFromGenerator (raw type): ${typeof problemsFromGenerator}`);
+
+                if (problemsFromGenerator && typeof problemsFromGenerator.then === 'function') {
+                    console.log(`[Init DEBUG] ensureProblemsForToday: problemsFromGenerator for ${difficulty} is a Promise. Awaiting...`);
+                    const resolvedProblems = await problemsFromGenerator;
+                    console.log(`[Init DEBUG] ensureProblemsForToday: For ${difficulty}, resolvedProblems (first element if array):`, resolvedProblems && resolvedProblems.length > 0 ? JSON.stringify(resolvedProblems[0], null, 2) : 'Not an array or empty');
+                    console.log(`[Init DEBUG] ensureProblemsForToday: For ${difficulty}, resolvedProblems.length: ${resolvedProblems ? resolvedProblems.length : 'undefined'}`);
+
+                    if (resolvedProblems && resolvedProblems.length > 0) {
+                        const problemsToSave = resolvedProblems.map(p => ({ 
+                            id: p.id, 
+                            question: p.question, 
+                            correctAnswer: p.answer, 
+                            options: p.options 
+                        }));
+                        console.log(`[Init DEBUG] ensureProblemsForToday: For ${difficulty}, problemsToSave (first problem if any):`, problemsToSave.length > 0 ? JSON.stringify(problemsToSave[0], null, 2) : 'Empty after map');
+                        
+                        try {
                     await DailyProblemSet.create({
                         date: today,
                         difficulty,
-                        problems: problems.map(p => ({ id: p.id, question: p.question, correctAnswer: p.answer, options: p.options }))
+                                problems: problemsToSave
                     });
-                    console.log(`[Init] ${today} の ${difficulty} 問題 (${problems.length}問) を生成・保存しました。`);
-                    problemsGenerated = true;
+                            console.log(`[Init] ${today} の ${difficulty} 問題 (${problemsToSave.length}問) を生成・保存しました。`);
+                            problemsGeneratedThisRun = true;
+                        } catch (dbError) {
+                            console.error(`[Init ERROR] DB save error for ${today}, ${difficulty}:`, dbError);
+                        }
+                    } else {
+                        console.error(`[Init] ${today} の ${difficulty} 問題の生成に失敗しました (resolvedProblems was null or empty)。`);
+                    }
                 } else {
-                    console.error(`[Init] ${today} の ${difficulty} 問題の生成に失敗しました。`);
+                     console.error(`[Init ERROR] ${today} の ${difficulty} 問題の生成に失敗しました (problemsFromGenerator was not a Promise or was null/empty before await). Actual type: ${typeof problemsFromGenerator}, value:`, problemsFromGenerator);
                 }
+            } else {
+                 console.log(`[Init INFO] ${today} の ${difficulty} 問題は既にDBに存在します。スキップ。`);
             }
         }
-        if (!problemsGenerated) {
-            console.log(`[Init] ${today} の全難易度の問題は既に存在します。`);
+        if (!problemsGeneratedThisRun) { 
+            console.log(`[Init] ${today} の問題について、今回新規生成・保存処理は行われませんでした (既存または生成失敗)。`);
         }
     } catch (error) {
         console.error('[Init] 今日の問題確認/生成中にエラー:', error);
@@ -294,20 +323,44 @@ const ensureProblemsForToday = async () => {
 
 // --- initializeApp 関数の定義 (ヘルパー関数の後) ---
 async function initializeApp() {
-    console.log('[Init] アプリ初期化開始...');
+    console.log('[Init] アプリ初期化開始 (非同期処理として実行)...'); // ログ変更
     try {
         await createDefaultAdminUser();
         await ensureProblemsForToday();
-        scheduleNextGeneration();
-        console.log('[Init] アプリ初期化完了');
+        scheduleNextGeneration(); // これも非同期で良いか、完了を待つべきか確認
+        console.log('[Init] アプリ初期化の主要処理完了 (バックグラウンドで継続する可能性あり)');
     } catch (error) {
-        console.error('[Init] アプリ初期化中にエラー:', error);
+        console.error('!!!!!!!!!!!!!!! INITIALIZE APP ERROR !!!!!!!!!!!!!!!');
+        console.error('[Init] アプリ初期化中に致命的なエラーが発生しました:', error);
+        console.error('Stack:', error instanceof Error ? error.stack : 'No stack available');
+        console.error('このエラーにより、サーバープロセスが不安定になるか、終了する可能性があります。');
+        // ここでエラーが発生した場合、アプリケーションの状態が不安定になる可能性があるため、
+        // 必要に応じて追加のエラーハンドリングや通知を行う
+        // 場合によっては process.exit(1) で明示的に終了させることも検討
     }
 }
 // ----------------------------------------------
 
 // ★ エラーハンドリングミドルウェアのインポート
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
+
+// --- グローバルエラーハンドラー ---
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('!!!!!!!!!!!!!!! UNHANDLED REJECTION !!!!!!!!!!!!!!!');
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Stack:', reason instanceof Error ? reason.stack : 'No stack available');
+  // アプリケーションをクラッシュさせるか、適切に処理する必要がある
+  // process.exit(1); // 本番環境ではこのような処理も検討
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('!!!!!!!!!!!!!!! UNCAUGHT EXCEPTION !!!!!!!!!!!!!!!');
+  console.error('Uncaught Exception:', error);
+  console.error('Stack:', error.stack);
+  // アプリケーションをクラッシュさせるべき (必須)
+  process.exit(1);
+});
+// --- グローバルエラーハンドラーここまで ---
 
 // MongoDBサーバーに接続 & サーバー起動
 const startServer = async () => {
@@ -376,48 +429,61 @@ const startServer = async () => {
         
         const app = express();
         
-        app.use(cors({
-            origin: function (origin, callback) {
-                console.log('[CORS] Request from origin:', origin);
-                // 許可するオリジンを環境変数から取得したものに限定
-                const allowedOrigins = [FRONTEND_ORIGIN];
+        // ★ 一時的にすべてのオリジンからのリクエストを許可 (確実にこちらを有効化)
+        app.use(cors()); 
 
-                // Originヘッダーが存在し、許可リストに含まれている場合のみ許可
-                if (origin && allowedOrigins.includes(origin)) {
-                    console.log(`[CORS] Origin ${origin} allowed.`);
-                    callback(null, true);
-                } else {
-                    // Originがない場合、または許可リストに含まれない場合は拒否
-                    console.warn(`[CORS] Origin ${origin || 'N/A'} rejected. Allowed: ${allowedOrigins.join(', ')}`);
-                    // エラーを返すのではなく、許可しないことを示す（多くのブラウザはこれでブロックする）
-                    callback(null, false);
-                    // もしくは明確にエラーを返す場合:
-                    // callback(new Error(`Origin ${origin || 'N/A'} not allowed by CORS policy.`));
-                }
-            },
-            credentials: true,
-            methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-            allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-            optionsSuccessStatus: 204, // OPTIONSリクエストには204を返す
-            maxAge: 86400 // Preflightリクエストのキャッシュ時間
-        }));
-        app.use(express.json());
-        app.use(express.urlencoded({ extended: true }));
+        // ★ グローバルリクエストロガーをCORSの直後、ボディパーサーの前に移動
+        app.use((req, res, next) => {
+          console.log(`[Global Request Logger] Method: ${req.method}, URL: ${req.originalUrl}, IP: ${req.ip}, Origin: ${req.headers.origin}, Body (raw): ${req.body}`); // Originヘッダーと生のBodyもログに追加
+          next();
+        });
+        
+        // app.use(cors({ // 元の詳細なCORS設定 (コメントアウト)
+        //     origin: function (origin, callback) {
+        //         console.log('[CORS] Request from origin:', origin);
+        //         const allowedOrigins = [FRONTEND_ORIGIN];
+        //         if (origin && allowedOrigins.includes(origin)) {
+        //             console.log(`[CORS] Origin ${origin} allowed.`);
+        //             callback(null, true);
+        //         } else {
+        //             console.warn(`[CORS] Origin ${origin || 'N/A'} rejected. Allowed: ${allowedOrigins.join(', ')}`);
+        //             callback(null, false); // ここで拒否されると後続のミドルウェアは実行されない
+        //         }
+        //     },
+        //     credentials: true,
+        //     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        //     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        //     optionsSuccessStatus: 204,
+        //     maxAge: 86400 
+        // }));
+
+        app.use(express.json()); // JSON形式のリクエストボディをパース
+        app.use(express.urlencoded({ extended: true })); // URLエンコードされたリクエストボディをパース
         app.use(cookieParser());
         
-        dayjs.extend(utc);
-        dayjs.extend(timezone);
-        dayjs.extend(isBetween);
-        dayjs.tz.setDefault("Asia/Tokyo");
+        // dayjs.extend(utc); // dayjsの初期化はトップレベルに移動済みなので不要
+        // dayjs.extend(timezone);
+        // dayjs.extend(isBetween);
+        // dayjs.tz.setDefault("Asia/Tokyo");
 
         // --- API ルート定義 --- 
         app.get('/', (req, res) => {
           res.json({ message: '朝の計算チャレンジAPIへようこそ！' });
         });
 
-        app.get('/api/', (req, res) => {
-          console.log('[API] GET /api/ endpoint hit (connection test)');
-          res.status(200).json({ success: true, message: 'Backend connection successful!' });
+        app.get('/api/health', (req, res) => {
+          console.log('[API] GET /api/health endpoint hit (connection test)');
+          res.status(200).json({ success: true, message: 'Backend health check successful!' });
+        });
+
+        // エラーハンドリングミドルウェアの定義 (他のapp.useの後に配置)
+        // ルート定義
+        app.use((req, res, next) => {
+          console.log(`[Server.js] Incoming request: ${req.method} ${req.originalUrl}`);
+          if (req.method === 'POST' && req.originalUrl.startsWith('/api/auth/login')) {
+            console.log('[Server.js] Login request body:', req.body);
+          }
+          next();
         });
 
         app.use('/api/auth', authRoutes);
@@ -429,21 +495,7 @@ const startServer = async () => {
 
         app.use('/api/rankings', rankingRoutes);
 
-        app.get('/api/problems', protect, async (req, res) => { // コメントアウトを解除
-      const { difficulty, date } = req.query;
-          const userId = req.user._id; 
-          const isAdmin = req.user.isAdmin; 
-          // ...(元の処理)... 現状は省略し、動作確認後に復元
-      if (!difficulty || !Object.values(DifficultyRank).includes(difficulty)) {
-        return res.status(400).json({
-          success: false,
-          message: '有効な難易度(beginner, intermediate, advanced, expert)を指定してください。'
-        });
-      }
-          // このルートの完全な処理は長いため、一旦ここまでとし、後で元のコードに戻す前提
-          console.log(`[API /api/problems] User: ${userId}, Admin: ${isAdmin}, Difficulty: ${difficulty}, Date: ${date}`);
-          res.json({success:true, message: "/api/problems accessed (server/server.js)"}); 
-        });
+        app.use('/api/problems', problemRoutes);
 
         app.post('/api/problems/submit', protect, async (req, res) => { // コメントアウトを解除
           // ...(元の処理)... 現状は省略
@@ -451,11 +503,7 @@ const startServer = async () => {
           res.json({success:true, message: "/api/problems/submit accessed (server/server.js)"}); 
         });
 
-        app.get('/api/history', protect, async (req, res) => { // コメントアウトを解除
-          // ...(元の処理)... 現状は省略
-          console.log(`[API /api/history] User: ${req.user?._id}`);
-          res.json({success:true, message: "/api/history accessed (server/server.js)"}); 
-        });
+        app.get('/api/history', protect, getHistory);
 
         app.post('/api/problems/generate', protect, admin, async (req, res) => { // コメントアウトを解除
           // ...(元の処理)... 現状は省略
@@ -482,16 +530,22 @@ const startServer = async () => {
         app.use(errorHandler);
 
         // サーバー起動
-        app.listen(PORT, () => {
-            console.log(`✅ サーバーが起動しました！ポート ${PORT} で待機中...`); // ログ修正
+        app.listen(PORT, '127.0.0.1', () => {
+            console.log(`✅ サーバーが起動しました！ポート ${PORT}、ホスト 127.0.0.1 で待機中...`); // ログ修正
             console.log(`⏰ チャレンジ時間制限 ${process.env.DISABLE_TIME_CHECK === 'true' ? '無効' : '有効'}`);
             console.log(`💾 DBモード: ${process.env.MONGODB_MOCK === 'true' ? 'モック (InMemory)' : 'MongoDB'}`);
+            console.log('✨ Expressサーバーはリクエストの受付を開始しました。ここまでは正常です。✨');
 
-            // MongoDB接続後に初期化処理を実行
+            // MongoDB接続後に初期化処理を呼び出すが、完了を待たない
             mongoose.connection.once('open', async () => {
-                console.log('[Init] MongoDB接続確立 - 初期化処理呼び出し (500ms待機)');
-                await new Promise(resolve => setTimeout(resolve, 500));
-                await initializeApp();
+                console.log('[Init] MongoDB接続確立 - 初期化処理を非同期で開始します (500ms待機後)');
+                await new Promise(resolve => setTimeout(resolve, 500)); // 500ms待機は維持
+
+                // initializeApp を呼び出すが、await しないことで非同期実行とする
+                // エラーは initializeApp 内部で処理するか、ここで .catch() する
+                initializeApp().catch(initError => {
+                    console.error('[Init] 非同期初期化処理のトップレベルでエラーハンドリング:', initError);
+                });
             });
         });
 

@@ -146,7 +146,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   const [currentUser, setCurrentUser] = useState<UserData & { token: string } | null>(null); // Store user with token
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentProblems, setCurrentProblems] = useState<ProblemData[]>([]); // ★ 問題リストを保持
+  const [currentProblems, setCurrentProblems] = useState<ProblemData[]>([]); // 型明示
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [currentAnswer, setCurrentAnswer] = useState<string>('');
   const [answers, setAnswers] = useState<string[]>([]);
@@ -159,10 +159,11 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   const inputRef = useRef<HTMLInputElement>(null);
   const [showStart, setShowStart] = useState(false);
   const [isCountingDown, setIsCountingDown] = useState(false); // ★ カウントダウン中 state 追加
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]); // ★ より確実な方法で初期化
+  const [selectedDate, setSelectedDate] = useState<string>(() => getFormattedDate(new Date())); // ★ より確実に今日の日付を初期化
   // ★ 初期値の確認ログを追加
   useEffect(() => {
     console.log('[Problems] Initial selectedDate:', selectedDate);
+    console.log('[Problems] Today formatted date:', getFormattedDate(new Date()));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 初回レンダリング時のみ実行
   const { count: remainingTime, startCountdown } = usePreciseCountdown(300);
@@ -213,10 +214,10 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   useEffect(() => {
     if (currentCountdownValue === 0) {
       setShowStart(true);
-      // 0.7秒後に非表示にする
+      // 0.3秒後に非表示にする（従来の0.7秒から短縮）
       const timer = setTimeout(() => {
         setShowStart(false);
-      }, 700);
+      }, 300);
       return () => clearTimeout(timer);
     }
   }, [currentCountdownValue]);
@@ -305,11 +306,13 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   // ★ handleComplete をサーバー送信ロジックに変更
   const handleComplete = async (finalAnswers: string[]) => {
+    console.log('[Problems] handleComplete CALLED. startTime:', startTime, 'isStarted:', isStarted); // ★デバッグログ追加
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
     const endTime = Date.now();
-    const timeTaken = startTime ? endTime - startTime : 0;
+    const safeStartTime = startTime ?? endTime; // startTimeがnullならendTimeで補完
+    const timeTaken = safeStartTime ? endTime - safeStartTime : 0;
 
     // ユーザー情報を取得（ローカルストレージから）
     const storedUser = localStorage.getItem('user');
@@ -320,8 +323,9 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     console.log('[Problems] Submitting with:', {
       difficulty: difficulty,
       date: selectedDate, // ★ 選択された日付を使用
+      problemIds: currentProblems.map((p: ProblemData) => p.id),
       answers: finalAnswers,
-      timeSpent: timeTaken, 
+      timeSpentMs: timeTaken, 
       userId: userId
     });
 
@@ -330,27 +334,32 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       const response = await problemsAPI.submitAnswers({
         difficulty: difficulty,
         date: selectedDate, // ★ 選択された日付を使用
+        problemIds: currentProblems.map((p: ProblemData) => p.id),
         answers: finalAnswers,
-        timeSpent: timeTaken, // ここはフロントエンドで計測した時間
-        userId: userId,
+        timeSpentMs: timeTaken, // timeSpent → timeSpentMs に修正
+        userId: userId
       });
       
       console.log('[Problems] API submitAnswers response:', response);
 
-      if (response && response.success && response.result) {
+      if (response && response.success && response.results) { // ★ .result を .results に変更
         // サーバーからの実績値を取得
-        const apiResultFromServer = response.result; // response.result が ApiResult 型と想定
+        const apiResultFromServer = response.results; // ★ .result を .results に変更
+
+        // ★★★ デバッグログ追加: APIレスポンス全体と、Resultsに渡すデータ ★★★
+        console.log('[Problems.tsx] Full API response:', JSON.stringify(response, null, 2));
+        console.log('[Problems.tsx] Data passed to onComplete (apiResultFromServer):', JSON.stringify(apiResultFromServer, null, 2));
+        // ★★★ デバッグログここまで ★★★
 
         // ProblemContext の finalizeSession を呼び出し、サーバーからの結果を渡す
-        // ProblemResult[] を作成する必要がある。現状 finalAnswers (string[]) しかない。
-        // ここでは仮に、サーバーレスポンスの problemResults を使うか、
-        // もしくは finalizeSession が finalAnswers を受け取れるように変更する必要がある。
-        // 今回は、サーバーから返る problemResults を使うことにする。
-        finalizeSession(apiResultFromServer.problemResults, apiResultFromServer);
+        // apiResultFromServer は ApiResultData 型と想定される。
+        // ApiResultData には problems というフィールドがあり、これが ProblemResult[] 型。
+        // finalizeSession の第一引数は ProblemResult[] を期待している。
+        finalizeSession(apiResultFromServer.problems, apiResultFromServer);
 
         // ローカルストレージに完了情報を保存
         saveCompletionData(difficulty, currentUser);
-        onComplete(response); // onComplete にはAPIレスポンス全体を渡す
+        onComplete(response.results); // onComplete には response.results (結果データ本体) を渡す
       } else {
         console.error('[Problems] Answer submission failed or unexpected response:', response);
         setError(response?.message || '回答の送信に失敗しました。データ形式を確認してください。');
@@ -472,7 +481,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         if (cachedProblems) {
           try {
             const parsedProblems = JSON.parse(cachedProblems);
-            console.log('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map(p => p.id), null, 2)); // ★ログ追加
+            console.log('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: ProblemData) => p.id), null, 2)); // ★ログ追加、型注釈追加
             setCurrentProblems(parsedProblems);
             setIsLoading(false);
             return;
@@ -500,7 +509,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
               question: problem.question,
               type: problem.type || 'mixed'
             }));
-            console.log('[Problems API] Loaded from API:', JSON.stringify(formattedProblems.map(p => p.id), null, 2)); // ★ログ追加
+            console.log('[Problems API] Loaded from API:', JSON.stringify(formattedProblems.map((p: ProblemData) => p.id), null, 2)); // ★ログ追加、型注釈追加
             
             console.log(`${formattedProblems.length}問の問題を取得しました`);
             setCurrentProblems(formattedProblems);
@@ -548,6 +557,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   // ★ 経過時間タイマー (これは isStarted をトリガーにするので変更なし)
   useEffect(() => {
+    console.log('[Problems] elapsedTime useEffect. isStarted:', isStarted, 'startTime:', startTime); // ★デバッグログ追加
     if (isStarted && startTime !== null) {
       timerRef.current = setInterval(() => {
         setElapsedTime(Date.now() - startTime);
@@ -585,7 +595,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   
   if (isLoading) {
     // ★ ローディング表示はシンプルに
-    return <div className="text-center p-10">読み込み中...</div>;
+    return <div className="text-center p-10"><ruby>読<rt>よ</rt></ruby>み<ruby>込<rt>こ</rt></ruby>み<ruby>中<rt>ちゅう</rt></ruby>...</div>;
   }
 
   // ★ エラー or 完了済みの場合は専用表示 (日付選択は含めない)
@@ -593,31 +603,31 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       return (
           <div className="text-center p-10">
               <p className="mb-4 text-red-500">{error}</p>
-              <button onClick={() => window.location.reload()} className="button button-secondary">ページ再読み込み</button>
+              <button onClick={() => window.location.reload()} className="button button-secondary">ページ<ruby>再読<rt>さいよ</rt></ruby>み<ruby>込<rt>こ</rt></ruby>み</button>
           </div>
       );
   }
 
   // Handle case where user info is still loading
   if (currentUser === undefined) {
-      return <div className="problems-container">ユーザー情報を読み込み中...</div>; 
+      return <div className="problems-container">ユーザー<ruby>情報<rt>じょうほう</rt></ruby>を<ruby>読<rt>よ</rt></ruby>み<ruby>込<rt>こ</rt></ruby>み<ruby>中<rt>ちゅう</rt></ruby>...</div>; 
   }
 
   // --- 通常の表示フロー --- 
   return (
     // ★ problems-container クラスをトップレベルに (以前の構造に近い想定)
-    <div className="problems-container max-w-2xl mx-auto p-4 md:p-6">
+    <div className="problems-container card max-w-2xl mx-auto p-4 md:p-6">
 
       {/* ヘッダー情報: ログインユーザー、難易度、日付 */} 
       <div className="flex justify-between items-center mb-4 text-sm">
          {currentUser && (
             <div className="text-gray-600">
-               ログイン中: <span className="font-bold">{currentUser.username}</span>
+               <ruby>現在<rt>げんざい</rt></ruby>のユーザー: <span className="font-bold">{currentUser.username}</span>
             </div>
          )}
          {/* 日付選択を追加 (右上に配置するイメージ) */} 
          <div className="date-selector text-right">
-             <label htmlFor="problem-date" className="mr-2">日付:</label>
+             <label htmlFor="problem-date" className="mr-2"><ruby>日付<rt>ひづけ</rt></ruby>:</label>
              <input
                  type="date"
                  id="problem-date"
@@ -635,15 +645,32 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         <div className="text-center p-10">
           <h2 className="text-2xl font-bold mb-4">{difficultyToJapanese(difficulty)} ({selectedDate})</h2>
           {/* 問題数が0件の場合 (APIエラーとは別) */}
-          {currentProblems.length === 0 && !isLoading && (
-             <p className="mb-6 text-red-500">選択された日付の問題が見つかりませんでした。</p>
+          {currentProblems.length === 0 && !isLoading && !error && (
+             <div className="mb-6">
+               <p className="text-red-500 mb-4">
+                 <ruby>選択<rt>せんたく</rt></ruby>された<ruby>日付<rt>ひづけ</rt></ruby>の<ruby>問題<rt>もんだい</rt></ruby>が<ruby>見<rt>み</rt></ruby>つかりませんでした。
+               </p>
+               {currentUser?.isAdmin && (
+                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                   <p className="text-blue-700 mb-2">
+                     <ruby>管理者<rt>かんりしゃ</rt></ruby>として<ruby>問題<rt>もんだい</rt></ruby>を<ruby>生成<rt>せいせい</rt></ruby>できます:
+                   </p>
+                   <a 
+                     href="/admin/generate" 
+                     className="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                   >
+                     <ruby>問題生成<rt>もんだいせいせい</rt></ruby>ページへ
+                   </a>
+                 </div>
+               )}
+             </div>
           )}
           {/* 問題がある場合 */}
           {currentProblems.length > 0 && (
             <>
               <p className="mb-6">
-                {currentProblems.length}問の問題に挑戦します。<br/>
-                できるだけ早く、正確に解きましょう！
+                {currentProblems.length}<ruby>問<rt>もん</rt></ruby>の<ruby>問題<rt>もんだい</rt></ruby>に<ruby>挑戦<rt>ちょうせん</rt></ruby>します。<br/>
+                できるだけ<ruby>早<rt>はや</rt></ruby>く、<ruby>正確<rt>せいかく</rt></ruby>に<ruby>解<rt>と</rt></ruby>きましょう！
               </p>
               {/* カウントダウン表示エリア */} 
               {isCountingDown && currentCountdownValue !== null && currentCountdownValue > 0 && (
@@ -662,13 +689,13 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
                    className="button button-primary button-large"
                    disabled={isLoading} // ローディング中は無効
                  >
-                   開始する
+                   <ruby>開始<rt>かいし</rt></ruby>する
                  </button>
               )}
             </>
           )}
           {/* 常に表示されるホームボタン */}
-          <button onClick={onBack} className="button button-secondary mt-4">戻る</button>
+          <button onClick={onBack} className="button button-secondary mt-4">もどる</button>
         </div>
       )}
 
@@ -679,7 +706,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           {/* カウントダウン完了直後の「スタート！」表示 */} 
           {showStart && currentCountdownValue === 0 && (
             <div className="fixed inset-0 flex items-center justify-center z-10 pointer-events-none">
-              <div className="text-9xl font-bold countdown-start animate-bounce">
+              <div className="start-signal">
                 スタート!
               </div>
             </div>
@@ -688,10 +715,10 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           {/* プログレスバーとタイマー */} 
           <div className="flex justify-between items-center mb-6 text-lg font-medium">
             <div>
-              問題 {currentIndex + 1} / {currentProblems.length}
+              <ruby>問題<rt>もんだい</rt></ruby> {currentIndex + 1} / {currentProblems.length}
             </div>
             <div className="text-primary-600">
-              経過時間: {formatTime(elapsedTime)}
+              <ruby>経過時間<rt>けいかじかん</rt></ruby>: {formatTime(elapsedTime)}
             </div>
           </div>
 
@@ -713,7 +740,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
               onKeyDown={handleKeyDown}
               onBlur={handleBlur}
               className="answer-input w-full max-w-xs p-3 text-xl text-center border-2 border-gray-300 rounded-md focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition duration-150 ease-in-out mb-6"
-              placeholder="答えを入力"
+              placeholder="こたえをにゅうりょく"
               autoFocus // ゲーム開始時にフォーカス
             />
             {/* ナビゲーションボタン */} 
@@ -723,13 +750,17 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
                   className="button button-secondary"
                   disabled={currentIndex === 0}
                 >
-                  戻る
+                  もどる
                 </button>
                 <button
                   onClick={handleNext}
                   className="button button-primary"
                 >
-                  {currentIndex === currentProblems.length - 1 ? '完了' : '次へ'}
+                  {currentIndex === currentProblems.length - 1 ? (
+                    <ruby>完了<rt>かんりょう</rt></ruby>
+                  ) : (
+                    <span><ruby>次<rt>つぎ</rt></ruby>へ</span>
+                  )}
                 </button>
             </div>
           </div>

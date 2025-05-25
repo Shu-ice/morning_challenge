@@ -17,7 +17,7 @@ const API = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  timeout: 10000, // 10秒のタイムアウト設定
+  timeout: 30000, // 10秒から30秒にタイムアウト設定を延長
 });
 
 // リクエストインターセプター

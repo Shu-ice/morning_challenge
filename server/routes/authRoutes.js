@@ -11,6 +11,9 @@ router.post('/register', registerUser);
 // @desc    Authenticate user & get token
 // @route   POST /api/auth/login
 // @access  Public
-router.post('/login', loginUser);
+router.post('/login', (req, res, next) => {
+    console.log('[authRoutes] POST /api/auth/login hit');
+    loginUser(req, res, next);
+});
 
 export default router; 

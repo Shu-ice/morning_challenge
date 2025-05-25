@@ -11,7 +11,7 @@ import Results from './pages/Results';
 import Rankings from './pages/Rankings';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import UserHistory from './pages/UserHistory';
+import { History } from './components/History';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ProblemGenerator from './pages/admin/ProblemGenerator';
@@ -149,8 +149,13 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute>
               <Results
-                results={currentSession}
-                onViewRankings={() => navigate('/rankings')}
+                results={currentSession as any}
+                onViewRankings={() => {
+                  // 難易度をランキングページに渡すためにstateを使用
+                  navigate('/rankings', { 
+                    state: { selectedDifficulty: currentSession?.difficulty } 
+                  });
+                }}
                 onBackToHome={() => navigate('/')}
               />
             </ProtectedRoute>
@@ -162,7 +167,7 @@ const AppRoutes: React.FC = () => {
         />
         <Route
           path="/history"
-          element={<ProtectedRoute><UserHistory /></ProtectedRoute>}
+          element={<ProtectedRoute><History /></ProtectedRoute>}
         />
         <Route
           path="/profile"

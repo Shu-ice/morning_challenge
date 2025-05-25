@@ -1,7 +1,9 @@
-const Record = require('../models/recordModel');
-const User = require('../models/userModel');
-const Result = require('../models/resultModel');
-const DailyProblemSet = require('../models/dailyProblemSetModel');
+import User from '../models/User.js';
+import Result from '../models/Result.js';
+import DailyProblemSet from '../models/DailyProblemSet.js';
+import { DifficultyRank } from '../utils/problemGenerator.js';
+import { calculateScore } from '../utils/problemScoring.js';
+import { getRankForResult } from '../utils/ranking.js';
 
 // 問題生成の関数（フロントエンドの実装と同様のロジック）
 const generateProblems = (grade) => {
@@ -115,10 +117,15 @@ const generateDivisionProblem = (max = 10) => {
 // @desc    問題の生成
 // @route   GET /api/problems
 // @access  Private
-const getProblems = (req, res) => {
+export const getProblems = async (req, res) => {
   try {
     // クエリパラメータを取得
-    const { difficulty, date, skipTimeCheck, userId } = req.query;
+    let { difficulty, date, skipTimeCheck, userId } = req.query; 
+
+    // difficulty がない場合は 'beginner' をデフォルトとする
+    if (!difficulty) {
+      difficulty = DifficultyRank.BEGINNER;
+    }
     
     // 時間制限チェックをスキップするオプション（開発モード用）
     const shouldSkipTimeCheck = skipTimeCheck === 'true' || (req.user && req.user.isAdmin);
@@ -139,18 +146,11 @@ const getProblems = (req, res) => {
     
     // userIdの検証
     if (!userId && req.user && req.user._id) {
-      // リクエストパラメータにuserIdがない場合、認証済みユーザーのIDを使用
-      userId = req.user._id;
+      userId = req.user._id.toString(); // ObjectIdを文字列に変換
     }
     
-    // 日付パラメータの処理
-    const targetDate = date || new Date().toISOString().split('T')[0]; // YYYY-MM-DD形式
+    const targetDate = date || new Date().toISOString().split('T')[0];
     
-    // 難易度または学年に基づいて問題を生成
-    let problems;
-    
-    if (difficulty) {
-      // 難易度指定がある場合（'beginner', 'intermediate'など）
       if (!['beginner', 'intermediate', 'advanced', 'expert'].includes(difficulty)) {
         return res.status(400).json({
           success: false,
@@ -158,36 +158,73 @@ const getProblems = (req, res) => {
         });
       }
       
-      // DBから問題を取得する処理を実装すべきですが、
-      // 一時的にダミーデータを生成
-      problems = Array(10).fill().map((_, i) => ({
-        id: i + 1,
-        question: `サンプル問題 ${i+1} (${difficulty})`,
-        type: 'mixed'
-      }));
-    } else {
-      // 従来のgradeパラメータを使用
-      const grade = req.query.grade || (req.user && req.user.grade ? req.user.grade : 1);
-    
-    // 問題を生成
-      problems = generateProblems(grade);
-    
-      // 回答を除外したデータを返す
-      problems = problems.map(({ answer, ...rest }) => rest);
+    const problemSet = await DailyProblemSet.findOne({ date: targetDate, difficulty: difficulty });
+
+    if (!problemSet || !problemSet.problems || problemSet.problems.length === 0) {
+      console.warn(`[getProblems] No problem set found for ${targetDate} (${difficulty}). Returning 404.`);
+      return res.status(404).json({
+        success: false,
+        message: `指定された日付・難易度の問題が見つかりません: ${targetDate} (${difficulty})`,
+        problems: []
+      });
     }
+
+    const problemsForClient = problemSet.problems.map(p => ({
+      id: p.id, 
+      question: p.question,
+      options: p.options,
+    }));
     
-    // セッションに問題と答えを保存
     req.session = req.session || {};
-    req.session.problems = problems;
+    req.session.problems = problemsForClient; 
     
     res.json({
       success: true,
       difficulty: difficulty,
       date: targetDate,
-      problems: problems
+      problems: problemsForClient
     });
+
   } catch (error) {
     console.error('問題取得エラー:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'サーバーエラーが発生しました。' 
+    });
+  }
+};
+
+// @desc    指定された日付と難易度の問題セットを編集用に取得 (管理者用)
+// @route   GET /api/problems/edit
+// @access  Private/Admin
+export const getProblemSetForEdit = async (req, res) => {
+  const { date, difficulty } = req.query;
+
+  if (!date || !difficulty) {
+    return res.status(400).json({
+      success: false,
+      message: '日付と難易度を指定してください。'
+    });
+  }
+
+  try {
+    const problemSet = await DailyProblemSet.findOne({ date, difficulty });
+
+    if (!problemSet) {
+      return res.status(404).json({
+        success: false,
+        message: '指定された問題セットが見つかりません。'
+      });
+    }
+
+    // 問題セット全体を返す (編集に必要なすべての情報を含むことを想定)
+    res.json({
+      success: true,
+      problemSet
+    });
+
+  } catch (error) {
+    console.error('問題セット編集用取得エラー:', error);
     res.status(500).json({ 
       success: false, 
       message: 'サーバーエラーが発生しました。' 
@@ -198,8 +235,8 @@ const getProblems = (req, res) => {
 // @desc    問題回答の提出
 // @route   POST /api/problems/submit
 // @access  Private
-const submitAnswers = async (req, res) => {
-  const { difficulty, date, answers, timeSpent, userId } = req.body;
+export const submitAnswers = async (req, res) => {
+  const { difficulty, date, answers, timeSpentMs, userId } = req.body;
   // 基本的なデータ検証
   if (!difficulty || !answers || !Array.isArray(answers)) {
       return res.status(400).json({ 
@@ -285,12 +322,28 @@ const submitAnswers = async (req, res) => {
         userAnswer: userAnswerNum,
         correctAnswer: correctAnswer,
         isCorrect: isCorrect,
-        timeSpent: timeSpent / problems.length // 各問題の平均時間（仮定）
+        timeSpent: timeSpentMs / problems.length // 各問題の平均時間（仮定）
       });
     }
     
     // スコア計算
-    const score = calculateScore(correctCount, problems.length, timeSpent, difficulty);
+    const score = calculateScore(correctCount, problems.length, timeSpentMs, difficulty);
+    
+    // 時間情報の取得と再構築
+    const { timeSpentMs: reqTimeSpentMs } = req.body;
+    const submissionTime = Date.now(); // 解答受付時刻 (サーバー)
+    let calculatedStartTime;
+    let calculatedEndTime = submissionTime;
+    let finalTimeSpentMs;
+
+    if (typeof reqTimeSpentMs === 'number' && reqTimeSpentMs >= 0) {
+        finalTimeSpentMs = reqTimeSpentMs;
+        calculatedStartTime = submissionTime - reqTimeSpentMs;
+    } else {
+        // timeSpentMs が不正な場合は0とする (またはエラー処理)
+        finalTimeSpentMs = 0;
+        calculatedStartTime = submissionTime;
+    }
     
     // 保存するための結果データを構築
     const resultsData = {
@@ -298,12 +351,14 @@ const submitAnswers = async (req, res) => {
         correctAnswers: correctCount,
       incorrectAnswers: incorrectCount,
       unanswered: unansweredCount,
-      totalTime: timeSpent * 1000, // ミリ秒に変換
-      timeSpent: timeSpent,
+      totalTime: finalTimeSpentMs, // ミリ秒
+      timeSpent: finalTimeSpentMs / 1000, // 秒
       problems: problemResults,
       score: score,
       difficulty: difficulty,
-      date: date
+      date: date,
+      startTime: calculatedStartTime, // ★ サーバーで計算した開始時刻
+      endTime: calculatedEndTime     // ★ サーバーで計算した終了時刻 (解答受付時刻)
     };
       
     // ユーザー情報の取得
@@ -311,19 +366,35 @@ const submitAnswers = async (req, res) => {
     if (userId) {
       user = await User.findById(userId).lean();
       console.log(`[Submit] ユーザー検索 (ID): ${user ? '見つかりました' : '見つかりません'}`);
+    } else if (req.user && req.user._id) {
+      user = await User.findById(req.user._id).lean();
+      console.log(`[Submit] ユーザー検索 (req.user): ${user ? '見つかりました' : '見つかりません'}`);
     }
     
     // 結果の保存
     if (user) {
-      // ユーザーIDを使用して結果を保存
-      const savedResult = await Result.create({
+      const query = {
         userId: user._id,
+        date: date, // resultsData.date と同じはず
+      };
+
+      // ユーザーID、日付で検索し、該当があれば更新、なければ新規作成 (upsert)
+      const savedResult = await Result.findOneAndUpdate(
+        query, 
+        { 
+          $set: { 
         username: user.username,
-        difficulty,
-        date,
+            difficulty: difficulty, // ★ 最後に挑戦した難易度を保存
         ...resultsData
-      });
-      console.log(`[Submit] 結果を保存しました: ID=${savedResult._id}`);
+          }
+        }, 
+        { 
+          upsert: true, 
+          new: true,    
+          setDefaultsOnInsert: true 
+        }
+      );
+      console.log(`[Submit] 結果を保存/更新しました (1日1レコード): ID=${savedResult._id}, UpsertedId=${savedResult.upsertedId || 'N/A'}`);
       
       // ランキング情報の取得を試みる
       try {
@@ -355,45 +426,39 @@ const submitAnswers = async (req, res) => {
   }
 };
 
-// @desc    ユーザーの記録履歴取得
+// @desc    ユーザーの回答履歴を取得
 // @route   GET /api/problems/history
-// @access  Private
-const getHistory = async (req, res) => {
+// @access  Private (ユーザー自身または管理者)
+export const getHistory = async (req, res) => {
+  // ユーザーIDの取得（クエリパラメータまたは認証済みユーザー）
+  let targetUserId = req.query.userId;
+  if (!targetUserId && req.user) {
+    targetUserId = req.user._id.toString();
+  }
+
+  // 管理者でない場合、自分の履歴のみ取得可能
+  if (!req.user.isAdmin && targetUserId !== req.user._id.toString()) {
+    return res.status(403).json({ success: false, message: '他のユーザーの履歴へのアクセス権がありません。' });
+  }
+
+  if (!targetUserId) {
+    return res.status(400).json({ success: false, message: 'ユーザーIDが指定されていません。' });
+  }
+
   try {
-    const userId = req.user._id;
-    
-    // ユーザーの履歴を取得
-    const user = await User.findById(userId);
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'ユーザーが見つかりません。'
-      });
+    const history = await Result.find({ userId: targetUserId })
+                              .sort({ date: -1, createdAt: -1 })
+                              .limit(parseInt(req.query.limit) || 50); // .select('-problems') を削除
+
+    if (!history || history.length === 0) {
+      res.set('Cache-Control', 'no-store');
+      return res.json({ success: true, message: '回答履歴がありません。', data: [] });
     }
-    
-    // 詳細な履歴を取得
-    const records = await Record.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .limit(30); // 直近30件
-    
-    res.json({
-      success: true,
-      history: records,
-      streak: user.streak,
-      points: user.points
-    });
+
+    res.set('Cache-Control', 'no-store');
+    res.json({ success: true, count: history.length, data: history });
   } catch (error) {
     console.error('履歴取得エラー:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'サーバーエラーが発生しました。' 
-    });
+    res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
   }
-};
-
-module.exports = {
-  getProblems,
-  submitAnswers,
-  getHistory
 };

@@ -54,6 +54,9 @@ const ResultSchema = new mongoose.Schema({
 });
 
 // ユーザーID、日付での複合ユニークインデックス (難易度に関わらず1日1回)
-ResultSchema.index({ userId: 1, date: 1 }, { unique: true });
+ResultSchema.index({ userId: 1, date: 1 }, { unique: true }); // ← こちらを有効化
+
+// 新しい複合ユニークインデックス: ユーザーID、日付、難易度でユニーク
+// ResultSchema.index({ userId: 1, date: 1, difficulty: 1 }, { unique: true }); // ← こちらをコメントアウト
 
 export default mongoose.model('Result', ResultSchema); 
