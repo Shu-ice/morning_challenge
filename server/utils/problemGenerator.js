@@ -191,102 +191,194 @@ const isCleanNumber = (num, allowedDecimalPlaces) => {
     return true;
 };
 
-// ★ 難易度に基づくパラメータ設定（学習指導要領に基づいて調整）
+// ★ 難易度に基づくパラメータ設定（日本の小学生学習指導要領準拠）
 const getParamsForDifficulty = (difficulty) => {
     switch (difficulty) {
-        case DifficultyRank.BEGINNER: // 小学1・2年生
-            return {
-                problemTypes: ['add_subtract_2digit_1digit', 'multiplication_table'],
-                termsRange: [2, 2], 
-                digitRanges: { 
-                    default: [1, 1], // 使われない想定だがフォールバック用
-                    add_subtract_2digit_1digit: [[1, 2], [1, 1]], // 第1項:1-2桁, 第2項:1桁
-                    multiplication_table: [1, 1], 
-                },
-                ops: ['+', '-','×'], 
-                forceIntegerResult: true,
-                allowNegativeResult: false,
-                maxResultValue: 150, // 2桁+1桁の結果や九九の結果を考慮して少し上げる (例: 99+9=108, 9x9=81)
-                decimals: 0,
-                beginnerSpecific: {
-                    multiplicationTablePercentage: 0.5, // 九九の割合 50%
-                    addSubtract2digit1digitPercentage: 0.5, // 2桁と1桁の加減算の割合 50%
-                }
-            };
-        case DifficultyRank.INTERMEDIATE: // 小学3・4年生
+        case DifficultyRank.BEGINNER: // 初級（小学1・2年生相当）
             return {
                 problemTypes: [
-                    'add_subtract_2_3digit',
-                    'multiply_2_3digit_by_1digit',
-                    'multiply_2digit_by_2digit',
-                    'divide_with_remainder',
-                    'simple_decimals_add_subtract'
+                    'add_subtract_2digit',      // 2けた同士のたしざん・ひきざん
+                    'add_subtract_3digit_2digit', // 3けたと2けたのたしざん・ひきざん
+                    'multiplication_table'       // 九九
                 ],
-                termsRange: [2, 2],
-                digitRanges: {
-                    default: [2, 3],
-                    add_subtract_2_3digit: [[2, 3], [2, 3]],
-                    multiply_2_3digit_by_1digit: [[2, 3], [1, 1]],
-                    multiply_2digit_by_2digit: [[2, 2], [2, 2]],
-                    divide_with_remainder: [[2, 3], [1, 1]],
-                    // simple_decimals_add_subtract: [[1, 2], [1, 2]] // This was for integer parts, now using termValueRangesForDecimal
+                problemComposition: {
+                    'add_subtract_2digit': 3,      // 3問
+                    'add_subtract_3digit_2digit': 3, // 3問
+                    'multiplication_table': 4       // 4問
                 },
-                termValueRangesForDecimal: { // For simple_decimals_add_subtract
-                    simple_decimals_add_subtract: [[0.1, 99.9], [0.1, 9.9]] // Example: num1 from 0.1-99.9, num2 from 0.1-9.9
+                digitRanges: { 
+                    add_subtract_2digit: {
+                        num1: [10, 99],    // 2けた
+                        num2: [10, 99]     // 2けた
+                    },
+                    add_subtract_3digit_2digit: {
+                        num1: [100, 999],  // 3けた
+                        num2: [10, 99]     // 2けた
+                    },
+                    multiplication_table: {
+                        num1: [1, 9],      // 1けた
+                        num2: [1, 9]       // 1けた
+                    }
+                },
+                ops: ['+', '-', '×'], 
+                forceIntegerResult: true,
+                allowNegativeResult: false,
+                maxResultValue: 1000,
+                decimals: 0
+            };
+            
+        case DifficultyRank.INTERMEDIATE: // 中級（小学3・4年生相当）
+            return {
+                problemTypes: [
+                    'add_subtract_4digit',      // 4けたと3けた/4けたのたしざん・ひきざん
+                    'multiply_2digit_2digit',   // 2けた×2けたのかけざん
+                    'multiply_3digit_2digit',   // 3けた×2けたのかけざん
+                    'divide_3digit_1digit',     // 3けた÷1けたのわりざん
+                    'divide_3digit_2digit'      // 3けた÷2けたのわりざん
+                ],
+                problemComposition: {
+                    'add_subtract_4digit': 2,      // 2問
+                    'multiply_2digit_2digit': 2,   // 2問
+                    'multiply_3digit_2digit': 2,   // 2問
+                    'divide_3digit_1digit': 2,     // 2問
+                    'divide_3digit_2digit': 2      // 2問
+                },
+                digitRanges: {
+                    add_subtract_4digit: {
+                        num1: [1000, 9999],  // 4けた
+                        num2: [100, 9999]    // 3けた～4けた
+                    },
+                    multiply_2digit_2digit: {
+                        num1: [10, 99],      // 2けた
+                        num2: [10, 99]       // 2けた
+                    },
+                    multiply_3digit_2digit: {
+                        num1: [100, 999],    // 3けた
+                        num2: [10, 99]       // 2けた
+                    },
+                    divide_3digit_1digit: {
+                        // 割り切れる数を作るために逆算で生成
+                        divisor: [2, 9],     // 1けた（1は除く）
+                        quotient: [100, 999] // 商が3けた
+                    },
+                    divide_3digit_2digit: {
+                        // 割り切れる数を作るために逆算で生成
+                        divisor: [10, 99],   // 2けた
+                        quotient: [10, 99]   // 商が2けた
+                    }
                 },
                 ops: ['+', '-', '×', '÷'],
                 forceIntegerResult: true,
                 allowNegativeResult: false,
-                maxResultValue: 10000,
-                decimals: 1, // tiểu số thứ nhất
-                intermediateSpecific: {
-                    divisionRemainderPercentage: 0.0,
-                    decimalProblemPercentage: 0.2,
-                    multiplicationPercentage: 0.4,
-                    divisionPercentage: 0.2,
-                    addSubtractPercentage: 0.2
-                }
-            };
-        case DifficultyRank.ADVANCED: // 小学5・6年生
-            return {
-                // Temporarily simplify to avoid unimplemented types causing timeouts
-                problemTypes: ['add_subtract_2_3digit'], // Use a known, implemented type
-                termsRange: [2, 3], 
-                digitRanges: {
-                    default: [2, 4],
-                    add_subtract_2_3digit: [[3, 5], [2, 4]] // Widened range: e.g., (3-5 digits) +/- (2-4 digits)
-                },
-                ops: ['+', '-', '×', '÷'],
-                forceIntegerResult: false, 
-                allowNegativeResult: true,
                 maxResultValue: 100000,
-                decimals: 2, // Up to two decimal places
-                advancedSpecific: { // Ensure the placeholder type is selected
-                    add_subtract_2_3digit: 1.0 // 100%
-                    // Add other specific percentages if more types were included
-                }
+                decimals: 0
             };
-        case DifficultyRank.EXPERT: // 中学生以上（より複雑な問題や代数も視野）
+            
+        case DifficultyRank.ADVANCED: // 上級（小学5・6年生相当）
             return {
-                // Temporarily simplify to avoid unimplemented types causing timeouts
-                problemTypes: ['add_subtract_2_3digit'], // Use a known, implemented type
-                termsRange: [2, 4],
+                problemTypes: [
+                    'add_subtract_5digit',      // 5けたと4けた/5けたのたしざん・ひきざん
+                    'multiply_4digit_2digit',   // 4けた×2けたのかけざん
+                    'multiply_4digit_3digit',   // 4けた×3けたのかけざん
+                    'divide_4digit_2digit',     // 4けた÷2けたのわりざん
+                    'divide_5digit_3digit'      // 5けた÷3けたのわりざん
+                ],
+                problemComposition: {
+                    'add_subtract_5digit': 2,      // 2問
+                    'multiply_4digit_2digit': 2,   // 2問
+                    'multiply_4digit_3digit': 2,   // 2問
+                    'divide_4digit_2digit': 2,     // 2問
+                    'divide_5digit_3digit': 2      // 2問
+                },
                 digitRanges: {
-                    default: [3, 5], 
-                    add_subtract_2_3digit: [[4, 6], [3, 5]] // Widened range: e.g., (4-6 digits) +/- (3-5 digits)
+                    add_subtract_5digit: {
+                        num1: [10000, 99999], // 5けた
+                        num2: [1000, 99999]   // 4けた～5けた
+                    },
+                    multiply_4digit_2digit: {
+                        num1: [1000, 9999],   // 4けた
+                        num2: [10, 99]        // 2けた
+                    },
+                    multiply_4digit_3digit: {
+                        num1: [1000, 9999],   // 4けた
+                        num2: [100, 999]      // 3けた
+                    },
+                    divide_4digit_2digit: {
+                        // 割り切れる数を作るために逆算で生成
+                        divisor: [10, 99],    // 2けた
+                        quotient: [100, 999]  // 商が3けた
+                    },
+                    divide_5digit_3digit: {
+                        // 割り切れる数を作るために逆算で生成
+                        divisor: [100, 999],  // 3けた
+                        quotient: [100, 999]  // 商が3けた
+                    }
                 },
                 ops: ['+', '-', '×', '÷'],
-                forceIntegerResult: false,
-                allowNegativeResult: true,
+                forceIntegerResult: true,
+                allowNegativeResult: false,
                 maxResultValue: 1000000,
-                decimals: 3, // Up to three decimal places for more complex calculations
-                expertSpecific: { // Ensure the placeholder type is selected
-                    add_subtract_2_3digit: 1.0 // 100%
-                    // Add other specific percentages if more types were included
-                }
+                decimals: 0
             };
-        default: // フォールバック (基本的に使われない想定)
-            return { problemTypes: ['add_subtract_1digit'], termsRange: [2,2], digitRanges: { default: [1,1], add_subtract_1digit: [1,1]}, ops: ['+'], forceIntegerResult: true, allowNegativeResult: false, maxResultValue: 20, decimals: 0 };
+            
+        case DifficultyRank.EXPERT: // 超級（小学生上級者・中学準備）
+            return {
+                problemTypes: [
+                    'add_subtract_6digit',      // 6けたと5けた/6けたのたしざん・ひきざん
+                    'multiply_5digit_3digit',   // 5けた×3けたのかけざん
+                    'multiply_5digit_4digit',   // 5けた×4けたのかけざん
+                    'divide_5digit_3digit',     // 5けた÷3けたのわりざん
+                    'divide_6digit_4digit'      // 6けた÷4けたのわりざん
+                ],
+                problemComposition: {
+                    'add_subtract_6digit': 2,      // 2問
+                    'multiply_5digit_3digit': 2,   // 2問
+                    'multiply_5digit_4digit': 2,   // 2問
+                    'divide_5digit_3digit': 2,     // 2問
+                    'divide_6digit_4digit': 2      // 2問
+                },
+                digitRanges: {
+                    add_subtract_6digit: {
+                        num1: [100000, 999999], // 6けた
+                        num2: [10000, 999999]   // 5けた～6けた
+                    },
+                    multiply_5digit_3digit: {
+                        num1: [10000, 99999],   // 5けた
+                        num2: [100, 999]        // 3けた
+                    },
+                    multiply_5digit_4digit: {
+                        num1: [10000, 99999],   // 5けた
+                        num2: [1000, 9999]      // 4けた
+                    },
+                    divide_5digit_3digit: {
+                        // 割り切れる数を作るために逆算で生成
+                        divisor: [100, 999],    // 3けた
+                        quotient: [100, 999]    // 商が3けた
+                    },
+                    divide_6digit_4digit: {
+                        // 割り切れる数を作るために逆算で生成
+                        divisor: [1000, 9999],  // 4けた
+                        quotient: [100, 999]    // 商が3けた
+                    }
+                },
+                ops: ['+', '-', '×', '÷'],
+                forceIntegerResult: true,
+                allowNegativeResult: false,
+                maxResultValue: 10000000,
+                decimals: 0
+            };
+            
+        default:
+            return {
+                problemTypes: ['add_subtract_2digit'],
+                problemComposition: { 'add_subtract_2digit': 10 },
+                digitRanges: { add_subtract_2digit: { num1: [10, 99], num2: [10, 99] } },
+                ops: ['+', '-'],
+                forceIntegerResult: true,
+                allowNegativeResult: false,
+                maxResultValue: 200,
+                decimals: 0
+            };
     }
 };
 
@@ -444,7 +536,7 @@ const checkTimeout = (startTime, maxTime = 15000) => {
 const selectProblemType = (difficulty, seed) => {
   const params = getParamsForDifficulty(difficulty);
   if (!params.problemTypes || params.problemTypes.length === 0) {
-    if (difficulty === DifficultyRank.BEGINNER) return 'add_subtract_2digit_1digit'; // デフォルト変更
+    if (difficulty === DifficultyRank.BEGINNER) return 'add_subtract_2digit'; // デフォルト変更
     console.warn(`[selectProblemType] No problemTypes defined for ${difficulty}, or empty.`);
     return params.ops && params.ops.length > 0 ? 'generic_calculation' : null; 
   }
@@ -452,84 +544,78 @@ const selectProblemType = (difficulty, seed) => {
   const randomValue = seededRandom(seed);
   let cumulativePercentage = 0;
 
-  if (difficulty === DifficultyRank.BEGINNER && params.beginnerSpecific) {
-    const spec = params.beginnerSpecific;
-    const mtPercentage = params.problemTypes.includes('multiplication_table') ? (spec.multiplicationTablePercentage || 0) : 0;
-    const as2d1dPercentage = params.problemTypes.includes('add_subtract_2digit_1digit') ? (spec.addSubtract2digit1digitPercentage || 0) : 0;
+  if (difficulty === DifficultyRank.BEGINNER && params.problemComposition) {
+    const spec = params.problemComposition;
+    const mtPercentage = params.problemTypes.includes('multiplication_table') ? (spec.multiplication_table || 0) : 0;
 
     cumulativePercentage += mtPercentage;
     if (randomValue < cumulativePercentage && params.problemTypes.includes('multiplication_table')) return 'multiplication_table';
 
-    // 残りが add_subtract_2digit_1digit しかない場合はそれを返す
-    if (params.problemTypes.includes('add_subtract_2digit_1digit')) return 'add_subtract_2digit_1digit';
+    // 残りが add_subtract_2digit しかない場合はそれを返す
+    if (params.problemTypes.includes('add_subtract_2digit')) return 'add_subtract_2digit';
     
     // フォールバック（通常ここには来ないはず）
     return params.problemTypes[0];
 
-  } else if (difficulty === DifficultyRank.INTERMEDIATE && params.intermediateSpecific) {
-    const spec = params.intermediateSpecific;
+  } else if (difficulty === DifficultyRank.INTERMEDIATE && params.problemComposition) {
+    const spec = params.problemComposition;
     const randomValue = seededRandom(seed);
 
     // 問題タイプの選択（割合に基づく）
-    if (randomValue < spec.multiplicationPercentage) {
-      // かけ算問題（40%）
-      const multRandom = seededRandom(seed + 100);
-      return multRandom < 0.7 ? 'multiply_2_3digit_by_1digit' : 'multiply_2digit_by_2digit';
-    } else if (randomValue < (spec.multiplicationPercentage + spec.divisionPercentage)) {
-      // わり算問題（20%）
-      return 'divide_with_remainder';
-    } else if (randomValue < (spec.multiplicationPercentage + spec.divisionPercentage + spec.addSubtractPercentage)) {
-      // たし算・ひき算問題（20%）
-      return 'add_subtract_2_3digit';
+    if (randomValue < spec.add_subtract_4digit) {
+      // 4けたと3けた/4けたのたしざん・ひきざん問題（20%）
+      return 'add_subtract_4digit';
+    } else if (randomValue < (spec.add_subtract_4digit + spec.multiply_2digit_2digit)) {
+      // 2けた×2けたのかけざん問題（20%）
+      return 'multiply_2digit_2digit';
+    } else if (randomValue < (spec.add_subtract_4digit + spec.multiply_2digit_2digit + spec.multiply_3digit_2digit)) {
+      // 3けた×2けたのかけざん問題（20%）
+      return 'multiply_3digit_2digit';
+    } else if (randomValue < (spec.add_subtract_4digit + spec.multiply_2digit_2digit + spec.multiply_3digit_2digit + spec.divide_3digit_1digit)) {
+      // 3けた÷1けたのわりざん問題（20%）
+      return 'divide_3digit_1digit';
     } else {
-      // 小数のたし算・ひき算問題（20%）
-      return 'simple_decimals_add_subtract';
+      // 3けた÷2けたのわりざん問題（20%）
+      return 'divide_3digit_2digit';
     }
-  } else if (difficulty === DifficultyRank.ADVANCED && params.advancedSpecific) {
-    const spec = params.advancedSpecific;
+  } else if (difficulty === DifficultyRank.ADVANCED && params.problemComposition) {
+    const spec = params.problemComposition;
     const randomVal = seededRandom(seed + 200); // シード値を他と変える
-    if (randomVal < spec.fractionProblemPercentage) {
-      // 分数問題 (40%)
-      const fractionRandom = seededRandom(seed + 210);
-      if (fractionRandom < 0.5 && params.problemTypes.includes('fraction_add_subtract_different_denominators')) {
-        return 'fraction_add_subtract_different_denominators';
-      } else if (params.problemTypes.includes('fraction_multiply_divide')) {
-        return 'fraction_multiply_divide';
-      }
-    } else if (randomVal < (spec.fractionProblemPercentage + spec.decimalProblemPercentage)) {
-      // 小数問題 (30%)
-      if (params.problemTypes.includes('decimal_multiply_divide')) {
-        return 'decimal_multiply_divide';
-      }
-    } else { // 残り (30%)
-      // 混合計算問題
-      if (params.problemTypes.includes('mixed_calculations_parentheses')) {
-        return 'mixed_calculations_parentheses';
-      }
+    if (randomVal < spec.add_subtract_5digit) {
+      // 5けたと4けた/5けたのたしざん・ひきざん問題 (40%)
+      return 'add_subtract_5digit';
+    } else if (randomVal < (spec.add_subtract_5digit + spec.multiply_4digit_2digit)) {
+      // 4けた×2けたのかけざん問題 (20%)
+      return 'multiply_4digit_2digit';
+    } else if (randomVal < (spec.add_subtract_5digit + spec.multiply_4digit_2digit + spec.multiply_4digit_3digit)) {
+      // 4けた×3けたのかけざん問題 (20%)
+      return 'multiply_4digit_3digit';
+    } else if (randomVal < (spec.add_subtract_5digit + spec.multiply_4digit_2digit + spec.multiply_4digit_3digit + spec.divide_4digit_2digit)) {
+      // 4けた÷2けたのわりざん問題 (10%)
+      return 'divide_4digit_2digit';
+    } else {
+      // 5けた÷3けたのわりざん問題 (10%)
+      return 'divide_5digit_3digit';
     }
-    // フォールバック (指定された割合でタイプが見つからない場合など)
-    return params.problemTypes[getRandomInt(0, params.problemTypes.length - 1, seed + 220)];
-  } else if (difficulty === DifficultyRank.EXPERT && params.expertSpecific) {
-    const spec = params.expertSpecific;
+  } else if (difficulty === DifficultyRank.EXPERT && params.problemComposition) {
+    const spec = params.problemComposition;
     const randomVal = seededRandom(seed + 300);
-    if (randomVal < spec.complexMixedPercentage) {
-      // 複雑な混合計算 (50%)
-      if (params.problemTypes.includes('complex_mixed_calculations_parentheses')) {
-        return 'complex_mixed_calculations_parentheses';
-      }
-    } else if (randomVal < (spec.complexMixedPercentage + spec.largeNumPercentage)) {
-      // 大きな数 (30%)
-      if (params.problemTypes.includes('large_number_operations')) {
-        return 'large_number_operations';
-      }
-    } else { // 残り (20%)
-      // 工夫する計算
-      if (params.problemTypes.includes('strategic_calculations')) {
-        return 'strategic_calculations';
-      }
+    if (randomVal < spec.add_subtract_6digit) {
+      // 6けたと5けた/6けたのたしざん・ひきざん問題 (40%)
+      return 'add_subtract_6digit';
+    } else if (randomVal < (spec.add_subtract_6digit + spec.multiply_5digit_3digit)) {
+      // 5けた×3けたのかけざん問題 (20%)
+      return 'multiply_5digit_3digit';
+    } else if (randomVal < (spec.add_subtract_6digit + spec.multiply_5digit_3digit + spec.multiply_5digit_4digit)) {
+      // 5けた×4けたのかけざん問題 (20%)
+      return 'multiply_5digit_4digit';
+    } else if (randomVal < (spec.add_subtract_6digit + spec.multiply_5digit_3digit + spec.multiply_5digit_4digit + spec.divide_5digit_3digit)) {
+      // 5けた÷3けたのわりざん問題 (10%)
+      return 'divide_5digit_3digit';
+    } else {
+      // 6けた÷4けたのわりざん問題 (10%)
+      return 'divide_6digit_4digit';
     }
-    // フォールバック
-    return params.problemTypes[getRandomInt(0, params.problemTypes.length - 1, seed + 310)];
   }
   
   const typeIndex = getRandomInt(0, params.problemTypes.length - 1, seed + 1); 
@@ -564,8 +650,8 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
             // この部分は元の関数の構造に大きく依存するため、以下は例示的なログポイントです。
             // 実際のコードに合わせてログを挿入する必要があります。
 
-            if (problemType === 'add_subtract_2digit_1digit') {
-                const [range1, range2] = params.digitRanges.add_subtract_2digit_1digit;
+            if (problemType === 'add_subtract_2digit') {
+                const [range1, range2] = params.digitRanges.add_subtract_2digit;
                 let num1 = getRandomInt(Math.pow(10, range1[0]-1), Math.pow(10, range1[1])-1, currentSeed + 1);
                 let num2 = getRandomInt(Math.pow(10, range2[0]-1), Math.pow(10, range2[1])-1, currentSeed + 2);
                 const opIndex = getRandomInt(0, 1, currentSeed + 3); // 0: +, 1: -
@@ -578,7 +664,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 nums = [num1, num2];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated add_subtract_2digit_1digit: ${question}`);
+                console.log(`[ProblemGenerator DEBUG] Generated add_subtract_2digit: ${question}`);
 
             } else if (problemType === 'multiplication_table') {
                 const num1 = getRandomInt(1, 9, currentSeed + 1);
@@ -589,9 +675,9 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 generatedDetails = { nums, ops, questionString: question };
                 console.log(`[ProblemGenerator DEBUG] Generated multiplication_table: ${question}`);
 
-            } else if (problemType === 'add_subtract_2_3digit') {
+            } else if (problemType === 'add_subtract_4digit') {
                 const op = seededRandom(currentSeed + 30) > 0.5 ? '+' : '-';
-                const termRanges = params.digitRanges.add_subtract_2_3digit || [[2,3],[2,3]]; // Default from getParamsForDifficulty
+                const termRanges = params.digitRanges.add_subtract_4digit || [[2,3],[2,3]]; // Default from getParamsForDifficulty
                 
                 const num1Digits = getRandomInt(termRanges[0][0], termRanges[0][1], currentSeed + 31);
                 const num2Digits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 32);
@@ -620,12 +706,12 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 nums = [num1, num2];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated add_subtract_2_3digit: ${question}, Seed: ${currentSeed}`);
-      } else if (problemType === 'multiply_2_3digit_by_1digit') {
-                const termRanges = params.digitRanges.multiply_2_3digit_by_1digit || [[2,3],[1,1]]; // Default from getParamsForDifficulty
+                console.log(`[ProblemGenerator DEBUG] Generated add_subtract_4digit: ${question}, Seed: ${currentSeed}`);
+      } else if (problemType === 'multiply_2digit_2digit') {
+                const termRanges = params.digitRanges.multiply_2digit_2digit || [[2,2],[2,2]]; // Default from getParamsForDifficulty
                 
                 const num1Digits = getRandomInt(termRanges[0][0], termRanges[0][1], currentSeed + 41);
-                const num2Digits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 42); // Should typically be 1-digit
+                const num2Digits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 42); // Should be 2-digit
 
                 const num1 = getRandomInt(Math.pow(10, num1Digits - 1), Math.pow(10, num1Digits) - 1, currentSeed + 43);
                 const num2 = getRandomInt(Math.pow(10, num2Digits - 1), Math.pow(10, num2Digits) - 1, currentSeed + 44);
@@ -635,12 +721,12 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
         nums = [num1, num2];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated multiply_2_3digit_by_1digit: ${question}, Seed: ${currentSeed}`);
-      } else if (problemType === 'multiply_2digit_by_2digit') {
-                const termRanges = params.digitRanges.multiply_2digit_by_2digit || [[2,2],[2,2]]; // Default from getParamsForDifficulty
+                console.log(`[ProblemGenerator DEBUG] Generated multiply_2digit_2digit: ${question}, Seed: ${currentSeed}`);
+            } else if (problemType === 'multiply_3digit_2digit') {
+                const termRanges = params.digitRanges.multiply_3digit_2digit || [[2,3],[1,1]]; // Default from getParamsForDifficulty
                 
-                const num1Digits = getRandomInt(termRanges[0][0], termRanges[0][1], currentSeed + 51); // Should be 2-digit
-                const num2Digits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 52); // Should be 2-digit
+                const num1Digits = getRandomInt(termRanges[0][0], termRanges[0][1], currentSeed + 51);
+                const num2Digits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 52); // Should typically be 1-digit
 
                 const num1 = getRandomInt(Math.pow(10, num1Digits - 1), Math.pow(10, num1Digits) - 1, currentSeed + 53);
                 const num2 = getRandomInt(Math.pow(10, num2Digits - 1), Math.pow(10, num2Digits) - 1, currentSeed + 54);
@@ -650,10 +736,9 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
         nums = [num1, num2];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated multiply_2digit_by_2digit: ${question}, Seed: ${currentSeed}`);
-            } else if (problemType === 'divide_with_remainder') {
-                // NOTE: params.intermediateSpecific.divisionRemainderPercentage is currently 0.0, so we generate clean divisions.
-                const termRanges = params.digitRanges.divide_with_remainder || [[2,3],[1,1]]; // Default: (2-3 digit) / (1 digit)
+                console.log(`[ProblemGenerator DEBUG] Generated multiply_3digit_2digit: ${question}, Seed: ${currentSeed}`);
+            } else if (problemType === 'divide_3digit_1digit') {
+                const termRanges = params.digitRanges.divide_3digit_1digit || [[2,3],[1,1]]; // Default: (2-3 digit) / (1 digit)
                 
                 const divisorDigits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 61);
                 let divisor = getRandomInt(Math.pow(10, divisorDigits - 1), Math.pow(10, divisorDigits) - 1, currentSeed + 62);
@@ -672,7 +757,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 if (minQuotient > maxQuotient || maxQuotient <=0) { // Invalid quotient range, try to adjust divisor or skip
                      // This can happen if divisor is too large for the dividend range.
                      // Fallback: make divisor smaller or regenerate. For now, log and potentially skip.
-                     console.warn(`[ProblemGenerator WARN] divide_with_remainder: Divisor ${divisor} might be too large for dividend range ${dividendMinDigits}-${dividendMaxDigits} digits. MaxQ ${maxQuotient}, MinQ ${minQuotient}. Attempting to adjust divisor.`);
+                     console.warn(`[ProblemGenerator WARN] divide_3digit_1digit: Divisor ${divisor} might be too large for dividend range ${dividendMinDigits}-${dividendMaxDigits} digits. MaxQ ${maxQuotient}, MinQ ${minQuotient}. Attempting to adjust divisor.`);
                      // Attempt to reduce divisor to a single digit number if it's not already
                      if (divisorDigits > 1) {
                          divisor = getRandomInt(2, 9, currentSeed + 622); // Fallback to simple 1-digit divisor (2-9)
@@ -681,7 +766,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                          if (minQuotient === 0 && (Math.pow(10, dividendMinDigits -1) > 0) ) minQuotient = 1;
                      }
                      if (minQuotient > maxQuotient || maxQuotient <=0) { // Still bad
-                         console.error(`[ProblemGenerator ERROR] divide_with_remainder: Could not determine valid quotient range for divisor ${divisor}. Skipping.`);
+                         console.error(`[ProblemGenerator ERROR] divide_3digit_1digit: Could not determine valid quotient range for divisor ${divisor}. Skipping.`);
                          lastError = `Invalid quotient range for divisor ${divisor}`;
                          continue; // Skip to next attempt in the while loop
                      }
@@ -695,70 +780,52 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 nums = [dividend, divisor];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated divide_with_remainder (clean): ${question}, Quotient: ${quotient}, Seed: ${currentSeed}`);
-            } else if (problemType === 'simple_decimals_add_subtract') {
-                const precision = params.decimals || 1; 
-                const scale = Math.pow(10, precision);
+                console.log(`[ProblemGenerator DEBUG] Generated divide_3digit_1digit (clean): ${question}, Quotient: ${quotient}, Seed: ${currentSeed}`);
+            } else if (problemType === 'divide_3digit_2digit') {
+                const termRanges = params.digitRanges.divide_3digit_2digit || [[2,3],[1,1]]; // Default: (2-3 digit) / (1 digit)
                 
-                // Fallback to a generic range if not specified.
-                const decimalTermValueRangesFromParams = params.termValueRangesForDecimal && params.termValueRangesForDecimal[problemType]
-                    ? params.termValueRangesForDecimal[problemType]
-                    : null; 
+                const divisorDigits = getRandomInt(termRanges[1][0], termRanges[1][1], currentSeed + 71);
+                let divisor = getRandomInt(Math.pow(10, divisorDigits - 1), Math.pow(10, divisorDigits) - 1, currentSeed + 72);
+                if (divisor === 0) divisor = 1; // Avoid division by zero, though range should prevent this.
 
-                const decimalTermValueRanges = decimalTermValueRangesFromParams && 
-                                               Array.isArray(decimalTermValueRangesFromParams) && decimalTermValueRangesFromParams.length === 2 &&
-                                               Array.isArray(decimalTermValueRangesFromParams[0]) && decimalTermValueRangesFromParams[0].length === 2 &&
-                                               Array.isArray(decimalTermValueRangesFromParams[1]) && decimalTermValueRangesFromParams[1].length === 2 &&
-                                               typeof decimalTermValueRangesFromParams[0][0] === 'number' && typeof decimalTermValueRangesFromParams[0][1] === 'number' &&
-                                               typeof decimalTermValueRangesFromParams[1][0] === 'number' && typeof decimalTermValueRangesFromParams[1][1] === 'number'
-                    ? decimalTermValueRangesFromParams
-                    : [[0.1, 9.9], [0.1, 4.9]]; // Default fallback if structure or content is invalid
-
-                let num1_unscaled_min = decimalTermValueRanges[0][0] * scale;
-                let num1_unscaled_max = decimalTermValueRanges[0][1] * scale;
-                let num2_unscaled_min = decimalTermValueRanges[1][0] * scale;
-                let num2_unscaled_max = decimalTermValueRanges[1][1] * scale;
-
-                // Ensure min/max are integers for getRandomInt after scaling
-                num1_unscaled_min = Math.ceil(num1_unscaled_min);
-                num1_unscaled_max = Math.floor(num1_unscaled_max);
-                num2_unscaled_min = Math.ceil(num2_unscaled_min);
-                num2_unscaled_max = Math.floor(num2_unscaled_max);
+                // To ensure a clean division and respect dividend digit range, we can determine a quotient range.
+                const dividendMaxDigits = termRanges[0][1];
+                const dividendMinDigits = termRanges[0][0];
                 
-                if (num1_unscaled_min > num1_unscaled_max || num2_unscaled_min > num2_unscaled_max) {
-                    console.error(`[ProblemGenerator ERROR] simple_decimals_add_subtract: Invalid scaled ranges. N1: ${num1_unscaled_min}-${num1_unscaled_max}, N2: ${num2_unscaled_min}-${num2_unscaled_max}. Skipping.`);
-                    lastError = "Invalid scaled ranges for decimal problem";
-                    continue;
+                // Max possible quotient such that quotient * divisor approx Math.pow(10, dividendMaxDigits) - 1
+                // Min possible quotient such that quotient * divisor approx Math.pow(10, dividendMinDigits - 1)
+                let maxQuotient = Math.floor((Math.pow(10, dividendMaxDigits) -1) / divisor) ;
+                let minQuotient = Math.ceil(Math.pow(10, dividendMinDigits - 1) / divisor);
+
+                if (minQuotient === 0 && (Math.pow(10, dividendMinDigits -1) > 0) ) minQuotient = 1; // Ensure quotient is at least 1 if dividend is non-zero
+                if (minQuotient > maxQuotient || maxQuotient <=0) { // Invalid quotient range, try to adjust divisor or skip
+                     // This can happen if divisor is too large for the dividend range.
+                     // Fallback: make divisor smaller or regenerate. For now, log and potentially skip.
+                     console.warn(`[ProblemGenerator WARN] divide_3digit_2digit: Divisor ${divisor} might be too large for dividend range ${dividendMinDigits}-${dividendMaxDigits} digits. MaxQ ${maxQuotient}, MinQ ${minQuotient}. Attempting to adjust divisor.`);
+                     // Attempt to reduce divisor to a single digit number if it's not already
+                     if (divisorDigits > 1) {
+                         divisor = getRandomInt(2, 9, currentSeed + 722); // Fallback to simple 1-digit divisor (2-9)
+                         maxQuotient = Math.floor((Math.pow(10, dividendMaxDigits) -1) / divisor) ;
+                         minQuotient = Math.ceil(Math.pow(10, dividendMinDigits - 1) / divisor);
+                         if (minQuotient === 0 && (Math.pow(10, dividendMinDigits -1) > 0) ) minQuotient = 1;
+                     }
+                     if (minQuotient > maxQuotient || maxQuotient <=0) { // Still bad
+                         console.error(`[ProblemGenerator ERROR] divide_3digit_2digit: Could not determine valid quotient range for divisor ${divisor}. Skipping.`);
+                         lastError = `Invalid quotient range for divisor ${divisor}`;
+                         continue; // Skip to next attempt in the while loop
+                     }
                 }
 
-                let num1_scaled = getRandomInt(num1_unscaled_min, num1_unscaled_max, currentSeed + 71);
-                let num2_scaled = getRandomInt(num2_unscaled_min, num2_unscaled_max, currentSeed + 72);
+                const quotient = getRandomInt(minQuotient, maxQuotient, currentSeed + 73);
+                const dividend = divisor * quotient;
 
-                let num1 = parseFloat((num1_scaled / scale).toFixed(precision));
-                let num2 = parseFloat((num2_scaled / scale).toFixed(precision));
-
-                const op = seededRandom(currentSeed + 73) > 0.5 ? '+' : '-';
-
-                if (op === '-' && num1 < num2 && !params.allowNegativeResult) {
-                    [num1, num2] = [num2, num1];
-                }
-                
-                // Calculate result to check for -0
-                let tempAnswer = op === '+' ? num1 + num2 : num1 - num2;
-                tempAnswer = parseFloat(tempAnswer.toFixed(precision)); // Apply precision to result
-                if (Object.is(tempAnswer, -0)) {
-                    tempAnswer = 0;
-                }
-
-                // Ensure question strings use fixed precision
-                question = `${num1.toFixed(precision)} ${op} ${num2.toFixed(precision)} = ?`;
-                nums = [num1, num2]; 
+                const op = '÷';
+                question = `${dividend} ${op} ${divisor} = ?`;
+                nums = [dividend, divisor];
                 ops = [op];
-                // `answer` will be calculated later by `calculateAnswer` which should also handle precision, 
-                // but `generatedDetails` could store the pre-calculated `tempAnswer` if needed for direct use or validation.
-                generatedDetails = { nums, ops, questionString: question /*, preCalculatedAnswer: tempAnswer */ };
-                console.log(`[ProblemGenerator DEBUG] Generated simple_decimals_add_subtract: ${question}, Nums: ${num1}, ${num2}, Seed: ${currentSeed}`);
-        } else {
+                generatedDetails = { nums, ops, questionString: question };
+                console.log(`[ProblemGenerator DEBUG] Generated divide_3digit_2digit (clean): ${question}, Quotient: ${quotient}, Seed: ${currentSeed}`);
+            } else {
                 console.warn(`[ProblemGenerator WARN] Unknown or unhandled problemType: ${problemType} in attempt ${attempts}. Skipping.`);
                 lastError = `Unknown problemType: ${problemType}`;
                 continue; // 次の試行へ
@@ -1067,7 +1134,7 @@ const generateProblemsByDifficulty = async (difficulty, count = 10, requestId = 
 export const generateProblems = async (difficulty, count = 10, seed = null, requestId = null) => {
   try {
     const actualSeed = seed || Date.now();
-    console.log(`[ProblemGenerator] ${count}問の生成開始 (${difficulty}) シード値: ${actualSeed}`);
+    console.log(`[ProblemGenerator] 新基準に基づく${count}問の生成開始 (${difficulty}) シード値: ${actualSeed}`);
     
     if (requestId) {
       const now = Date.now();
@@ -1080,68 +1147,28 @@ export const generateProblems = async (difficulty, count = 10, seed = null, requ
     }
     
     const startTime = performance.now();
-    const memBefore = process.memoryUsage().heapUsed / 1024 / 1024;
     
-    let seedValue = typeof actualSeed === 'string' 
-      ? actualSeed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-      : Number(actualSeed);
+    // 新基準に基づく問題構成で生成
+    const problems = await generateProblemSetByComposition(difficulty, requestId);
     
-    const problems = [];
-    const maxAttempts = count * 5;
-    let attempts = 0;
-    
-    const generateLoop = async () => {
-    while (problems.length < count && attempts < maxAttempts) {
-      attempts++;
-      const problemSeed = seedValue + attempts * 1000;
-      try {
-          const problem = await generateSingleProblem(difficulty, problemSeed);
-        
-          if (problem && problem.answer !== undefined && problem.id) {
-          const isDuplicate = problems.some(p => p.question === problem.question);
-          if (!isDuplicate) {
-            problems.push(problem);
-            if (requestId) {
-              const progress = Math.round((problems.length / count) * 100);
-              processingStatusMap.set(requestId, {
-                ...processingStatusMap.get(requestId),
-                progress,
-                  problems: [...problems],
-              });
-            }
-            } else {
-              console.log(`[generateLoop Debug] Duplicate problem skipped: ${problem.question}`); 
-          }
-          } else {
-            console.log(`[generateLoop Debug] Invalid problem object received from generateSingleProblem (seed: ${problemSeed}):`, problem);
-        }
-      } catch (error) {
-          console.warn(`[generateLoop Debug] Error during generateSingleProblem (seed: ${problemSeed}, attempt: ${attempts}): ${error.message}`);
-      }
-      if (requestId && checkTimeout(startTime) && problems.length > 0) {
-        console.warn(`問題生成がタイムアウト: ${problems.length}/${count}問生成済み`);
-        processingStatusMap.set(requestId, {
-          ...processingStatusMap.get(requestId),
-          status: 'timeout',
-          endTime: Date.now()
-        });
-        break;
-      }
-    }
-    };
-    
-    await generateLoop();
-
     if (problems.length === 0) {
-      console.warn(`問題生成に失敗したため、フォールバック問題を使用します`);
+      console.warn(`新基準での問題生成に失敗したため、フォールバック問題を使用します`);
+      const fallbackProblems = [];
       for (let i = 0; i < Math.min(count, 5); i++) {
-        const fallbackSeed = seedValue + i * 1000;
-        problems.push(await generateFallbackProblem(difficulty, fallbackSeed));
+        const fallbackSeed = actualSeed + i * 1000;
+        fallbackProblems.push(await generateFallbackProblem(difficulty, fallbackSeed));
       }
+      return fallbackProblems.map(p => ({
+        id: p.id,
+        question: p.question,
+        answer: p.answer,
+        options: p.options
+      }));
     }
     
     const endTime = performance.now();
     console.log(`[ProblemGenerator] ${problems.length}問の生成完了 (${difficulty}). 所要時間: ${(endTime - startTime).toFixed(2)}ms`);
+    
     if (requestId) {
       processingStatusMap.set(requestId, {
         ...processingStatusMap.get(requestId),
@@ -1157,6 +1184,7 @@ export const generateProblems = async (difficulty, count = 10, seed = null, requ
       answer: p.answer,
       options: p.options
     }));
+    
   } catch (error) {
     console.error('[ProblemGenerator] 問題生成中の重大エラー:', error);
     console.error("Error Name: ", error.name);
@@ -1164,6 +1192,16 @@ export const generateProblems = async (difficulty, count = 10, seed = null, requ
     if (error.stack) {
         console.error("Error Stack: ", error.stack);
     }
+    
+    if (requestId) {
+      processingStatusMap.set(requestId, {
+        ...processingStatusMap.get(requestId),
+        status: 'error',
+        endTime: Date.now(),
+        error: error.message
+      });
+    }
+    
     return [];
   }
 };
@@ -1294,3 +1332,214 @@ export {
 };
 
 // module.exports = { ... } // CommonJS alternative, ensure consistency with project type
+
+// ★ 新基準に基づく問題集生成関数
+const generateProblemSetByComposition = async (difficulty, requestId = null) => {
+    const params = getParamsForDifficulty(difficulty);
+    const problemComposition = params.problemComposition;
+    
+    if (!problemComposition) {
+        console.warn(`[generateProblemSetByComposition] No problemComposition defined for ${difficulty}`);
+        return await generateProblemsByDifficulty(difficulty, 10, requestId);
+    }
+    
+    const allProblems = [];
+    let seedCounter = getDateSeed();
+    
+    // 各問題タイプごとに指定数の問題を生成
+    for (const [problemType, count] of Object.entries(problemComposition)) {
+        console.log(`[ProblemSet] Generating ${count} problems of type: ${problemType}`);
+        
+        for (let i = 0; i < count; i++) {
+            seedCounter += i + 1;
+            const problem = await generateSpecificProblem(problemType, difficulty, seedCounter);
+            
+            if (problem) {
+                allProblems.push(problem);
+                console.log(`[ProblemSet] Generated ${problemType} #${i + 1}: ${problem.question}`);
+            } else {
+                console.warn(`[ProblemSet] Failed to generate ${problemType} #${i + 1}`);
+            }
+        }
+    }
+    
+    // 問題をシャッフル
+    return shuffleArray(allProblems, seedCounter);
+};
+
+// ★ 特定タイプの問題生成
+const generateSpecificProblem = async (problemType, difficulty, seed) => {
+    const params = getParamsForDifficulty(difficulty);
+    const maxAttempts = 50;
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const currentSeed = seed + attempt;
+        let nums = [], ops = [], question = "";
+        
+        try {
+            // 問題タイプ別の生成ロジック
+            if (problemType === 'add_subtract_2digit') {
+                const { num1, num2 } = params.digitRanges.add_subtract_2digit;
+                let n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                let n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                const op = seededRandom(currentSeed + 2) > 0.5 ? '+' : '-';
+                
+                if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
+                nums = [n1, n2]; ops = [op];
+                question = `${n1} ${op} ${n2} = ?`;
+                
+            } else if (problemType === 'add_subtract_3digit_2digit') {
+                const { num1, num2 } = params.digitRanges.add_subtract_3digit_2digit;
+                let n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                let n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                const op = seededRandom(currentSeed + 2) > 0.5 ? '+' : '-';
+                
+                if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
+                nums = [n1, n2]; ops = [op];
+                question = `${n1} ${op} ${n2} = ?`;
+                
+            } else if (problemType === 'multiplication_table') {
+                const { num1, num2 } = params.digitRanges.multiplication_table;
+                const n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                const n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                nums = [n1, n2]; ops = ['×'];
+                question = `${n1} × ${n2} = ?`;
+                
+            } else if (problemType === 'add_subtract_4digit') {
+                const { num1, num2 } = params.digitRanges.add_subtract_4digit;
+                let n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                let n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                const op = seededRandom(currentSeed + 2) > 0.5 ? '+' : '-';
+                
+                if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
+                nums = [n1, n2]; ops = [op];
+                question = `${n1} ${op} ${n2} = ?`;
+                
+            } else if (problemType === 'multiply_2digit_2digit') {
+                const { num1, num2 } = params.digitRanges.multiply_2digit_2digit;
+                const n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                const n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                nums = [n1, n2]; ops = ['×'];
+                question = `${n1} × ${n2} = ?`;
+                
+            } else if (problemType === 'multiply_3digit_2digit') {
+                const { num1, num2 } = params.digitRanges.multiply_3digit_2digit;
+                const n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                const n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                nums = [n1, n2]; ops = ['×'];
+                question = `${n1} × ${n2} = ?`;
+                
+            } else if (problemType.includes('divide_')) {
+                // 割り切れる割り算問題の生成（逆算方式）
+                const divisionConfig = params.digitRanges[problemType];
+                if (divisionConfig && divisionConfig.divisor && divisionConfig.quotient) {
+                    const divisor = getRandomInt(divisionConfig.divisor[0], divisionConfig.divisor[1], currentSeed);
+                    const quotient = getRandomInt(divisionConfig.quotient[0], divisionConfig.quotient[1], currentSeed + 1);
+                    const dividend = divisor * quotient; // 必ず割り切れる
+                    
+                    nums = [dividend, divisor]; ops = ['÷'];
+                    question = `${dividend} ÷ ${divisor} = ?`;
+                } else {
+                    continue; // 設定が不正な場合は次の試行へ
+                }
+                
+            } else if (problemType === 'add_subtract_5digit') {
+                const { num1, num2 } = params.digitRanges.add_subtract_5digit;
+                let n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                let n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                const op = seededRandom(currentSeed + 2) > 0.5 ? '+' : '-';
+                
+                if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
+                nums = [n1, n2]; ops = [op];
+                question = `${n1} ${op} ${n2} = ?`;
+                
+            } else if (problemType === 'multiply_4digit_2digit') {
+                const { num1, num2 } = params.digitRanges.multiply_4digit_2digit;
+                const n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                const n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                nums = [n1, n2]; ops = ['×'];
+                question = `${n1} × ${n2} = ?`;
+                
+            } else if (problemType === 'multiply_4digit_3digit') {
+                const { num1, num2 } = params.digitRanges.multiply_4digit_3digit;
+                const n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                const n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                nums = [n1, n2]; ops = ['×'];
+                question = `${n1} × ${n2} = ?`;
+                
+            } else if (problemType === 'add_subtract_6digit') {
+                const { num1, num2 } = params.digitRanges.add_subtract_6digit;
+                let n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                let n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                const op = seededRandom(currentSeed + 2) > 0.5 ? '+' : '-';
+                
+                if (op === '-' && n1 < n2) [n1, n2] = [n2, n1];
+                nums = [n1, n2]; ops = [op];
+                question = `${n1} ${op} ${n2} = ?`;
+                
+            } else if (problemType === 'multiply_5digit_3digit') {
+                const { num1, num2 } = params.digitRanges.multiply_5digit_3digit;
+                const n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                const n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                nums = [n1, n2]; ops = ['×'];
+                question = `${n1} × ${n2} = ?`;
+                
+            } else if (problemType === 'multiply_5digit_4digit') {
+                const { num1, num2 } = params.digitRanges.multiply_5digit_4digit;
+                const n1 = getRandomInt(num1[0], num1[1], currentSeed);
+                const n2 = getRandomInt(num2[0], num2[1], currentSeed + 1);
+                nums = [n1, n2]; ops = ['×'];
+                question = `${n1} × ${n2} = ?`;
+                
+            } else {
+                console.warn(`[generateSpecificProblem] Unknown problem type: ${problemType}`);
+                continue;
+            }
+            
+            // 答えを計算
+            const answer = calculateAnswer(nums, ops, params.decimals);
+            if (answer === undefined || !isCleanNumber(answer, params.decimals)) {
+                continue;
+            }
+            
+            // 負の数チェック
+            if (!params.allowNegativeResult && answer < 0) {
+                continue;
+            }
+            
+            // 結果の範囲チェック
+            if (answer > params.maxResultValue) {
+                continue;
+            }
+            
+            // 選択肢生成
+            const options = generateOptions(answer, difficulty, currentSeed);
+            
+            return {
+                id: `${difficulty}_${problemType}_${currentSeed}`,
+                question,
+                options,
+                answer,
+                difficulty,
+                type: problemType
+            };
+            
+        } catch (error) {
+            console.warn(`[generateSpecificProblem] Error in attempt ${attempt}:`, error.message);
+            continue;
+        }
+    }
+    
+    console.error(`[generateSpecificProblem] Failed to generate ${problemType} after ${maxAttempts} attempts`);
+    return null;
+};
+
+// ★ 配列シャッフル関数
+const shuffleArray = (array, seed) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(seededRandom(seed + i) * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+};
