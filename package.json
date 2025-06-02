@@ -27,6 +27,8 @@
     "test": "echo \"テストは今後実装予定\" && exit 0"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.79.0",
+    "@tanstack/react-query-devtools": "^5.79.0",
     "@types/react-router-dom": "^5.3.3",
     "axios": "^1.9.0",
     "date-fns": "^4.1.0",

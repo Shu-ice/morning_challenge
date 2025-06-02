@@ -1,310 +1,185 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import { useRankings, usePrefetchData } from '../hooks/useApiQuery';
 import '../styles/Rankings.css';
-import { Results, UserData } from '@/types/index';
-import { DifficultyRank } from '@/types/difficulty';
-import { GRADE_OPTIONS } from '@/types/grades';
-import { rankingAPI } from '../api/index';
-import { format, subDays, eachDayOfInterval } from 'date-fns';
+import { DifficultyRank, difficultyToJapanese } from '../types/difficulty';
 
-interface RankingsProps {
-  results?: Results;
-  selectedDifficulty?: DifficultyRank;
-}
-
-interface RankingItem {
-  rank: number;
-  userId: string;
-  username: string;
-  avatar?: string;
-  grade: string | number;
-  difficulty: DifficultyRank;
-  score: number;
-  timeSpent: number;
-  totalTime: number;
-  correctAnswers: number;
-  totalProblems: number;
-  incorrectAnswers?: number;
-  unanswered?: number;
-  streak?: number;
-  date: string;
-}
-
-// ユーザーデータを取得するヘルパー関数
-const getUserData = (): UserData | null => {
-  try {
-    const possibleKeys = ['userData', 'user', 'currentUser'];
-    
-    for (const key of possibleKeys) {
-      const userDataString = localStorage.getItem(key);
-      if (userDataString) {
-        try {
-          const data = JSON.parse(userDataString);
-          return data;
-        } catch (e) {
-          console.error(`キー ${key} のユーザーデータの解析に失敗しました:`, e);
-        }
-      }
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Failed to get user data:', error);
-    return null;
-  }
+// 今日の日付を取得する関数
+const getFormattedDate = (date: Date): string => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-export const Rankings: React.FC<RankingsProps> = ({ results }) => {
-  const location = useLocation();
+const Rankings: React.FC = () => {
+  const [selectedDate, setSelectedDate] = useState<string>(getFormattedDate(new Date()));
+  const { prefetchRankings } = usePrefetchData();
   
-  // 結果ページからの難易度情報を取得（複数のソースから）
-  const getInitialDifficulty = (): DifficultyRank => {
-    // 1. location.state から取得
-    const passedDifficulty = location.state?.selectedDifficulty;
-    if (passedDifficulty) {
-      console.log(`[Rankings] Using difficulty from location.state: ${passedDifficulty}`);
-      return passedDifficulty;
-    }
+  // 🚀 重複削除！全難易度を一度に取得
+  const { data: allRankings, isLoading, error, refetch } = useRankings(selectedDate);
+  
+  // 統計情報を効率的に計算
+  const statistics = useMemo(() => {
+    if (!allRankings) return null;
     
-    // 2. localStorage から取得（結果ページから保存されたもの）
-    const savedDifficulty = localStorage.getItem('selectedDifficultyFromResults');
-    if (savedDifficulty) {
-      console.log(`[Rankings] Using difficulty from localStorage: ${savedDifficulty}`);
-      // 使用後は削除（一回限りの使用）
-      localStorage.removeItem('selectedDifficultyFromResults');
-      return savedDifficulty as DifficultyRank;
-    }
+    const stats = {
+      beginner: { total: 0, avgScore: 0, avgTime: 0 },
+      intermediate: { total: 0, avgScore: 0, avgTime: 0 },
+      advanced: { total: 0, avgScore: 0, avgTime: 0 },
+      expert: { total: 0, avgScore: 0, avgTime: 0 },
+    };
     
-    // 3. デフォルト値
-    console.log(`[Rankings] Using default difficulty: beginner`);
-    return 'beginner';
-  };
-  
-  const [rankings, setRankings] = useState<RankingItem[]>([]);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyRank>(
-    getInitialDifficulty()
-  );
-  
-  const today = new Date();
-  const lastWeek = subDays(today, 6);
-  const dateOptions = eachDayOfInterval({ start: lastWeek, end: today })
-    .map(date => format(date, 'yyyy-MM-dd'))
-    .reverse();
-  
-  const [selectedDate, setSelectedDate] = useState<string>(dateOptions[0]);
-  const [currentUser, setCurrentUser] = useState<UserData | null>(getUserData());
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  const fetchRankings = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-    try {
-      const response = await rankingAPI.getDaily(
-        50, // limit
-        selectedDifficulty,
-        format(today, 'yyyy-MM-dd') // date
-      );
+    Object.entries(allRankings).forEach(([difficulty, rankings]) => {
+      if (Array.isArray(rankings) && rankings.length > 0) {
+        const totalScore = rankings.reduce((sum: number, r: any) => sum + (r.score || 0), 0);
+        const totalTime = rankings.reduce((sum: number, r: any) => sum + (r.timeSpent || 0), 0);
         
-      if (response && response.success && response.data) {
-        // APIレスポンスの実際の構造に合わせて修正
-        const rankingsData = response.data.data || [];
-        setRankings(rankingsData);
-        } else {
-        setError('ランキングデータの取得に失敗しました');
-          setRankings([]);
-        }
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'ランキングの取得に失敗しました');
-        setRankings([]);
-      } finally {
-        setIsLoading(false);
+        stats[difficulty as DifficultyRank] = {
+          total: rankings.length,
+          avgScore: rankings.length > 0 ? Math.round(totalScore / rankings.length) : 0,
+          avgTime: rankings.length > 0 ? Math.round(totalTime / rankings.length) : 0,
+        };
       }
-  }, [selectedDifficulty]);
+    });
     
-  useEffect(() => {
-    fetchRankings();
-  }, [fetchRankings]);
+    return stats;
+  }, [allRankings]);
   
-  // 所要時間のフォーマット（ミリ秒 -> 秒単位で小数点以下2桁まで表示）
-  const formatTimeSpent = (timeInMilliseconds: number): string => {
-    if (timeInMilliseconds === undefined || timeInMilliseconds === null || isNaN(timeInMilliseconds)) {
-      return '-';
+  // 日付変更時の処理を最適化
+  const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = event.target.value;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+      setSelectedDate(newDate);
+      // 新しい日付のデータをプリフェッチ
+      prefetchRankings(newDate);
     }
-    const timeInSeconds = timeInMilliseconds / 1000;
-    return `${timeInSeconds.toFixed(2)}秒`;
   };
-
-  // 学年の表示処理を改善
-  const formatGrade = (grade: string | number | undefined): string => {
-    if (grade === undefined || grade === null || grade === '') return '不明';
-    
-    const gradeStr = String(grade);
-
-    // 数値または数値文字列 (小1～小6) の場合
-    if (/^[1-6]$/.test(gradeStr)) {
-      return `小${gradeStr}年生`;
-    }
-    
-    // GRADE_OPTIONS からラベルを探す
-    const option = GRADE_OPTIONS.find(opt => opt.value === gradeStr);
-    if (option) {
-      return option.label;
-    }
-    
-    return gradeStr;
-  };
+  
+  // ローディング状態の改善
+  if (isLoading) {
+    return (
+      <div className="rankings-container">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p>ランキングを読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // エラー状態の改善
+  if (error) {
+    return (
+      <div className="rankings-container">
+        <div className="error-message">
+          <p>データの取得に失敗しました</p>
+          <button onClick={() => refetch()} className="retry-button">
+            再試行
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rankings-container">
-      <h1><ruby>ランキング<rt>らんきんぐ</rt></ruby></h1>
-      
-      <div className="filters">
-        <div className="filter-group">
-          <label htmlFor="difficulty-select"><ruby>難易度<rt>なんいど</rt></ruby>:</label>
-          <select 
-            value={selectedDifficulty} 
-            onChange={(e) => setSelectedDifficulty(e.target.value as DifficultyRank)}
-            className="filter-select"
-          >
-            <option value="beginner">初級</option>
-            <option value="intermediate">中級</option>
-            <option value="advanced">上級</option>
-            <option value="expert">超級</option>
-          </select>
-        </div>
-        <div className="filter-group">
-          <label htmlFor="date-select"><ruby>日付<rt>ひづけ</rt></ruby>:</label>
-          <select 
-            id="date-select"
-            value={selectedDate} 
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="filter-select"
-            disabled={isLoading}
-          >
-            {dateOptions.map((dateStr, index) => (
-              <option key={dateStr} value={dateStr}>
-                {index === 0 ? '今日' : dateStr}
-              </option>
-            ))}
-          </select>
+      <div className="rankings-header">
+        <h1 className="rankings-title">🏆 ランキング</h1>
+        
+        {/* 日付選択 */}
+        <div className="date-selector">
+          <label htmlFor="ranking-date">日付を選択:</label>
+          <input
+            type="date"
+            id="ranking-date"
+            value={selectedDate}
+            onChange={handleDateChange}
+            max={getFormattedDate(new Date())}
+            className="date-input"
+          />
         </div>
       </div>
-      
-      {/* ローディング表示 */}
-      {isLoading && (
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>ランキングを<ruby>読<rt>よ</rt></ruby>み<ruby>込<rt>こ</rt></ruby>み<ruby>中<rt>ちゅう</rt></ruby>...</p>
-        </div>
-      )}
-      
-      {/* エラー表示 */}
-      {error && !isLoading && (
-        <div className="error-message">
-          <p>エラー: {error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="retry-button"
-          >
-            <ruby>再試行<rt>さいしこう</rt></ruby>
-          </button>
-        </div>
-      )}
-      
-      {/* ランキングリスト */}
-      {!isLoading && !error && (
-        <div className="rankings-list">
-          <div className="rankings-header">
-            <div><ruby>順位<rt>じゅんい</rt></ruby></div>
-          <div>ユーザー</div>
-            <div><ruby>学年<rt>がくねん</rt></ruby></div>
-            <div><ruby>正解数<rt>せいかいすう</rt></ruby></div>
-            <div><ruby>所要時間<rt>しょようじかん</rt></ruby></div>
-          </div>
-          
-          {rankings.length > 0 ? (
-            rankings.map((ranking, index) => {
-            // 現在のユーザーかどうかを判定
-            const isCurrentUser = currentUser && ranking.username === currentUser.username;
-              
-            // クラス名を動的に設定
-              const itemClassName = `ranking-item ${
-                index < 3 ? `top-${index + 1}` : ''
-              } ${isCurrentUser ? 'current-user-rank' : ''}`;
 
-              // 順位に応じたアイコン
-              const getRankIcon = (rank: number): string => {
-                return `${rank}`;
-              };
-
-            return (
-              <div 
-                  key={`${ranking.userId}-${ranking.date}`}
-                className={itemClassName}
-              >
-                  <div className="rank-column">
-                    {getRankIcon(ranking.rank)}
-                  </div>
-                  <div className="user-column">
-                    <span className="user-avatar">{ranking.avatar}</span>
-                    <span className="username">{ranking.username}</span>
-                    {isCurrentUser && <span className="you-badge">あなた</span>}
-                  </div>
-                <div className="grade-column">{formatGrade(ranking.grade)}</div>
-                  <div className="score-column">
-                    <span className="score-text">
-                      {ranking.correctAnswers}/{ranking.totalProblems}
-                    </span>
-                  </div>
-                <div className="time-column">
-                  {formatTimeSpent(ranking.totalTime)}
-                </div>
-              </div>
-            );
-          })
-        ) : (
-            <div className="no-rankings">
-              <p>{selectedDate}の{selectedDifficulty}ランキング<ruby>情報<rt>じょうほう</rt></ruby>がありません</p>
-              <p className="no-rankings-hint">
-                <ruby>別<rt>べつ</rt></ruby>の<ruby>日付<rt>ひづけ</rt></ruby>や<ruby>難易度<rt>なんいど</rt></ruby>を<ruby>選択<rt>せんたく</rt></ruby>してください
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* 統計情報 */}
-      {!isLoading && !error && rankings.length > 0 && (
+      {/* 🚀 統計情報セクション - 1回のAPI呼び出しで全データを表示 */}
+      {statistics && (
         <div className="ranking-stats">
-          <div className="stats-card">
-            <h3><ruby>統計情報<rt>とうけいじょうほう</rt></ruby></h3>
-            <div className="stats-grid">
-              <div className="stat-item">
-                <div className="stat-label"><ruby>参加者数<rt>さんかしゃすう</rt></ruby></div>
-                <div className="stat-value">
-                  <span className="number">{rankings.length}</span>
-                  <span className="stat-unit">人</span>
+          <h2>📊 統計情報</h2>
+          <div className="stats-grid">
+            {Object.entries(statistics).map(([difficulty, stats]) => (
+              <div key={difficulty} className="stat-item">
+                <h3>{difficultyToJapanese(difficulty as DifficultyRank)}</h3>
+                <div className="stat-row">
+                  <span className="stat-label">参加者数:</span>
+                  <span className="stat-value">{stats.total}<span className="stat-unit">人</span></span>
+                </div>
+                <div className="stat-row">
+                  <span className="stat-label">平均スコア:</span>
+                  <span className="stat-value">{stats.avgScore}<span className="stat-unit">点</span></span>
+                </div>
+                <div className="stat-row">
+                  <span className="stat-label">平均時間:</span>
+                  <span className="stat-value">{stats.avgTime}<span className="stat-unit">秒</span></span>
                 </div>
               </div>
-              <div className="stat-item">
-                <div className="stat-label"><ruby>平均点<rt>へいきんてん</rt></ruby></div>
-                <div className="stat-value">
-                  <span className="number">{(rankings.reduce((acc, r) => acc + r.correctAnswers, 0) / rankings.length).toFixed(1)}</span>
-                  <span className="stat-unit">点</span>
-                </div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-label"><ruby>平均時間<rt>へいきんじかん</rt></ruby></div>
-                <div className="stat-value">
-                  <span className="number">{(rankings.reduce((acc, r) => acc + r.totalTime, 0) / rankings.length / 1000).toFixed(2)}</span>
-                  <span className="stat-unit">秒</span>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       )}
+
+      {/* ランキング表示 */}
+      <div className="rankings-content">
+        {(['beginner', 'intermediate', 'advanced', 'expert'] as DifficultyRank[]).map((difficulty) => {
+          const rankings = allRankings?.[difficulty] || [];
+          
+          return (
+            <div key={difficulty} className="difficulty-section">
+              <div className="difficulty-header">
+                <h2 className="difficulty-title">
+                  {difficultyToJapanese(difficulty)}
+                  <span className="participant-count">({rankings.length}人が参加)</span>
+                </h2>
+              </div>
+
+              {rankings.length === 0 ? (
+                <div className="no-data">
+                  <p>この日のデータはありません</p>
+                </div>
+              ) : (
+                <div className="ranking-table-wrapper">
+                  <table className="ranking-table">
+                    <thead>
+                      <tr>
+                        <th>順位</th>
+                        <th>ユーザー名</th>
+                        <th>スコア</th>
+                        <th>時間</th>
+                        <th>正答率</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rankings.slice(0, 50).map((result: any, index: number) => (
+                        <tr key={`${result.userId}-${index}`} className={index < 3 ? `rank-${index + 1}` : ''}>
+                          <td className="rank-cell">
+                            {index + 1}
+                            {index === 0 && <span className="crown">👑</span>}
+                            {index === 1 && <span className="crown">🥈</span>}
+                            {index === 2 && <span className="crown">🥉</span>}
+                          </td>
+                          <td className="username-cell">{result.username || 'Unknown'}</td>
+                          <td className="score-cell">{result.score || 0}点</td>
+                          <td className="time-cell">{result.timeSpent || 0}秒</td>
+                          <td className="accuracy-cell">
+                            {result.totalProblems > 0 
+                              ? Math.round((result.correctAnswers / result.totalProblems) * 100)
+                              : 0}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
