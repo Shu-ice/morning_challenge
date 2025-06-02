@@ -109,25 +109,34 @@
 
 .rankings-header {
   display: grid;
-  grid-template-columns: 80px 1fr 120px 120px 120px;
+  grid-template-columns: 1fr 1.2fr 1fr 1fr 1fr;
   background: linear-gradient(135deg, var(--primary-color) 0%, #5a9cff 100%);
   color: white;
   padding: var(--spacing-lg);
-  font-weight: 600;
+  font-weight: 700;
   text-align: center;
-  font-size: var(--font-size-sm);
-  letter-spacing: 0.5px;
+  font-size: 1rem;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* 順位ヘッダーのみ左寄せ */
+.rankings-header > :first-child {
+  text-align: left;
+  padding-left: 1rem;
 }
 
 .ranking-item {
   display: grid;
-  grid-template-columns: 80px 1fr 120px 120px 120px;
+  grid-template-columns: 1fr 1.2fr 1fr 1fr 1fr;
   padding: var(--spacing-lg);
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   align-items: center;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  font-size: 1.1rem;
+  font-weight: 500;
 }
 
 .ranking-item::before {
@@ -154,41 +163,87 @@
   transform: translateX(5px);
 }
 
-/* トップ3のスタイル */
+/* トップ3のスタイル - 洗練されたデザイン */
 .ranking-item.top-1 {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 255, 255, 0.9) 100%);
-  border-left: 4px solid #FFD700;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border-left: 5px solid #FFD700;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.2);
+}
+
+.ranking-item.top-1 .rank-column {
+  color: #b45309;
+  font-size: 1.6rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .ranking-item.top-2 {
-  background: linear-gradient(135deg, rgba(192, 192, 192, 0.2) 0%, rgba(255, 255, 255, 0.9) 100%);
-  border-left: 4px solid #C0C0C0;
+  background: linear-gradient(135deg, rgba(192, 192, 192, 0.15) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border-left: 5px solid #C0C0C0;
+  box-shadow: 0 3px 10px rgba(192, 192, 192, 0.2);
+}
+
+.ranking-item.top-2 .rank-column {
+  color: #6b7280;
+  font-size: 1.5rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .ranking-item.top-3 {
-  background: linear-gradient(135deg, rgba(205, 127, 50, 0.2) 0%, rgba(255, 255, 255, 0.9) 100%);
-  border-left: 4px solid #CD7F32;
+  background: linear-gradient(135deg, rgba(205, 127, 50, 0.15) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border-left: 5px solid #CD7F32;
+  box-shadow: 0 2px 8px rgba(205, 127, 50, 0.2);
+}
+
+.ranking-item.top-3 .rank-column {
+  color: #92400e;
+  font-size: 1.5rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .current-user-rank {
-  background: linear-gradient(135deg, rgba(52, 199, 89, 0.15) 0%, rgba(255, 255, 255, 0.9) 100%);
-  border-left: 4px solid var(--success-color);
+  background: linear-gradient(135deg, rgba(52, 199, 89, 0.12) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border-left: 5px solid var(--success-color);
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(52, 199, 89, 0.15);
+}
+
+.current-user-rank .username {
+  color: var(--success-color);
+  font-weight: 800;
+}
+
+/* CSS Grid用カラム中央揃え */
+.rank-column {
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 1rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.grade-column,
+.score-column,
+.time-column {
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
   font-weight: 600;
 }
 
-/* カラムスタイル */
-.rank-column {
-  text-align: center;
-  font-weight: 700;
-  font-size: var(--font-size-lg);
-  color: var(--primary-color);
-}
-
+/* ユーザーカラムを完全中央揃え */
 .user-column {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: var(--spacing-md);
-  padding-left: var(--spacing-md);
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  width: 100%;
 }
 
 .user-avatar {
@@ -205,34 +260,20 @@
 }
 
 .username {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
+  font-size: 1.1rem;
 }
 
 .you-badge {
   background: linear-gradient(45deg, var(--success-color), #30d158);
   color: white;
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: 3px 8px;
   border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
+  font-size: 0.75rem;
   font-weight: 600;
-  margin-left: var(--spacing-sm);
-}
-
-.grade-column, .score-column, .time-column {
-  text-align: center;
-  font-weight: 500;
-}
-
-.score-column {
-  font-weight: 700;
-  color: var(--primary-color);
-  font-size: var(--font-size-md);
-}
-
-.time-column {
-  color: var(--text-secondary);
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  margin-left: 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 /* ローディングとエラー表示 */
@@ -532,135 +573,6 @@
 
 .retry-button:hover {
   background: var(--primary-dark);
-}
-
-/* ランキングヘッダー */
-.rankings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-.rankings-title {
-  font-size: 2.5rem;
-  color: var(--primary-color);
-  margin: 0;
-}
-
-.date-selector {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.date-selector label {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.date-input {
-  padding: 8px 12px;
-  border: 2px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 14px;
-  transition: border-color 0.2s;
-}
-
-.date-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-}
-
-/* 難易度セクション */
-.difficulty-section {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-bottom: 30px;
-  overflow: hidden;
-}
-
-.difficulty-header {
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-  color: white;
-  padding: 20px;
-}
-
-.difficulty-title {
-  margin: 0;
-  font-size: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.participant-count {
-  font-size: 0.9rem;
-  opacity: 0.9;
-  font-weight: normal;
-}
-
-/* テーブルスタイル */
-.ranking-table-wrapper {
-  overflow-x: auto;
-}
-
-.ranking-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.ranking-table th {
-  background: #f8f9fa;
-  padding: 15px 12px;
-  text-align: left;
-  font-weight: 600;
-  color: var(--text-primary);
-  border-bottom: 2px solid var(--border-color);
-}
-
-.ranking-table td {
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-  vertical-align: middle;
-}
-
-.ranking-table tbody tr:hover {
-  background: #f8f9fa;
-}
-
-/* 順位スタイル */
-.rank-1 {
-  background: linear-gradient(135deg, #ffd700, #ffed4e) !important;
-}
-
-.rank-2 {
-  background: linear-gradient(135deg, #c0c0c0, #e0e0e0) !important;
-}
-
-.rank-3 {
-  background: linear-gradient(135deg, #cd7f32, #daa520) !important;
-}
-
-.rank-cell {
-  font-weight: bold;
-  position: relative;
-}
-
-.crown {
-  margin-left: 8px;
-  font-size: 1.2em;
-}
-
-/* データ無し表示 */
-.no-data {
-  padding: 40px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-style: italic;
 }
 
 /* レスポンシブ対応 */
