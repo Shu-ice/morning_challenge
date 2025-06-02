@@ -43,8 +43,8 @@ const UserHistory = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1); // ★ currentPage と setCurrentPage を復活
   // ストリーク情報はAPIレスポンスから受け取るようにする
-  const [currentStreak, setCurrentStreak] = useState<number>(0);
-  const [maxStreak, setMaxStreak] = useState<number>(0);
+  const [currentStreak, setCurrentStreak] = useState<number>(3); // テスト用に3に設定
+  const [maxStreak, setMaxStreak] = useState<number>(7); // テスト用に7に設定
 
   // ユーザー情報をlocalStorageから取得 (変更なし)
   useEffect(() => {
@@ -208,19 +208,34 @@ const UserHistory = () => {
         </button>
       </div>
 
-      {/* ストリーク情報の表示 */}
-      {currentStreak > 0 && (
-        <div className="streak-info">
-          <div className="streak-badge">
-            <span className="streak-icon">🔥</span>
-            <span className="streak-count">{currentStreak}日</span>
+      {/* ストリーク情報の表示 - 強制表示でテスト */}
+      <div className="streak-info">
+        <div className="streak-container">
+          <div className="current-streak">
+            <div className="streak-badge">
+              <span className="streak-icon">🔥</span>
+              <span className="streak-count">{currentStreak}</span>
+            </div>
+            <div className="streak-text">現在の連続記録</div>
+            <div className="streak-subtitle">毎日の継続がすばらしい成果を生みます</div>
+            {currentStreak > 0 && (
+              <div className="streak-motivation">
+                <p className="motivation-text">
+                  {currentStreak >= 7 ? "一週間継続！素晴らしい習慣です！🎉" :
+                   currentStreak >= 3 ? "三日坊主を超えました！この調子です！💪" :
+                   "良いスタートです！継続していきましょう！✨"}
+                </p>
+              </div>
+            )}
           </div>
-          <div className="streak-text">連続で問題に取り組んでいます！</div>
-          {maxStreak > currentStreak && (
-            <div className="max-streak">過去最高: {maxStreak}日</div>
-          )}
+          
+          <div className="max-streak-section">
+            <div className="max-streak-label">自己最高連続記録</div>
+            <div className="max-streak-value">{maxStreak}</div>
+            <div className="max-streak-days">日連続</div>
+          </div>
         </div>
-      )}
+      </div>
 
       {isLoading && <div className="loading-spinner">読み込み中...</div>}
       {error && <div className="error-message">{error}</div>}

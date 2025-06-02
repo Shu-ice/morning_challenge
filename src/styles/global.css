@@ -298,7 +298,7 @@ input:focus, select:focus {
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
   .main-content {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
   }
   
   h1 {
@@ -312,31 +312,33 @@ input:focus, select:focus {
   .header-container {
     flex-direction: column;
     gap: var(--spacing-md);
+    text-align: center;
   }
   
   .main-nav ul {
-    gap: var(--spacing-sm);
+    gap: var(--spacing-md);
   }
 }
 
 .profile-placeholder {
-  background-color: var(--light-gray);
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .profile-actions {
+  margin-top: 2rem;
   display: flex;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-md);
+  gap: 1rem;
 }
 
 .user-info {
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  margin-left: 15px;
+  font-size: 0.9rem;
+  color: #333;
+  display: flex;
+  align-items: center;
 }

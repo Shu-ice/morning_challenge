@@ -1,4 +1,6 @@
-/* 既存のスタイルをインポート */
+/* Morning Challenge - Master Stylesheet */
+
+/* Import existing styles */
 @import './global.css';
 @import './Home.css';
 @import './Login.css';
@@ -6,7 +8,11 @@
 @import './Rankings.css';
 @import './Results.css';
 @import './UserHistory.css';
+@import './ProfilePage.css';
+@import './AdminLayout.css';
+@import './AdminSettings.css';
 
+/* Tailwind CSS */
 @tailwind base;
 @tailwind components;
 @tailwind utilities; 

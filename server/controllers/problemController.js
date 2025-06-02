@@ -34,7 +34,7 @@ export const getProblems = async (req, res) => {
     if (!shouldSkipTimeCheck && (currentTime < 6.5 || currentTime > 8.0)) {
       return res.status(403).json({ 
         success: false, 
-        message: '問題は朝6:30から8:00の間のみ利用可能です。' 
+        message: '計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！' 
       });
     }
     
@@ -52,6 +52,7 @@ export const getProblems = async (req, res) => {
         });
       }
       
+    console.log(`[getProblems] 検索条件: date=${targetDate}, difficulty=${difficulty}`);
     const problemSet = await DailyProblemSet.findOne({ date: targetDate, difficulty: difficulty });
 
     if (!problemSet || !problemSet.problems || problemSet.problems.length === 0) {
@@ -62,6 +63,16 @@ export const getProblems = async (req, res) => {
         problems: []
       });
     }
+
+    // ★ デバッグログ追加
+    console.log(`[getProblems] 取得した問題セット詳細:`);
+    console.log(`  - 日付: ${problemSet.date}`);
+    console.log(`  - 難易度: ${problemSet.difficulty}`);
+    console.log(`  - 問題数: ${problemSet.problems.length}`);
+    console.log(`  - 最初の3問:`);
+    problemSet.problems.slice(0, 3).forEach((p, i) => {
+      console.log(`    問題${i + 1}: ID=${p.id}, 質問="${p.question}", 正解=${p.correctAnswer}`);
+    });
 
     const problemsForClient = problemSet.problems.map(p => ({
       id: p.id, 
@@ -102,6 +113,7 @@ export const getProblemSetForEdit = async (req, res) => {
   }
 
   try {
+    console.log(`[getProblemSetForEdit] 検索条件: date=${date}, difficulty=${difficulty}`);
     const problemSet = await DailyProblemSet.findOne({ date, difficulty });
 
     if (!problemSet) {
@@ -110,6 +122,16 @@ export const getProblemSetForEdit = async (req, res) => {
         message: '指定された問題セットが見つかりません。'
       });
     }
+
+    // ★ デバッグログ追加
+    console.log(`[getProblemSetForEdit] 取得した問題セット詳細:`);
+    console.log(`  - 日付: ${problemSet.date}`);
+    console.log(`  - 難易度: ${problemSet.difficulty}`);
+    console.log(`  - 問題数: ${problemSet.problems.length}`);
+    console.log(`  - 最初の3問:`);
+    problemSet.problems.slice(0, 3).forEach((p, i) => {
+      console.log(`    問題${i + 1}: ID=${p.id}, 質問="${p.question}", 正解=${p.correctAnswer}`);
+    });
 
     // 問題セット全体を返す (編集に必要なすべての情報を含むことを想定)
     res.json({
@@ -302,7 +324,7 @@ export const getGenerationStatus = async (req, res) => {
 // @route   POST /api/problems/submit
 // @access  Private
 export const submitAnswers = async (req, res) => {
-  const { difficulty, date, answers, timeSpentMs, userId } = req.body;
+  const { difficulty, date, answers, timeSpentMs, userId, problemIds } = req.body;
   // 基本的なデータ検証
   if (!difficulty || !answers || !Array.isArray(answers)) {
       return res.status(400).json({ 
@@ -312,22 +334,11 @@ export const submitAnswers = async (req, res) => {
   }
 
   try {
-    // 該当日の問題セット取得
+    // データベースから問題セット取得
     console.log(`[Submit] 問題セット取得: date=${date}, difficulty=${difficulty}`);
     
-    // 問題セットを取得（DB連携またはモック）
     const problemSet = await DailyProblemSet.findOne({ date, difficulty });
     
-    // ★ デバッグログ: 取得した問題セットとanswersの長さを確認
-    console.log(`[Submit Controller] Date: ${date}, Difficulty: ${difficulty}`);
-    if (problemSet && problemSet.problems) {
-      console.log(`[Submit Controller] Expected problems count from DB: ${problemSet.problems.length}`);
-    } else {
-      console.log(`[Submit Controller] Problem set not found in DB for date: ${date}, difficulty: ${difficulty}`);
-    }
-    console.log(`[Submit Controller] Received answers count: ${answers ? answers.length : 'N/A'}`);
-    // ★ デバッグログここまで
-
     if (!problemSet || !problemSet.problems || problemSet.problems.length === 0) {
       return res.status(404).json({ 
         success: false, 
@@ -335,33 +346,59 @@ export const submitAnswers = async (req, res) => {
       });
     }
     
-    // 問題IDリストと解答リストの形式と数を検証
-    // DailyProblemSet の problems は correctAnswer を持つので、 problem.id は不要
-    if (!Array.isArray(answers) || (problemSet && problemSet.problems && problemSet.problems.length !== answers.length)) {
-      console.error(`[Submit Controller] Validation Error: Expected ${problemSet?.problems?.length} problems, but received ${answers?.length} answers.`); // ★ エラー詳細ログ
+    // 問題IDリストが送信されている場合は、IDの順序で問題を並び替える
+    let problems = problemSet.problems;
+    if (problemIds && Array.isArray(problemIds) && problemIds.length > 0) {
+      // problemIdsの順序に合わせて問題を並び替え
+      const problemMap = new Map();
+      problemSet.problems.forEach(p => {
+        problemMap.set(p.id, p);
+      });
+      
+      const orderedProblems = [];
+      for (const id of problemIds) {
+        const problem = problemMap.get(id);
+        if (problem) {
+          orderedProblems.push(problem);
+        } else {
+          console.warn(`[Submit] 問題ID ${id} がデータベースに見つかりません`);
+        }
+      }
+      
+      if (orderedProblems.length > 0) {
+        problems = orderedProblems;
+        console.log(`[Submit] 問題IDの順序に合わせて問題を並び替えました: ${problems.length}問`);
+      } else {
+        console.warn(`[Submit] 問題IDマッチングに失敗、元の順序を使用`);
+      }
+    }
+    
+    // ★ デバッグログ: 使用している問題ソースと回答数を確認
+    console.log(`[Submit Controller] Date: ${date}, Difficulty: ${difficulty}`);
+    console.log(`[Submit Controller] Problems count: ${problems.length}`);
+    console.log(`[Submit Controller] Problem IDs used: ${problems.map(p => p.id).join(', ')}`);
+    console.log(`[Submit Controller] Received answers count: ${answers ? answers.length : 'N/A'}`);
+    // ★ デバッグログここまで
+    
+    // 問題数と解答数の検証
+    if (!Array.isArray(answers) || problems.length !== answers.length) {
+      console.error(`[Submit Controller] Validation Error: Expected ${problems.length} problems, but received ${answers?.length} answers.`);
       return res.status(400).json({
         success: false,
-        error: '問題IDリストと解答リストの形式が無効か、数が一致しません。'
+        error: '問題数と解答数が一致しません。'
       });
     }
     
     // 回答を採点
-    const problems = problemSet.problems;
     const problemResults = [];
     let correctCount = 0;
     let incorrectCount = 0;
     let unansweredCount = 0;
     
-    // 回答数と問題数が一致しない場合の調整
-    const answersArray = answers.slice(0, problems.length);
-    while (answersArray.length < problems.length) {
-      answersArray.push(null); // 未回答として null を追加
-    }
-    
     // 各問題の採点
     for (let i = 0; i < problems.length; i++) {
       const correctAnswer = problems[i].correctAnswer;
-      const userAnswerStr = answersArray[i];
+      const userAnswerStr = answers[i];
       let userAnswerNum = null;
       let isCorrect = false;
       

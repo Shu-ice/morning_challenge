@@ -6,8 +6,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// プロジェクトルートの .env ファイルを読み込む
-const envPath = path.resolve(__dirname, '../.env');
+// サーバーディレクトリの .env ファイルを読み込む
+const envPath = path.resolve(__dirname, './.env');
 console.log(`[dotenv] Attempting to load .env file from: ${envPath}`); // デバッグログ追加
 const dotenvResult = dotenv.config({ path: envPath }); // 戻り値を取得
 if (dotenvResult.error) {

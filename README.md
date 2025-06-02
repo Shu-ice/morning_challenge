@@ -156,3 +156,63 @@ npm run dev:frontend
 # バックエンドのみ起動
 npm run dev:backend
 ```
+
+# Morning Challenge - 朝のプログラミング練習アプリ
+
+## 📁 プロジェクト構造（最適化版）
+
+```
+morning_challenge/    （プロジェクトルート）
+├── server/           （バックエンドのソースディレクトリ）
+│   ├── controllers/      （コントローラ：各APIエンドポイントの処理）
+│   ├── routes/           （ルーティング定義：Expressのルーター）
+│   ├── models/           （データモデル：MongoDBのスキーマとORM）
+│   ├── middleware/       （ミドルウェア：認証やエラーハンドリング）
+│   ├── utils/            （ユーティリティ：問題生成ロジックなど共通処理）
+│   ├── config/           （設定：DB接続や環境変数の読み込み処理） 
+│   ├── constants/        （定数定義：アプリケーション全体で使用する定数）
+│   ├── scripts/          （スクリプト：データベース初期化など）
+│   └── server.js         （サーバー起動スクリプト：Expressアプリのエントリーポイント）
+├── src/              （フロントエンドのソースディレクトリ）
+│   ├── components/       （再利用可能なReactコンポーネント郡）
+│   ├── pages/            （ページコンポーネント：画面ごとのコンテナ）
+│   ├── contexts/         （React Contextによるグローバル状態管理）
+│   ├── hooks/            （カスタムフック）
+│   ├── services/         （API通信サービス等ビジネスロジック）
+│   ├── types/            （型定義：TypeScriptのインターフェースや型）
+│   ├── utils/            （フロントエンドユーティリティ関数）
+│   ├── styles/           （スタイルファイル：CSSモジュールやstyled-components）
+│   ├── App.tsx           （ルートコンポーネント：アプリケーションのレイアウト）
+│   ├── main.tsx          （エントリーポイント：ReactDOMによるレンダリング） 
+│   └── index.css         （グローバルCSS：Tailwindのベースやカスタムスタイル）
+├── public/           （公開アセット置き場：静的ファイル類）
+│   ├── favicon.ico       （ファビコン画像）
+│   └── index.html        （HTMLテンプレート）
+├── .env.example      （環境変数のサンプル定義ファイル） 
+├── package.json      （プロジェクト全体のパッケージ依存とスクリプト定義）
+├── tsconfig.json     （フロントエンド向けTypeScript設定：jsx含む）
+├── tsconfig.node.json（バックエンド向けTypeScript設定：Nodeターゲット）
+├── vite.config.ts    （Viteのビルド設定ファイル）
+├── tailwind.config.js（Tailwind CSSの設定ファイル）
+├── postcss.config.js （PostCSSの設定ファイル）
+├── README.md         （プロジェクトのREADME：起動方法・概要・変更履歴等）
+└── .gitignore        （Gitで追跡しないファイルの指定）
+```
+
+## 🔧 最適化改善点
+
+### 1. ファイル配置の整理
+- `App.tsx`, `index.tsx` を `src/` ディレクトリ内に移動
+- `index.html` を `public/` ディレクトリに移動
+- 不要な `front-end/` ディレクトリを削除
+
+### 2. バックエンド構造の強化
+- `config/` ディレクトリを追加してデータベース設定や環境変数処理を分離
+- 既存の `constants/`, `scripts/` ディレクトリを活用
+
+### 3. フロントエンド構造の最適化
+- 既存の良好なディレクトリ構造（`components/`, `pages/`, `hooks/` 等）を維持
+- CSS関連を `src/styles/` と `src/index.css` で整理
+
+### 4. 設定ファイルの整理
+- TypeScript, Vite, Tailwind設定をルートレベルで統一管理

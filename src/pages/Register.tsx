@@ -17,6 +17,7 @@ function Register({ onRegister, onLogin }: RegisterProps) {
   const [grade, setGrade] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -47,23 +48,30 @@ function Register({ onRegister, onLogin }: RegisterProps) {
 
       console.log('[Register] 登録成功:', response);
       
-      if (response.success && response.token && response.user && response.user.id) {
+      if (response.token && response._id) {
         const token = response.token;
         const userDataFromResponse: UserData = {
-          _id: response.user.id,
-          username: response.user.username,
-          email: response.user.email,
-          grade: response.user.grade,
-          avatar: response.user.avatar,
+          _id: response._id,
+          username: response.username,
+          email: response.email,
+          grade: response.grade,
+          avatar: response.avatar || '😊',
           isLoggedIn: true,
           loginTime: new Date().toISOString(),
-          isAdmin: response.user.isAdmin || false,
+          isAdmin: response.isAdmin || false,
         };
-        onRegister(userDataFromResponse, token);
+        
+        console.log('[Register] 自動ログイン実行中...', userDataFromResponse);
+        setIsSuccess(true);
+        
+        // 少し遅延させて成功メッセージを表示してから自動ログイン
+        setTimeout(() => {
+          onRegister(userDataFromResponse, token);
+        }, 1000);
       } else {
         let errorMessage = '登録レスポンスの形式が無効です。';
         if (!response.token) errorMessage += ' トークンがありません。';
-        if (!response.user || !response.user.id) errorMessage += ' ユーザー情報 (user.id) がありません。';
+        if (!response._id) errorMessage += ' ユーザーIDがありません。';
         console.error('[Register] Invalid response structure:', response);
         throw new Error(errorMessage);
       }
@@ -94,6 +102,11 @@ function Register({ onRegister, onLogin }: RegisterProps) {
         <h2 className="text-2xl font-bold text-center text-gray-900">新規登録</h2>
         {error && (
           <p className="text-sm text-red-600">{error}</p>
+        )}
+        {isSuccess && (
+          <div className="text-sm text-green-600 bg-green-50 p-3 rounded-md border border-green-200">
+            <p className="font-medium">✅ 登録完了！自動的にログインしています...</p>
+          </div>
         )}
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="form-group">
@@ -172,10 +185,10 @@ function Register({ onRegister, onLogin }: RegisterProps) {
           <div>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isSuccess}
               className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
-              {isLoading ? '登録中...' : '登録'}
+              {isSuccess ? '登録完了 - ログイン中...' : isLoading ? '登録中...' : '登録'}
             </button>
           </div>
         </form>

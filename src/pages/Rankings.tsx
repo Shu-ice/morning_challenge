@@ -281,22 +281,25 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
             <h3><ruby>統計情報<rt>とうけいじょうほう</rt></ruby></h3>
             <div className="stats-grid">
               <div className="stat-item">
-                <span className="stat-label"><ruby>参加者数<rt>さんかしゃすう</rt></ruby>:</span>
-                <span className="stat-value">{rankings.length}人</span>
+                <div className="stat-label"><ruby>参加者数<rt>さんかしゃすう</rt></ruby></div>
+                <div className="stat-value">
+                  <span className="number">{rankings.length}</span>
+                  <span className="stat-unit">人</span>
+                </div>
               </div>
               <div className="stat-item">
-                <span className="stat-label"><ruby>平均点<rt>へいきんてん</rt></ruby>:</span>
-                <span className="stat-value">
-                  {(rankings.reduce((acc, r) => acc + r.correctAnswers, 0) / rankings.length).toFixed(1)}点
-                </span>
+                <div className="stat-label"><ruby>平均点<rt>へいきんてん</rt></ruby></div>
+                <div className="stat-value">
+                  <span className="number">{(rankings.reduce((acc, r) => acc + r.correctAnswers, 0) / rankings.length).toFixed(1)}</span>
+                  <span className="stat-unit">点</span>
+                </div>
               </div>
               <div className="stat-item">
-                <span className="stat-label"><ruby>平均時間<rt>へいきんじかん</rt></ruby>:</span>
-                <span className="stat-value">
-                  {formatTimeSpent(
-                    rankings.reduce((acc, r) => acc + r.totalTime, 0) / rankings.length
-                  )}
-                </span>
+                <div className="stat-label"><ruby>平均時間<rt>へいきんじかん</rt></ruby></div>
+                <div className="stat-value">
+                  <span className="number">{(rankings.reduce((acc, r) => acc + r.totalTime, 0) / rankings.length / 1000).toFixed(2)}</span>
+                  <span className="stat-unit">秒</span>
+                </div>
               </div>
             </div>
           </div>

@@ -231,7 +231,9 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     
     // 時間チェック（管理者は除外）
     const isAdmin = currentUser?.isAdmin === true;
-    if (!isAdmin) {
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    if (!isAdmin && !isDevelopment) {
       const now = new Date();
       const hours = now.getHours();
       const minutes = now.getMinutes();
@@ -239,7 +241,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       
       // 時間制限チェック: 朝6:30-8:00のみ利用可能
       if (currentTime < 6.5 || currentTime > 8.0) {
-        setError('問題は朝6:30から8:00の間のみ利用可能です。');
+        setError('計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！');
         return;
       }
     }
@@ -388,9 +390,22 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         setCurrentAnswer('');
         setElapsedTime(0);
         setStartTime(null);
+        // ★ 日付変更時にキャッシュもクリア
+        const cacheKey = `problems_${difficulty}_${newDate}`;
+        sessionStorage.removeItem(cacheKey);
+        console.log('[Problems] Cache cleared due to date change');
     } else {
         console.warn("Invalid date format selected:", newDate);
     }
+  };
+
+  // ★ キャッシュクリア関数を追加
+  const clearCache = () => {
+    const cacheKey = `problems_${difficulty}_${selectedDate}`;
+    sessionStorage.removeItem(cacheKey);
+    console.log('[Problems] Cache manually cleared');
+    // 問題を再読み込み
+    window.location.reload();
   };
 
   // handleSubmitResults
@@ -475,10 +490,17 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       console.log(`[Problems] Loading problems for user: ${currentUser._id}, difficulty: ${difficulty}, date: ${selectedDate}`);
 
       const cacheKey = `problems_${difficulty}_${selectedDate}`;
+      
+      // ★ 開発モードでは常にキャッシュをクリアして最新データを取得
+      if (import.meta.env.DEV) {
+        console.log('[Problems] Development mode: clearing cache to fetch latest data');
+        sessionStorage.removeItem(cacheKey);
+      }
+      
       const cachedProblems = sessionStorage.getItem(cacheKey);
       
       try {
-        if (cachedProblems) {
+        if (cachedProblems && !import.meta.env.DEV) { // 開発モードではキャッシュを使用しない
           try {
             const parsedProblems = JSON.parse(cachedProblems);
             console.log('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: ProblemData) => p.id), null, 2)); // ★ログ追加、型注釈追加
@@ -623,6 +645,16 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
          {currentUser && (
             <div className="text-gray-600">
                <ruby>現在<rt>げんざい</rt></ruby>のユーザー: <span className="font-bold">{currentUser.username}</span>
+               {/* ★ 開発モードでキャッシュクリアボタンを表示 */}
+               {import.meta.env.DEV && (
+                 <button 
+                   onClick={clearCache}
+                   className="ml-4 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                   title="キャッシュをクリアして最新の問題を取得"
+                 >
+                   🗑️ キャッシュクリア
+                 </button>
+               )}
             </div>
          )}
          {/* 日付選択を追加 (右上に配置するイメージ) */} 

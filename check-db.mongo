@@ -1,0 +1,6 @@
+show dbs
+use morningmathdb
+show collections
+db.results.find().limit(5)
+db.dailyproblemsets.find().limit(5)
+db.users.find().limit(5)

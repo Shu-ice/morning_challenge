@@ -1,17 +1,33 @@
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv'; // dotenv をインポート
+import path from 'path';
+import { fileURLToPath } from 'url';
 import User from '../models/User.js';
 
-// .env ファイルを読み込む
-dotenv.config();
+// ESM環境で __dirname を再現
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// サーバーディレクトリの .env ファイルを読み込む
+const envPath = path.resolve(__dirname, '../.env');
+console.log(`[Auth Middleware] Loading .env from: ${envPath}`);
+const dotenvResult = dotenv.config({ path: envPath });
+if (dotenvResult.error) {
+    console.error('[Auth Middleware] dotenv.config error:', dotenvResult.error);
+} else {
+    console.log('[Auth Middleware] dotenv.config successful');
+}
 
 // 環境変数からJWTシークレットを取得
+console.log(`[Auth Middleware] All process.env keys: ${Object.keys(process.env).filter(key => key.includes('JWT') || key.includes('SECRET')).join(', ')}`);
+console.log(`[Auth Middleware] process.env.JWT_SECRET value: "${process.env.JWT_SECRET}"`);
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
     console.error('[Auth Middleware] エラー: JWT_SECRET 環境変数が設定されていません。');
     // ミドルウェア読み込み時点では process.exit(1) できないため、エラーを投げるか、起動時にチェックする
     throw new Error('JWT_SECRET is not defined in environment variables'); 
 }
+console.log(`[Auth Middleware] JWT_SECRET successfully loaded: ${JWT_SECRET.substring(0, 10)}...`);
 
 // 認証保護ミドルウェア
 const protect = async (req, res, next) => {
@@ -104,7 +120,7 @@ const timeRestriction = (req, res, next) => {
     if (currentTime < 6.5 || currentTime > 8.0) {
       return res.status(403).json({
         success: false,
-        message: 'この機能は朝6:30から8:00の間のみ利用可能です。'
+        message: '計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！'
       });
     }
     
