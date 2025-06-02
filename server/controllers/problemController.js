@@ -1,118 +1,12 @@
 import User from '../models/User.js';
 import Result from '../models/Result.js';
 import DailyProblemSet from '../models/DailyProblemSet.js';
-import { DifficultyRank } from '../utils/problemGenerator.js';
+import { DifficultyRank } from '../constants/difficultyRank.js';
 import { calculateScore } from '../utils/problemScoring.js';
 import { getRankForResult } from '../utils/ranking.js';
-
-// 問題生成の関数（フロントエンドの実装と同様のロジック）
-const generateProblems = (grade) => {
-  const problems = [];
-  const problemCount = 10;
-  
-  for (let i = 0; i < problemCount; i++) {
-    let problem;
-    
-    switch(parseInt(grade)) {
-      case 1:
-        // 1年生: 10以下の加算
-        problem = generateAdditionProblem(10);
-        break;
-      case 2:
-        // 2年生: 20以下の加減算
-        problem = Math.random() > 0.5 
-          ? generateAdditionProblem(20) 
-          : generateSubtractionProblem(20);
-        break;
-      case 3:
-        // 3年生: 100以下の加減算、かんたんな掛け算
-        if (Math.random() > 0.7) {
-          problem = generateMultiplicationProblem(10);
-        } else {
-          problem = Math.random() > 0.5 
-            ? generateAdditionProblem(100) 
-            : generateSubtractionProblem(100);
-        }
-        break;
-      case 4:
-        // 4年生: 3桁の加減算、掛け算、簡単な割り算
-        const randOp4 = Math.random();
-        if (randOp4 > 0.7) {
-          problem = generateMultiplicationProblem(12);
-        } else if (randOp4 > 0.4) {
-          problem = generateDivisionProblem();
-        } else {
-          problem = Math.random() > 0.5 
-            ? generateAdditionProblem(1000) 
-            : generateSubtractionProblem(1000);
-        }
-        break;
-      case 5:
-      case 6:
-        // 5-6年生: 4桁の加減算、2桁同士の掛け算、割り算
-        const randOp56 = Math.random();
-        if (randOp56 > 0.7) {
-          problem = generateMultiplicationProblem(grade === 5 ? 20 : 100);
-        } else if (randOp56 > 0.4) {
-          problem = generateDivisionProblem(grade === 5 ? 20 : 100);
-        } else {
-          problem = Math.random() > 0.5 
-            ? generateAdditionProblem(10000) 
-            : generateSubtractionProblem(10000);
-        }
-        break;
-      default:
-        problem = generateAdditionProblem(10);
-    }
-    
-    problems.push({
-      id: i + 1,
-      ...problem
-    });
-  }
-  
-  return problems;
-};
-
-const generateAdditionProblem = (max) => {
-  const a = Math.floor(Math.random() * max) + 1;
-  const b = Math.floor(Math.random() * max) + 1;
-  return {
-    question: `${a} + ${b} = ?`,
-    answer: a + b,
-    type: 'addition'
-  };
-};
-
-const generateSubtractionProblem = (max) => {
-  const a = Math.floor(Math.random() * max) + 1;
-  const b = Math.floor(Math.random() * a) + 1; // 負の数を避ける
-  return {
-    question: `${a} - ${b} = ?`,
-    answer: a - b,
-    type: 'subtraction'
-  };
-};
-
-const generateMultiplicationProblem = (max) => {
-  const a = Math.floor(Math.random() * max) + 1;
-  const b = Math.floor(Math.random() * 10) + 1;
-  return {
-    question: `${a} × ${b} = ?`,
-    answer: a * b,
-    type: 'multiplication'
-  };
-};
-
-const generateDivisionProblem = (max = 10) => {
-  const b = Math.floor(Math.random() * 9) + 2; // 2-10の除数
-  const a = b * (Math.floor(Math.random() * max) + 1); // 割り切れる数値を確保
-  return {
-    question: `${a} ÷ ${b} = ?`,
-    answer: a / b,
-    type: 'division'
-  };
-};
+import { generateProblems } from '../utils/problemGenerator.js';
+import dayjs from 'dayjs';
+import { v4 as uuidv4 } from 'uuid';
 
 // @desc    問題の生成
 // @route   GET /api/problems
@@ -220,7 +114,7 @@ export const getProblemSetForEdit = async (req, res) => {
     // 問題セット全体を返す (編集に必要なすべての情報を含むことを想定)
     res.json({
       success: true,
-      problemSet
+      data: problemSet.problems // 問題配列を返す
     });
 
   } catch (error) {
@@ -228,6 +122,178 @@ export const getProblemSetForEdit = async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'サーバーエラーが発生しました。' 
+    });
+  }
+};
+
+// @desc    問題を生成してデータベースに保存 (管理者用)
+// @route   POST /api/problems/generate
+// @access  Private/Admin
+export const generateProblemSet = async (req, res) => {
+  const { date, difficulty, count = 10, force = false } = req.body;
+
+  if (!date || !difficulty) {
+    return res.status(400).json({
+      success: false,
+      message: '日付と難易度を指定してください。'
+    });
+  }
+
+  try {
+    // 既存の問題セットをチェック
+    const existingProblemSet = await DailyProblemSet.findOne({ date, difficulty });
+    
+    if (existingProblemSet && !force) {
+      return res.status(409).json({
+        success: false,
+        message: '指定された日付・難易度の問題セットは既に存在します。上書きする場合は force オプションを使用してください。'
+      });
+    }
+
+    // 問題を生成
+    const requestId = uuidv4();
+    console.log(`[generateProblemSet] 問題生成開始: ${date}, ${difficulty}, ${count}問`);
+    
+    const generatedProblems = await generateProblems(difficulty, count, null, requestId);
+    
+    if (!generatedProblems || generatedProblems.length === 0) {
+      return res.status(500).json({
+        success: false,
+        message: '問題の生成に失敗しました。'
+      });
+    }
+
+    // generateProblems の出力を DailyProblemSet の期待する形式に変換
+    const problemsForDB = generatedProblems.map(p => ({
+      id: p.id,
+      question: p.question,
+      correctAnswer: p.answer, // answer -> correctAnswer に変換
+      options: p.options
+    }));
+
+    // データベースに保存
+    if (existingProblemSet) {
+      // 既存のものを更新
+      existingProblemSet.problems = problemsForDB;
+      existingProblemSet.updatedAt = new Date();
+      await existingProblemSet.save();
+    } else {
+      // 新規作成
+      const newProblemSet = new DailyProblemSet({
+        date,
+        difficulty,
+        problems: problemsForDB,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      await newProblemSet.save();
+    }
+
+    res.json({
+      success: true,
+      message: `${problemsForDB.length}問の問題を生成し、データベースに保存しました。`,
+      data: {
+        date,
+        difficulty,
+        count: problemsForDB.length,
+        requestId
+      }
+    });
+
+  } catch (error) {
+    console.error('問題生成エラー:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'サーバーエラーが発生しました。',
+      error: error.message
+    });
+  }
+};
+
+// @desc    問題編集の保存 (管理者用)
+// @route   POST /api/problems/edit
+// @access  Private/Admin
+export const saveEditedProblems = async (req, res) => {
+  const { date, difficulty, problems } = req.body;
+
+  if (!date || !difficulty || !problems || !Array.isArray(problems)) {
+    return res.status(400).json({
+      success: false,
+      message: '日付、難易度、問題データを正しく指定してください。'
+    });
+  }
+
+  try {
+    const problemSet = await DailyProblemSet.findOne({ date, difficulty });
+
+    if (!problemSet) {
+      return res.status(404).json({
+        success: false,
+        message: '指定された問題セットが見つかりません。'
+      });
+    }
+
+    // 問題を更新
+    problemSet.problems = problems;
+    problemSet.updatedAt = new Date();
+    await problemSet.save();
+
+    res.json({
+      success: true,
+      message: `${problems.length}問の問題を更新しました。`,
+      data: {
+        date,
+        difficulty,
+        count: problems.length
+      }
+    });
+
+  } catch (error) {
+    console.error('問題編集保存エラー:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'サーバーエラーが発生しました。',
+      error: error.message
+    });
+  }
+};
+
+// @desc    問題生成の進捗状況を確認 (管理者用)
+// @route   GET /api/problems/status/:requestId
+// @access  Private/Admin
+export const getGenerationStatus = async (req, res) => {
+  const { requestId } = req.params;
+
+  if (!requestId) {
+    return res.status(400).json({
+      success: false,
+      message: 'リクエストIDを指定してください。'
+    });
+  }
+
+  try {
+    // 進捗状況を取得（problemGenerator.jsのprocessingStatusMapから）
+    // 実際の実装では、problemGenerator.jsから進捗状況を取得する必要があります
+    // ここでは簡単な実装例を示します
+    
+    res.json({
+      success: true,
+      data: {
+        requestId,
+        status: 'completed',
+        message: '問題生成が完了しました。',
+        progress: 100,
+        total: 10,
+        problemsGenerated: 10
+      }
+    });
+
+  } catch (error) {
+    console.error('進捗状況確認エラー:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'サーバーエラーが発生しました。',
+      error: error.message
     });
   }
 };

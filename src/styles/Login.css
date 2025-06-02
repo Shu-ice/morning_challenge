@@ -230,6 +230,7 @@
 /* ===== LOGIN BUTTON ===== */
 .login-button {
   width: 100%;
+  max-width: 400px; /* 最大幅を制限 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -254,6 +255,8 @@
   min-height: 56px;
   font-family: inherit;
   box-sizing: border-box;
+  min-width: 200px; /* 最小幅を固定してサイズ変更を防ぐ */
+  margin: 0 auto; /* 中央揃え */
 }
 
 .login-button::before {

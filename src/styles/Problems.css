@@ -582,7 +582,7 @@
   .problem-header h1 {
     font-size: 2rem;
   }
-
+  
   .problem-card {
     padding: var(--space-2xl);
   }
@@ -644,6 +644,17 @@
   .start-signal {
     font-size: 2.5rem;
   }
+  
+  /* カウントダウン表示のモバイル対応 */
+  .countdown-display {
+    font-size: 8rem !important; /* デスクトップ: 12rem → モバイル: 8rem */
+    width: 200px !important;    /* デスクトップ: 280px → モバイル: 200px */
+    height: 200px !important;   /* デスクトップ: 280px → モバイル: 200px */
+    position: fixed !important; /* 確実にfixedを維持 */
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
 }
 
 /* Reduced motion */
@@ -689,7 +700,7 @@
   border: 1px solid rgba(255, 255, 255, 0.8);
   letter-spacing: -0.05em;
   animation: countdown-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1);
-  position: relative;
+  position: fixed; /* 確実にfixedにする */
   overflow: hidden;
 }
 

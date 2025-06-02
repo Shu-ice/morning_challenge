@@ -56,12 +56,33 @@ const getUserData = (): UserData | null => {
 
 export const Rankings: React.FC<RankingsProps> = ({ results }) => {
   const location = useLocation();
-  // 結果ページからの難易度情報を取得、なければbeginnerをデフォルトに
-  const passedDifficulty = location.state?.selectedDifficulty;
+  
+  // 結果ページからの難易度情報を取得（複数のソースから）
+  const getInitialDifficulty = (): DifficultyRank => {
+    // 1. location.state から取得
+    const passedDifficulty = location.state?.selectedDifficulty;
+    if (passedDifficulty) {
+      console.log(`[Rankings] Using difficulty from location.state: ${passedDifficulty}`);
+      return passedDifficulty;
+    }
+    
+    // 2. localStorage から取得（結果ページから保存されたもの）
+    const savedDifficulty = localStorage.getItem('selectedDifficultyFromResults');
+    if (savedDifficulty) {
+      console.log(`[Rankings] Using difficulty from localStorage: ${savedDifficulty}`);
+      // 使用後は削除（一回限りの使用）
+      localStorage.removeItem('selectedDifficultyFromResults');
+      return savedDifficulty as DifficultyRank;
+    }
+    
+    // 3. デフォルト値
+    console.log(`[Rankings] Using default difficulty: beginner`);
+    return 'beginner';
+  };
   
   const [rankings, setRankings] = useState<RankingItem[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyRank>(
-    passedDifficulty || 'beginner'
+    getInitialDifficulty()
   );
   
   const today = new Date();

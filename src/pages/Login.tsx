@@ -132,7 +132,7 @@ function Login({ onLogin, onRegister }: LoginProps) {
             {isLoading ? (
               <>
                 <div className="loading-spinner"></div>
-                ログイン中...
+                処理中...
               </>
             ) : (
               'ログイン'

@@ -1,55 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { HomeProps } from '../types/components';
-import { DIFFICULTY_LABELS, DifficultyRank } from '../types/difficulty';
+import { DIFFICULTY_LABELS, DifficultyRank, DIFFICULTY_COLORS, DIFFICULTY_INFO } from '../types/difficulty';
 import '../styles/Home.css';
 
 const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid, defaultDifficulty }) => {
   const { user } = useAuth();
 
   const getDifficultyInfo = (difficulty: DifficultyRank) => {
-    switch (difficulty) {
-      case 'beginner':
-        return {
-          title: '初級',
-          reading: 'しょきゅう',
-          description: '基本的な計算問題',
-          recommendation: '1,2年生におすすめ',
-          problems: '一桁のたし算・ひき算'
-        };
-      case 'intermediate':
-        return {
-          title: '中級',
-          reading: 'ちゅうきゅう',
-          description: '少し難しい計算問題',
-          recommendation: '3,4年生におすすめ',
-          problems: '二桁の計算・かけ算・わり算'
-        };
-      case 'advanced':
-        return {
-          title: '上級',
-          reading: 'じょうきゅう',
-          description: '高度な計算問題',
-          recommendation: '5,6年生におすすめ',
-          problems: '三桁以上の複雑な計算'
-        };
-      case 'expert':
-        return {
-          title: '超級',
-          reading: 'ちょうきゅう',
-          description: '最難関の計算問題',
-          recommendation: 'さらなる高みをめざす方におすすめ',
-          problems: '非常に複雑な計算・応用問題'
-        };
-      default:
-        return {
-          title: '',
-          reading: '',
-          description: '',
-          recommendation: '',
-          problems: ''
-        };
-    }
+    return DIFFICULTY_INFO[difficulty];
   };
 
   if (!isTimeValid) {

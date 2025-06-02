@@ -703,15 +703,6 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       {isStarted && currentProblems.length > 0 && currentIndex < currentProblems.length && (
         // ★ 以前の problem-view に相当する構造を再現
         <div className="bg-white rounded-lg shadow-lg p-6">
-          {/* カウントダウン完了直後の「スタート！」表示 */} 
-          {showStart && currentCountdownValue === 0 && (
-            <div className="fixed inset-0 flex items-center justify-center z-10 pointer-events-none">
-              <div className="start-signal">
-                スタート!
-              </div>
-            </div>
-          )}
-          
           {/* プログレスバーとタイマー */} 
           <div className="flex justify-between items-center mb-6 text-lg font-medium">
             <div>

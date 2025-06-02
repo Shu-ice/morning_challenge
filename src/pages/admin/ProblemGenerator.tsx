@@ -72,7 +72,10 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
         return;
       }
 
-      const response = await axios.get(`/api/problems/status/${currentRequestId}`, {
+      // APIのベースURLを取得
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5003/api';
+      
+      const response = await axios.get(`${baseUrl}/problems/status/${currentRequestId}`, {
         // ★ headers に Authorization を追加
         headers: {
           Authorization: `Bearer ${token}`,

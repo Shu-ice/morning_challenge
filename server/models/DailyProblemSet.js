@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { DifficultyRank } from '../utils/problemGenerator.js';
+import { DifficultyRank } from '../constants/difficultyRank.js';
 
 // 個々の問題の結果（DailyProblemSet内で使用）
 const problemResultSchema = new mongoose.Schema({

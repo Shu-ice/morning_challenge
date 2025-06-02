@@ -66,9 +66,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       color: '#424245',
                       fontWeight: '500',
                       textDecoration: 'none',
-                      padding: '8px 12px',
+                      padding: '8px 16px',
                       borderRadius: '8px',
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      minWidth: '80px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     className="hover:text-blue-600 hover:bg-blue-50"
                   >
@@ -80,9 +84,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       color: '#424245',
                       fontWeight: '500',
                       textDecoration: 'none',
-                      padding: '8px 12px',
+                      padding: '8px 16px',
                       borderRadius: '8px',
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      minWidth: '80px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     className="hover:text-blue-600 hover:bg-blue-50"
                   >
@@ -94,9 +102,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       color: '#424245',
                       fontWeight: '500',
                       textDecoration: 'none',
-                      padding: '8px 12px',
+                      padding: '8px 16px',
                       borderRadius: '8px',
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      minWidth: '80px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     className="hover:text-blue-600 hover:bg-blue-50"
                   >
@@ -110,9 +122,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       color: '#424245',
                       fontWeight: '500',
                       textDecoration: 'none',
-                      padding: '8px 12px',
+                      padding: '8px 16px',
                       borderRadius: '8px',
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      minWidth: '80px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     className="hover:text-blue-600 hover:bg-blue-50"
                   >
@@ -228,9 +244,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       color: '#424245',
                       fontWeight: '500',
                       textDecoration: 'none',
-                      padding: '8px 12px',
+                      padding: '8px 16px',
                       borderRadius: '8px',
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      minWidth: '100px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     className="hover:text-blue-600 hover:bg-blue-50"
                   >
@@ -242,9 +262,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                       color: '#424245',
                       fontWeight: '500',
                       textDecoration: 'none',
-                      padding: '8px 12px',
+                      padding: '8px 16px',
                       borderRadius: '8px',
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      minWidth: '100px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                     className="hover:text-blue-600 hover:bg-blue-50"
                   >

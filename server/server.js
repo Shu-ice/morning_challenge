@@ -32,7 +32,8 @@ import { v4 as uuidv4 } from 'uuid';
 import User from './models/User.js';
 import DailyProblemSet from './models/DailyProblemSet.js';
 import Result from './models/Result.js';
-import { generateProblems, DifficultyRank } from './utils/problemGenerator.js';
+import { generateProblems } from './utils/problemGenerator.js';
+import { DifficultyRank } from './constants/difficultyRank.js'; // 独立ファイルからインポート
 import authRoutes from './routes/authRoutes.js'; // 認証ルートをインポート
 import problemRoutes from './routes/problemRoutes.js'; // ★ 問題ルートをインポート
 import { generateProblems as generateProblemsUtil } from './utils/problemGenerator.js'; // 問題生成ユーティリティをインポート

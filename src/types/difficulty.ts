@@ -1,11 +1,50 @@
-// 難易度ランク
+// 難易度の型定義
 export type DifficultyRank = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 
+// 難易度ラベルのマッピング（バックエンドの新しい基準に合わせて）
 export const DIFFICULTY_LABELS: Record<DifficultyRank, string> = {
   beginner: '初級',
   intermediate: '中級',
   advanced: '上級',
   expert: '超級'
+};
+
+// 各難易度の詳細情報
+export const DIFFICULTY_INFO: Record<DifficultyRank, {
+  title: string;
+  reading: string;
+  description: string;
+  recommendation: string;
+  problems: string;
+}> = {
+  beginner: {
+    title: '初級',
+    reading: 'しょきゅう',
+    description: '基本的な計算問題',
+    recommendation: '2～3年生におすすめ',
+    problems: "たし算・ひき算：2～3けた\nかけ算：1けた（九九）"
+  },
+  intermediate: {
+    title: '中級',
+    reading: 'ちゅうきゅう',
+    description: '少し難しい計算問題',
+    recommendation: '4～5年生におすすめ',
+    problems: "たし算・ひき算：4けた\nかけ算：2～3けた\nわり算：3けた÷1けた・3けた÷2けた"
+  },
+  advanced: {
+    title: '上級',
+    reading: 'じょうきゅう',
+    description: '高度な計算問題',
+    recommendation: '6年生におすすめ',
+    problems: "たし算・ひき算：5けた\nかけ算：4けた\nわり算：4けた÷2けた・5けた÷3けた"
+  },
+  expert: {
+    title: '超級',
+    reading: 'ちょうきゅう',
+    description: '最高難易度の計算問題',
+    recommendation: 'さらなる高みをめざす方におすすめ',
+    problems: "たし算・ひき算：6けた\nかけ算：5けた\nわり算：5けた÷3けた・6けた÷4けた"
+  }
 };
 
 export const DIFFICULTY_COLORS: Record<DifficultyRank, string> = {

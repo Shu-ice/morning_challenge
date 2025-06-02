@@ -2,14 +2,10 @@
 
 import dayjs from 'dayjs'; // 追加: generateProblemsForNextDay で使用
 import DailyProblemSet from '../models/DailyProblemSet.js'; // 追加: generateProblemsForNextDay で使用
+import { DifficultyRank } from '../constants/difficultyRank.js'; // 独立ファイルからインポート
 
-// ★ DifficultyRank をバックエンドで定義
-export const DifficultyRank = {
-  BEGINNER: 'beginner',
-  INTERMEDIATE: 'intermediate',
-  ADVANCED: 'advanced',
-  EXPERT: 'expert'
-};
+// DifficultyRank をバックエンドで定義（削除）
+export { DifficultyRank } from '../constants/difficultyRank.js'; // 再エクスポート
 
 // --- ヘルパー関数 ---
 
@@ -364,7 +360,7 @@ const getParamsForDifficulty = (difficulty) => {
                 ops: ['+', '-', '×', '÷'],
                 forceIntegerResult: true,
                 allowNegativeResult: false,
-                maxResultValue: 10000000,
+                maxResultValue: 1000000000, // 10億に増加（5桁×4桁の掛け算に対応）
                 decimals: 0
             };
             
@@ -703,7 +699,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 }
 
                 question = `${num1} ${op} ${num2} = ?`;
-                nums = [num1, num2];
+        nums = [num1, num2];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
                 console.log(`[ProblemGenerator DEBUG] Generated add_subtract_4digit: ${question}, Seed: ${currentSeed}`);
@@ -1133,7 +1129,8 @@ const generateProblemsByDifficulty = async (difficulty, count = 10, requestId = 
  */
 export const generateProblems = async (difficulty, count = 10, seed = null, requestId = null) => {
   try {
-    const actualSeed = seed || Date.now();
+    // より良いランダム性を確保するため、複数の要素を組み合わせてシード値を生成
+    const actualSeed = seed || (Date.now() + Math.random() * 1000000 + (requestId ? requestId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0));
     console.log(`[ProblemGenerator] 新基準に基づく${count}問の生成開始 (${difficulty}) シード値: ${actualSeed}`);
     
     if (requestId) {
@@ -1150,12 +1147,13 @@ export const generateProblems = async (difficulty, count = 10, seed = null, requ
     
     // 新基準に基づく問題構成で生成
     const problems = await generateProblemSetByComposition(difficulty, requestId);
-    
+
     if (problems.length === 0) {
       console.warn(`新基準での問題生成に失敗したため、フォールバック問題を使用します`);
       const fallbackProblems = [];
       for (let i = 0; i < Math.min(count, 5); i++) {
-        const fallbackSeed = actualSeed + i * 1000;
+        // フォールバック問題でもランダム性を確保
+        const fallbackSeed = actualSeed + i * 1000 + Math.random() * 10000;
         fallbackProblems.push(await generateFallbackProblem(difficulty, fallbackSeed));
       }
       return fallbackProblems.map(p => ({
@@ -1292,7 +1290,9 @@ const generateProblemsForNextDay = async () => {
       }
       console.log(`[自動生成] ${tomorrow}の${difficulty}難易度の問題を生成します...`);
       try {
-        const seed = `${tomorrow}_${difficulty}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        // より良いランダム性を確保するため、日付・難易度・現在時刻・ランダム値を組み合わせ
+        const baseSeed = `${tomorrow}_${difficulty}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const seed = baseSeed + Date.now() + Math.random() * 1000000;
         const problems = await generateProblems(difficulty, 10, seed);
         if (!problems || problems.length === 0) {
           console.error(`[自動生成] ${tomorrow}の${difficulty}難易度の問題生成に失敗しました。`);
@@ -1318,7 +1318,7 @@ const generateProblemsForNextDay = async () => {
   } catch (error) {
     console.error('[自動生成] 翌日問題の生成中にエラー:', error);
   }
-}; 
+};
 
 // Final exports
 export {
@@ -1344,14 +1344,16 @@ const generateProblemSetByComposition = async (difficulty, requestId = null) => 
     }
     
     const allProblems = [];
-    let seedCounter = getDateSeed();
+    // より良いランダム性を確保するため、複数の要素を組み合わせてシード値を初期化
+    let seedCounter = getDateSeed() + Date.now() + Math.random() * 1000000 + (requestId ? requestId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0);
     
     // 各問題タイプごとに指定数の問題を生成
     for (const [problemType, count] of Object.entries(problemComposition)) {
         console.log(`[ProblemSet] Generating ${count} problems of type: ${problemType}`);
         
         for (let i = 0; i < count; i++) {
-            seedCounter += i + 1;
+            // 各問題で異なるシード値を使用
+            seedCounter += (i + 1) * 1000 + Math.random() * 10000;
             const problem = await generateSpecificProblem(problemType, difficulty, seedCounter);
             
             if (problem) {
@@ -1363,8 +1365,9 @@ const generateProblemSetByComposition = async (difficulty, requestId = null) => 
         }
     }
     
-    // 問題をシャッフル
-    return shuffleArray(allProblems, seedCounter);
+    // 問題をシャッフル（シャッフル用のシード値も更新）
+    const shuffleSeed = seedCounter + Math.random() * 100000;
+    return shuffleArray(allProblems, shuffleSeed);
 };
 
 // ★ 特定タイプの問題生成

@@ -61,7 +61,7 @@ const ProblemEditor: React.FC = () => {
           setProblems(response.data.data.map((p: any) => ({
           ...p,
             id: p._id || p.id, 
-            correctAnswer: p.answer !== undefined ? Number(p.answer) : undefined, // answerを数値に変換、存在しない場合考慮
+            correctAnswer: p.correctAnswer !== undefined ? Number(p.correctAnswer) : undefined, // correctAnswerを数値に変換
             question: p.question,
           isEditing: false
             // optionsも必要ならここでマッピング p.options

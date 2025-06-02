@@ -376,6 +376,7 @@
   z-index: 10;
   position: relative;
   font-family: var(--system-font);
+  white-space: pre-line;
 }
 
 .difficulty-recommendation {
