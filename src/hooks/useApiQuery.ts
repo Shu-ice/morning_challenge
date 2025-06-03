@@ -7,7 +7,14 @@ import type { ProblemResult } from '../types/index'
 interface Problem {
   id: string
   question: string
-  options?: any[]
+  options?: string[] | number[] // any[]からより具体的な型へ
+}
+
+interface SubmitAnswersRequest {
+  answers: number[]
+  difficulty: DifficultyRank
+  totalTime: number
+  startTime: number
 }
 
 interface ApiProblemsResponse {

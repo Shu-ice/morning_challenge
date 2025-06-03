@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import '../styles/Login.css';
 import type { UserData } from '../types/index';
 import { authAPI } from '../api/index';
+import type { ApplicationError } from '../types/error';
+import { extractErrorMessage } from '../types/error';
 
 interface LoginProps {
   onLogin: (userData: UserData, token: string) => void;
@@ -18,23 +20,34 @@ function Login({ onLogin, onRegister }: LoginProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    if (!email.trim() || !password.trim()) {
-      setError('メールアドレスとパスワードを入力してください');
-      setIsLoading(false);
+    
+    if (!email || !password) {
+      setError('メールアドレスとパスワードを入力してください。');
       return;
     }
-
-    console.log(`[Login] ログイン試行: ${email}`);
-
+    
+    setIsLoading(true);
+    setError('');
+    
     try {
-      const response = await authAPI.login({ email, password });
+      console.log('[Login] ログイン試行開始:', { email, password: '***' });
       
-      console.log('[Login] ログイン成功:', response);
+      const loginData = { email, password };
+      console.log('[Login] 送信データ:', { email: loginData.email, password: '***' });
       
-      if (response && response.token && response._id) {
+      const response = await authAPI.login(loginData);
+      
+      console.log('[Login] ログインAPIレスポンス:', response);
+      console.log('[Login] レスポンス詳細:', {
+        success: response.success,
+        token: response.token ? 'あり' : 'なし',
+        username: response.username,
+        email: response.email,
+        isAdmin: response.isAdmin
+      });
+      
+      if (response.token && response.username) {
+        console.log('[Login] ログイン成功');
         const token = response.token;
         const userDataFromResponse: UserData = {
           _id: response._id,
@@ -46,27 +59,25 @@ function Login({ onLogin, onRegister }: LoginProps) {
           loginTime: new Date().toISOString(),
           isAdmin: response.isAdmin || false,
         };
+        console.log('[Login] ユーザーデータ作成:', userDataFromResponse);
         onLogin(userDataFromResponse, token);
       } else {
-        let errorMessage = 'ログインレスポンスの形式が無効です。';
-        if (!response.token) errorMessage += ' トークンがありません。';
-        if (!response._id) errorMessage += ' ユーザーID (_id) がありません。';
-        console.error('[Login] Invalid response structure:', response); 
-        throw new Error(errorMessage);
+        console.error('[Login] ログイン失敗 - tokenまたはusernameなし');
+        console.error('[Login] 失敗レスポンス:', response);
+        setError(response.message || 'ログインに失敗しました。メールアドレスとパスワードを確認してください。');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Login] APIログインエラー:', err);
       
-      if (err.code === 'ERR_NETWORK') {
-        console.error(`[Login] ネットワークエラー詳細: ${err.message}, コード: ${err.code}`);
+      const error = err as ApplicationError;
+      const errorMessage = extractErrorMessage(error);
+      
+      // より具体的なエラーハンドリング
+      if ('code' in error && error.code === 'ERR_NETWORK') {
+        console.error(`[Login] ネットワークエラー詳細: ${error.message}, コード: ${error.code}`);
         setError('サーバーに接続できません。サーバーが起動しているか確認してください。');
-      } else if (err.response) {
-        console.error(`[Login] サーバーエラー: ${err.response.status}`, err.response.data);
-        const message = err.response.data?.error || err.response.data?.message || err.message || 'ログイン処理中にエラーが発生しました。';
-        setError(`${message}`);
       } else {
-        console.error('[Login] 未分類エラー:', err);
-        setError('ネットワークエラー: ' + (err.message || 'ログイン処理中に不明なエラーが発生しました'));
+        setError(errorMessage);
       }
     } finally {
       setIsLoading(false);

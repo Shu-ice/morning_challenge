@@ -114,7 +114,7 @@ setTimeout(() => {
 
 // --- 認証関連 API ---
 const authAPI = {
-  register: async (userData: any) => {
+  register: async (userData: RegisterData) => {
     try {
       console.log('[API] Register request:', userData);
       
@@ -135,20 +135,19 @@ const authAPI = {
       }
       
       return response.data;
-    } catch (error: any) {
-      console.error('[API] Register error:', error.message);
+    } catch (error: unknown) {
+      console.error('[API] Register error:', (error as Error).message);
       throw error;
     }
   },
   
-  login: async (credentials: any) => {
+  login: async (credentials: LoginCredentials) => {
     try {
       console.log('[API] Login request:', credentials);
       
-      // サーバーが両方のフィールドに対応できるように、email/usernameの両方を送信
+      // バックエンドはemail/passwordを期待しているので、直接送信
       const loginData = {
-        username: credentials.email || credentials.username,
-        email: credentials.email || credentials.username,
+        email: credentials.email,
         password: credentials.password
       };
       
@@ -162,8 +161,8 @@ const authAPI = {
       }
       
       return response.data;
-    } catch (error: any) {
-      console.error('[API] Login error:', error.message);
+    } catch (error: unknown) {
+      console.error('[API] Login error:', (error as Error).message);
       throw error;
     }
   },
@@ -172,8 +171,8 @@ const authAPI = {
     try {
       const response = await API.put('/auth/update-password', passwordData);
       return response.data;
-    } catch (error: any) {
-      console.error('[API] Update password error:', error.message);
+    } catch (error: unknown) {
+      console.error('[API] Update password error:', (error as Error).message);
       throw error;
     }
   },
@@ -213,7 +212,7 @@ const authAPI = {
 // --- ユーザー関連 API (プロフィール取得/更新など) ---
 const userAPI = {
   getProfile: () => API.get('/users/profile'),
-  updateProfile: (userData: any) => API.put('/users/profile', userData)
+  updateProfile: (userData: ProfileUpdateData) => API.put('/users/profile', userData)
 };
 
 // --- 問題関連 API ---
@@ -223,7 +222,7 @@ const problemsAPI = {
       console.log(`[API] 問題取得リクエスト: difficulty=${difficulty}, date=${date || '今日'}`);
       
       // クエリパラメータを設定
-      const params: any = { difficulty };
+      const params: { difficulty: DifficultyRank; date?: string } = { difficulty };
       if (date) params.date = date;
       
       console.log(`[API] 問題取得パラメータ:`, params);
@@ -258,21 +257,24 @@ const problemsAPI = {
         message: response.data.message || '問題を取得しました',
         problems: problems
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[API] Get problems error:`, error);
+      
+      const err = error as Error;
       
       // エラーレスポンスを整形
       let errorMessage = '問題の取得に失敗しました。';
       
-      if (error.response) {
+      if ('response' in err && typeof (err as any).response === 'object') {
         // サーバーからのエラーレスポンス
-        errorMessage = error.response.data?.message || error.response.data?.error || `サーバーエラー (${error.response.status})`;
-      } else if (error.request) {
+        const response = (err as any).response;
+        errorMessage = response.data?.message || response.data?.error || `サーバーエラー (${response.status})`;
+      } else if ('request' in err) {
         // リクエストは送信されたが、レスポンスがない
         errorMessage = 'サーバーからの応答がありません。ネットワーク接続を確認してください。';
       } else {
         // リクエスト設定時のエラー
-        errorMessage = error.message || '予期せぬエラーが発生しました。';
+        errorMessage = err.message || '予期せぬエラーが発生しました。';
       }
       
       const errorResponse = {
@@ -315,16 +317,19 @@ const problemsAPI = {
       }
       
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[API] Submit answers error:`, error);
+      
+      const err = error as Error;
       
       // エラーレスポンスを整形して返す
       let errorMsg = '回答の提出に失敗しました';
       
-      if (error.response?.data?.message) {
-        errorMsg = error.response.data.message;
-      } else if (error.message) {
-        errorMsg = error.message;
+      if ('response' in err && typeof (err as any).response === 'object') {
+        const response = (err as any).response;
+        errorMsg = response.data?.message || errorMsg;
+      } else {
+        errorMsg = err.message || errorMsg;
       }
       
       console.error(`[API] エラーメッセージ: ${errorMsg}`);
@@ -501,6 +506,35 @@ const historyAPI = {
     }
   }
 };
+
+// API型定義
+interface RegisterData {
+  email: string;
+  password: string;
+  username?: string;
+  grade?: number | string;
+}
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+interface ProfileUpdateData {
+  username?: string;
+  email?: string;
+  grade?: number | string;
+  avatar?: string;
+}
+
+interface ProblemSubmissionPayload {
+  difficulty: string;
+  date: string;
+  problemIds: string[];
+  answers: string[];
+  timeSpentMs: number;
+  userId: string;
+}
 
 // 必要なものだけを最後にまとめてエクスポート
 export { API, authAPI, userAPI, problemsAPI, rankingAPI, historyAPI, adminAPI, testBackendConnection }; 

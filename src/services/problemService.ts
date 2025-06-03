@@ -1,75 +1,95 @@
 import apiService from './apiService';
+import { DifficultyRank } from '../types/difficulty';
+
+// 型定義を追加
+interface Problem {
+  id: string;
+  question: string;
+  answer: number;
+  options?: number[];
+  difficulty?: DifficultyRank;
+  explanation?: string;
+}
+
+interface ProblemResult {
+  problemId: string;
+  answer: number;
+  userAnswer: number;
+  isCorrect: boolean;
+  timeSpent: number;
+}
 
 /**
  * 問題関連の処理を行うサービスクラス
  */
 class ProblemService {
-  // 指定された学年の問題を生成
-  async generateProblems(grade) {
+  // 問題生成
+  async generateProblems(grade: number | string) {
     try {
-      return await apiService.get(`/problems/generate/${grade}`);
+      const response = await apiService.post('/problems/generate', { grade });
+      return response;
     } catch (error) {
       throw error;
     }
   }
   
-  // 問題の詳細を取得
-  async getProblem(problemId) {
+  // 問題取得
+  async getProblem(problemId: string) {
     try {
-      return await apiService.get(`/problems/${problemId}`);
+      const response = await apiService.get(`/problems/${problemId}`);
+      return response;
     } catch (error) {
       throw error;
     }
   }
   
-  // 問題の答えを検証（練習モード）
-  async checkAnswer(problemId, answer) {
+  // 回答チェック
+  async checkAnswer(problemId: string, answer: number | string) {
     try {
-      return await apiService.post(`/problems/check/${problemId}`, { answer });
+      const response = await apiService.post(`/problems/${problemId}/check`, { answer });
+      return response;
     } catch (error) {
       throw error;
     }
   }
   
-  // 練習用の問題を取得（時間制限なし）
-  async getPracticeProblems(grade) {
+  // 練習問題取得
+  async getPracticeProblems(grade: number | string) {
     try {
-      return await apiService.get(`/problems/practice/${grade}`);
+      const response = await apiService.get(`/problems/practice/${grade}`);
+      return response;
     } catch (error) {
       throw error;
     }
   }
   
-  // ローカルで問題回答・採点結果を処理
-  processAnswers(problems, userAnswers) {
-    // 問題と回答を突き合わせて結果を作成
-    return problems.map((problem, index) => {
-      const userAnswer = userAnswers[index] !== undefined 
-        ? parseInt(userAnswers[index])
-        : undefined;
+  // 回答処理
+  processAnswers(problems: Problem[], userAnswers: (number | string)[]) {
+    if (!Array.isArray(problems) || !Array.isArray(userAnswers)) return [];
+    return problems.map((problem: Problem, index: number) => {
+      const userAnswer = userAnswers[index];
+      const isCorrect = problem.answer === Number(userAnswer);
       
       return {
         problemId: problem.id,
         question: problem.question,
-        userAnswer,
-        isCorrect: userAnswer === problem.answer,
-        timeSpent: 0 // タイマー機能で実装
+        correctAnswer: problem.answer,
+        userAnswer: Number(userAnswer),
+        isCorrect,
+        options: problem.options
       };
     });
   }
   
-  // スコアを計算
-  calculateScore(correctCount, totalTime) {
-    // 正解数に基づく基本スコア
-    const baseScore = correctCount * 100;
+  // スコア計算
+  calculateScore(correctCount: number, totalTime: number): number {
+    // 基本スコア（正解率 * 100）
+    const baseScore = correctCount * 10;
     
-    // 時間ボーナス: 速ければ速いほど高得点
-    // 1問あたり60秒を想定
-    const maxExpectedTime = 10 * 60; // 10問で10分
-    const timeRatio = Math.min(1, totalTime / maxExpectedTime);
-    const timeBonus = Math.round((1 - timeRatio) * 500); // 最大500点のボーナス
+    // 時間ボーナス（早ければ早いほど高得点）
+    const timeBonus = Math.max(0, (300 - totalTime) / 10);
     
-    return baseScore + timeBonus;
+    return Math.round(baseScore + timeBonus);
   }
 }
 

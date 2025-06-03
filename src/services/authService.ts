@@ -1,11 +1,42 @@
 import apiService from './apiService';
 
+// 型定義を追加
+interface UserData {
+  email: string;
+  password: string;
+  username?: string;
+  grade?: number | string;
+}
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+interface User {
+  _id?: string;
+  email: string;
+  username: string;
+  grade?: number | string;
+  avatar?: string;
+  isLoggedIn?: boolean;
+  loginTime?: string;
+  isAdmin?: boolean;
+}
+
+interface ProfileData {
+  username?: string;
+  email?: string;
+  grade?: number | string;
+  avatar?: string;
+}
+
 /**
  * 認証関連の処理を行うサービスクラス
  */
 class AuthService {
   // ユーザー登録
-  async register(userData) {
+  async register(userData: UserData) {
     try {
       const response = await apiService.post('/auth/register', userData);
       
@@ -21,7 +52,7 @@ class AuthService {
   }
   
   // ログイン
-  async login(credentials) {
+  async login(credentials: LoginCredentials) {
     try {
       const response = await apiService.post('/auth/login', credentials);
       
@@ -45,13 +76,13 @@ class AuthService {
   }
   
   // 現在のユーザー情報を取得
-  getCurrentUser() {
+  getCurrentUser(): User | null {
     const userStr = localStorage.getItem('currentUser');
     return userStr ? JSON.parse(userStr) : null;
   }
   
   // 現在のユーザー情報を保存
-  setCurrentUser(user) {
+  setCurrentUser(user: User) {
     localStorage.setItem('currentUser', JSON.stringify(user));
   }
   
@@ -71,7 +102,7 @@ class AuthService {
   }
   
   // プロフィール更新
-  async updateProfile(profileData) {
+  async updateProfile(profileData: ProfileData) {
     try {
       const response = await apiService.put('/auth/profile', profileData);
       
@@ -86,7 +117,7 @@ class AuthService {
   }
   
   // ログイン状態のチェック
-  isLoggedIn() {
+  isLoggedIn(): boolean {
     return !!apiService.token && !!this.getCurrentUser();
   }
 }

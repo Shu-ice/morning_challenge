@@ -541,8 +541,10 @@ const generateProblemsByDifficulty = (difficulty: DifficultyRank, count: number 
             const options = generateOptions(problemData.answer, difficulty, seed + 1);
             if (options && options.length === 4) {
                problems.push({ 
+                  id: `${difficulty}-${generatedCount}`,
                   question: problemData.question,
                   answer: problemData.answer,
+                  difficulty: difficulty,
                   options: options
                });
                usedQuestions.add(problemData.question);
@@ -570,7 +572,7 @@ export const generateProblems = (difficulty: DifficultyRank, count: number = 10)
     const generated = generateProblemsByDifficulty(difficulty, count);
     return generated.map((p, index) => ({
         ...p,
-        id: index,
+        id: String(index),
     }));
   } catch (error) {
     console.error("Error in generateProblems wrapper:", error);

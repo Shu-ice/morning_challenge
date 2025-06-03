@@ -2,7 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios'; // API通信用
 import { format } from 'date-fns'; // 日付フォーマット用
 import { DifficultyRank, difficultyToJapanese } from '@/types/difficulty';
-// import '@/styles/ProblemGenerator.css'; // スタイルファイルが存在しないためコメントアウト
+import '@/styles/admin/ProblemGenerator.css';
+import type { ApplicationError } from '../../types/error';
+import { extractErrorMessage } from '../../types/error';
 
 // スタイル用のCSSファイルも後で作成想定
 // import '@/styles/ProblemGenerator.css'; 
@@ -199,35 +201,34 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
         setError(response.data.error || '問題の生成に失敗しました。');
         setIsLoading(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Problem generation error:', err);
       
-      // エラーオブジェクトの詳細をログ出力（デバッグ用）
-      if (err.code) console.error('Error code:', err.code);
-      if (err.message) console.error('Error message:', err.message);
-      if (err.stack) console.error('Error stack:', err.stack);
+      const error = err as ApplicationError;
+      const errorMessage = extractErrorMessage(error);
       
-      if (axios.isAxiosError(err)) {
-        if (err.response) {
+      // より具体的なエラーハンドリング
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
           // サーバーからのエラーレスポンス
-          if (err.response.status === 409) {
+          if (error.response.status === 409) {
             setError(`この日付・難易度の問題は既に存在します。上書きする場合は「強制更新」にチェックを入れてください。`);
-          } else if (err.response.status === 401) {
+          } else if (error.response.status === 401) {
             setError(`認証エラー: ログインセッションが無効または期限切れです。再ログインしてください。`);
             // トークンが無効な場合はトークンをクリア
             localStorage.removeItem('token');
           } else {
-            setError(`サーバーエラー (${err.response.status}): ${err.response.data?.error || err.response.data?.message || err.message}`);
+            setError(`サーバーエラー (${error.response.status}): ${error.response.data?.error || error.response.data?.message || error.message}`);
           }
-        } else if (err.request) {
+        } else if (error.request) {
           // リクエストは送信されたがレスポンスがない
-          setError(`サーバーに接続できませんでした。タイムアウトの可能性があります。問題数を少なくするか、難易度を下げてみてください。\nエラー: ${err.message || 'タイムアウト'}`);
+          setError(`サーバーに接続できませんでした。タイムアウトの可能性があります。問題数を少なくするか、難易度を下げてみてください。\nエラー: ${error.message || 'タイムアウト'}`);
         } else {
           // リクエスト設定時のエラー
-          setError(`リクエストエラー: ${err.message}`);
+          setError(`リクエストエラー: ${error.message}`);
         }
       } else {
-        setError(`問題の生成中に予期せぬエラーが発生しました: ${err.message || 'Unknown error'}`);
+        setError(errorMessage);
       }
       setIsLoading(false);
     }
