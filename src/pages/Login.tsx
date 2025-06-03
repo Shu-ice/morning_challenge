@@ -4,6 +4,9 @@ import type { UserData } from '../types/index';
 import { authAPI } from '../api/index';
 import type { ApplicationError } from '../types/error';
 import { extractErrorMessage } from '../types/error';
+import ErrorDisplay from '../components/ErrorDisplay';
+import LoadingSpinner, { ButtonSpinner } from '../components/LoadingSpinner';
+import useApiWithRetry from '../hooks/useApiWithRetry';
 
 interface LoginProps {
   onLogin: (userData: UserData, token: string) => void;
@@ -13,8 +16,36 @@ interface LoginProps {
 function Login({ onLogin, onRegister }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // 統一エラーハンドリング用のAPIフック
+  const loginApiWithRetry = useApiWithRetry(
+    async () => {
+      const loginData = { email, password };
+      console.log('[Login] 送信データ:', { email: loginData.email, password: '***' });
+      
+      const response = await authAPI.login(loginData);
+      console.log('[Login] ログインAPIレスポンス:', response);
+      
+      if (!response.token || !response.username) {
+        throw new Error(response.message || 'ログインに失敗しました。メールアドレスとパスワードを確認してください。');
+      }
+      
+      return response;
+    },
+    {
+      maxRetries: 2,
+      retryDelay: 1500,
+      retryCondition: (error) => {
+        // ネットワークエラーとサーバーエラー（500番台）のみリトライ
+        if ('code' in error && error.code === 'ERR_NETWORK') return true;
+        if ('status' in error && typeof error.status === 'number') {
+          return error.status >= 500;
+        }
+        return false;
+      }
+    }
+  );
 
   console.log('[Login Component] Rendered');
 
@@ -22,31 +53,18 @@ function Login({ onLogin, onRegister }: LoginProps) {
     e.preventDefault();
     
     if (!email || !password) {
-      setError('メールアドレスとパスワードを入力してください。');
+      // バリデーションエラーはリトライ機能ではなく直接表示
       return;
     }
     
     setIsLoading(true);
-    setError('');
     
     try {
       console.log('[Login] ログイン試行開始:', { email, password: '***' });
       
-      const loginData = { email, password };
-      console.log('[Login] 送信データ:', { email: loginData.email, password: '***' });
+      const response = await loginApiWithRetry.execute();
       
-      const response = await authAPI.login(loginData);
-      
-      console.log('[Login] ログインAPIレスポンス:', response);
-      console.log('[Login] レスポンス詳細:', {
-        success: response.success,
-        token: response.token ? 'あり' : 'なし',
-        username: response.username,
-        email: response.email,
-        isAdmin: response.isAdmin
-      });
-      
-      if (response.token && response.username) {
+      if (response) {
         console.log('[Login] ログイン成功');
         const token = response.token;
         const userDataFromResponse: UserData = {
@@ -61,28 +79,19 @@ function Login({ onLogin, onRegister }: LoginProps) {
         };
         console.log('[Login] ユーザーデータ作成:', userDataFromResponse);
         onLogin(userDataFromResponse, token);
-      } else {
-        console.error('[Login] ログイン失敗 - tokenまたはusernameなし');
-        console.error('[Login] 失敗レスポンス:', response);
-        setError(response.message || 'ログインに失敗しました。メールアドレスとパスワードを確認してください。');
       }
     } catch (err: unknown) {
+      // useApiWithRetryが既にエラーを管理しているので、ここでは追加処理のみ
       console.error('[Login] APIログインエラー:', err);
-      
-      const error = err as ApplicationError;
-      const errorMessage = extractErrorMessage(error);
-      
-      // より具体的なエラーハンドリング
-      if ('code' in error && error.code === 'ERR_NETWORK') {
-        console.error(`[Login] ネットワークエラー詳細: ${error.message}, コード: ${error.code}`);
-        setError('サーバーに接続できません。サーバーが起動しているか確認してください。');
-      } else {
-        setError(errorMessage);
-      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  // バリデーションエラー
+  const validationError = (!email || !password) && (email !== '' || password !== '') 
+    ? 'メールアドレスとパスワードを入力してください。' 
+    : null;
 
   return (
     <div className="login-container">
@@ -94,13 +103,12 @@ function Login({ onLogin, onRegister }: LoginProps) {
           <p className="login-subtitle">アカウントにサインインしてください</p>
         </div>
 
-        {/* エラー表示 */}
-        {error && (
-          <div className="error-message">
-            <div className="error-icon"></div>
-            <p>{error}</p>
-          </div>
-        )}
+        {/* 統一エラー表示 */}
+        <ErrorDisplay 
+          error={validationError || loginApiWithRetry.error}
+          onRetry={loginApiWithRetry.error ? loginApiWithRetry.retry : undefined}
+          showDetails={false}
+        />
 
         {/* ログインフォーム */}
         <form className="login-form" onSubmit={handleSubmit}>
@@ -113,7 +121,7 @@ function Login({ onLogin, onRegister }: LoginProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="メールアドレスを入力"
-                disabled={isLoading}
+                disabled={isLoading || loginApiWithRetry.loading}
                 autoFocus
                 className="form-input"
               />
@@ -129,7 +137,7 @@ function Login({ onLogin, onRegister }: LoginProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="パスワードを入力"
-                disabled={isLoading}
+                disabled={isLoading || loginApiWithRetry.loading}
                 className="form-input"
               />
             </div>
@@ -137,13 +145,13 @@ function Login({ onLogin, onRegister }: LoginProps) {
           
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || loginApiWithRetry.loading || !email || !password}
             className="login-button"
           >
-            {isLoading ? (
+            {(isLoading || loginApiWithRetry.loading) ? (
               <>
-                <div className="loading-spinner"></div>
-                処理中...
+                <ButtonSpinner />
+                {loginApiWithRetry.isRetrying ? `再試行中... (${loginApiWithRetry.retryCount}回目)` : '処理中...'}
               </>
             ) : (
               'ログイン'
@@ -159,7 +167,7 @@ function Login({ onLogin, onRegister }: LoginProps) {
           <button
             onClick={onRegister}
             className="register-link"
-            disabled={isLoading}
+            disabled={isLoading || loginApiWithRetry.loading}
           >
             新規登録はこちら
           </button>

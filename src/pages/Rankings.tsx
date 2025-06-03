@@ -6,6 +6,9 @@ import { DifficultyRank } from '@/types/difficulty';
 import { GRADE_OPTIONS } from '@/types/grades';
 import { rankingAPI } from '../api/index';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
+import ErrorDisplay from '../components/ErrorDisplay';
+import LoadingSpinner from '../components/LoadingSpinner';
+import useApiWithRetry from '../hooks/useApiWithRetry';
 
 interface RankingsProps {
   results?: Results;
@@ -94,33 +97,53 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
   const [selectedDate, setSelectedDate] = useState<string>(dateOptions[0]);
   const [currentUser, setCurrentUser] = useState<UserData | null>(getUserData());
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  const fetchRankings = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-    try {
+
+  // 統一エラーハンドリング用のAPIフック
+  const rankingApiWithRetry = useApiWithRetry(
+    async () => {
+      console.log(`[Rankings] Fetching rankings: difficulty=${selectedDifficulty}, date=${format(today, 'yyyy-MM-dd')}`);
+      
       const response = await rankingAPI.getDaily(
         50, // limit
         selectedDifficulty,
         format(today, 'yyyy-MM-dd') // date
       );
-        
-      if (response && response.success && response.data) {
-        // APIレスポンスの実際の構造に合わせて修正
-        const rankingsData = response.data.data || [];
-        setRankings(rankingsData);
-        } else {
-        setError('ランキングデータの取得に失敗しました');
-          setRankings([]);
-        }
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'ランキングの取得に失敗しました');
-        setRankings([]);
-      } finally {
-        setIsLoading(false);
+      
+      if (!response || !response.success || !response.data) {
+        throw new Error('ランキングデータの取得に失敗しました');
       }
-  }, [selectedDifficulty]);
+
+      return response.data.data || [];
+    },
+    {
+      maxRetries: 2,
+      retryDelay: 1500,
+      retryCondition: (error) => {
+        // ネットワークエラーとサーバーエラーのみリトライ
+        if ('code' in error && error.code === 'ERR_NETWORK') return true;
+        if ('status' in error && typeof error.status === 'number') {
+          return error.status >= 500;
+        }
+        return false;
+      }
+    }
+  );
+  
+  const fetchRankings = useCallback(async () => {
+    setIsLoading(true);
+    
+    try {
+      const rankingsData = await rankingApiWithRetry.execute();
+      if (rankingsData) {
+        setRankings(rankingsData);
+      }
+    } catch (err: any) {
+      console.error('ランキング取得エラー:', err);
+      // エラーはrankingApiWithRetryが管理
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedDifficulty, rankingApiWithRetry]);
     
   useEffect(() => {
     fetchRankings();
@@ -194,26 +217,32 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
       {/* ローディング表示 */}
       {isLoading && (
         <div className="loading-container">
-          <div className="loading-spinner"></div>
+          <LoadingSpinner />
           <p>ランキングを<ruby>読<rt>よ</rt></ruby>み<ruby>込<rt>こ</rt></ruby>み<ruby>中<rt>ちゅう</rt></ruby>...</p>
         </div>
       )}
       
-      {/* エラー表示 */}
-      {error && !isLoading && (
-        <div className="error-message">
-          <p>エラー: {error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="retry-button"
-          >
-            <ruby>再試行<rt>さいしこう</rt></ruby>
-          </button>
+      {/* エラー表示と統一リトライ機能 */}
+      {!isLoading && rankingApiWithRetry.error && (
+        <ErrorDisplay
+          error={rankingApiWithRetry.error}
+          onRetry={rankingApiWithRetry.retry}
+          showDetails={false}
+        />
+      )}
+
+      {/* データなし表示 */}
+      {!isLoading && !rankingApiWithRetry.error && rankings.length === 0 && (
+        <div className="no-rankings">
+          <p>{selectedDate}の{selectedDifficulty}ランキング<ruby>情報<rt>じょうほう</rt></ruby>がありません</p>
+          <p className="no-rankings-hint">
+            <ruby>別<rt>べつ</rt></ruby>の<ruby>日付<rt>ひづけ</rt></ruby>や<ruby>難易度<rt>なんいど</rt></ruby>を<ruby>選択<rt>せんたく</rt></ruby>してください
+          </p>
         </div>
       )}
       
       {/* ランキングリスト */}
-      {!isLoading && !error && (
+      {!isLoading && !rankingApiWithRetry.error && rankings.length > 0 && (
         <div className="rankings-list">
           <div className="rankings-header">
             <div><ruby>順位<rt>じゅんい</rt></ruby></div>
@@ -223,8 +252,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
             <div><ruby>所要時間<rt>しょようじかん</rt></ruby></div>
           </div>
           
-          {rankings.length > 0 ? (
-            rankings.map((ranking, index) => {
+          {rankings.map((ranking, index) => {
             // 現在のユーザーかどうかを判定
             const isCurrentUser = currentUser && ranking.username === currentUser.username;
               
@@ -261,20 +289,12 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
                 </div>
               </div>
             );
-          })
-        ) : (
-            <div className="no-rankings">
-              <p>{selectedDate}の{selectedDifficulty}ランキング<ruby>情報<rt>じょうほう</rt></ruby>がありません</p>
-              <p className="no-rankings-hint">
-                <ruby>別<rt>べつ</rt></ruby>の<ruby>日付<rt>ひづけ</rt></ruby>や<ruby>難易度<rt>なんいど</rt></ruby>を<ruby>選択<rt>せんたく</rt></ruby>してください
-              </p>
-            </div>
-          )}
+          })}
         </div>
       )}
       
       {/* 統計情報 */}
-      {!isLoading && !error && rankings.length > 0 && (
+      {!isLoading && rankings.length > 0 && (
         <div className="ranking-stats">
           <div className="stats-card">
             <h3><ruby>統計情報<rt>とうけいじょうほう</rt></ruby></h3>

@@ -10,6 +10,9 @@ import { usePreciseCountdown } from '../hooks/usePreciseCountdown'; // 相対パ
 import axios, { isAxiosError } from 'axios';  // axiosのインポートをコメントアウト
 import { format } from 'date-fns'; // date-fns などの日付ライブラリを使用
 import { useProblem } from '../contexts/ProblemContext'; // ★ useProblem をインポート
+import ErrorDisplay from '../components/ErrorDisplay';
+import LoadingSpinner from '../components/LoadingSpinner';
+import useApiWithRetry from '../hooks/useApiWithRetry';
 
 interface ProblemData {
   id: string; // ★ API から返る問題IDが string であれば string に（現状はnumberの想定かもしれないので注意）
@@ -145,7 +148,6 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   // const { user } = useAuth(); // Comment out useAuth
   const [currentUser, setCurrentUser] = useState<UserData & { token: string } | null>(null); // Store user with token
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentProblems, setCurrentProblems] = useState<ProblemData[]>([]); // 型明示
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [currentAnswer, setCurrentAnswer] = useState<string>('');
@@ -168,6 +170,39 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   }, []); // 初回レンダリング時のみ実行
   const { count: remainingTime, startCountdown } = usePreciseCountdown(300);
   const { finalizeSession } = useProblem(); // ★ finalizeSession を使用
+
+  // 統一エラーハンドリング用のAPIフック
+  const problemsApiWithRetry = useApiWithRetry(
+    async () => {
+      if (!currentUser || !currentUser._id) {
+        throw new Error('ユーザーIDが取得できません。再ログインしてください。');
+      }
+
+      console.log(`問題を取得します: 難易度=${difficulty}, 日付=${selectedDate}, ユーザーID=${currentUser._id}`);
+      
+      const apiResponse = await problemsAPI.getProblems(difficulty, selectedDate);
+      console.log('API応答:', apiResponse);
+      
+      if (!apiResponse.success || !apiResponse.problems || apiResponse.problems.length === 0) {
+        const errorMsg = apiResponse.message || `${selectedDate}の${difficultyToJapanese(difficulty)}問題は見つかりませんでした。`;
+        throw new Error(errorMsg);
+      }
+
+      return apiResponse.problems;
+    },
+    {
+      maxRetries: 2,
+      retryDelay: 1000,
+      retryCondition: (error) => {
+        // ネットワークエラーとサーバーエラーのみリトライ
+        if ('code' in error && error.code === 'ERR_NETWORK') return true;
+        if ('status' in error && typeof error.status === 'number') {
+          return error.status >= 500;
+        }
+        return false;
+      }
+    }
+  );
 
   // Load user data and token from localStorage
   useEffect(() => {
@@ -461,9 +496,6 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   // 問題ロードと完了チェック (APIキャッシュを導入)
   useEffect(() => {
     if (!currentUser || !currentUser.token) {
-      if (!currentUser && !localStorage.getItem('token')) {
-          setError("問題を取得するにはログインが必要です。");
-      }
       setIsLoading(false);
       return;
     }
@@ -471,16 +503,13 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     // 完了チェックも selectedDate を基準にする
     if (selectedDate === getFormattedDate(new Date()) && hasCompletedTodaysProblems(difficulty)) {
       setAlreadyCompleted(true);
-      setError(`今日はすでにこの難易度の問題に取り組みました。`);
       setIsLoading(false);
       return;
     } else {
       setAlreadyCompleted(false);
-      setError(null);
     }
 
     const loadProblems = async () => {
-      setError(null);
       if (!currentUser || !currentUser._id) {
         console.error('[Problems] loadProblems: currentUser or currentUser._id is missing.');
         setIsLoading(false);
@@ -499,75 +528,45 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       
       const cachedProblems = sessionStorage.getItem(cacheKey);
       
-      try {
-        if (cachedProblems && !import.meta.env.DEV) { // 開発モードではキャッシュを使用しない
-          try {
-            const parsedProblems = JSON.parse(cachedProblems);
-            console.log('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: ProblemData) => p.id), null, 2)); // ★ログ追加、型注釈追加
-            setCurrentProblems(parsedProblems);
-            setIsLoading(false);
-            return;
-          } catch (parseError) {
-            console.warn('問題キャッシュの解析に失敗しました:', parseError);
-          }
-        }
-
-        // ★ currentUser から直接 _id を使用する (getUserData() の呼び出しを削除)
-        if (!currentUser._id) { // このチェックは上記のガード節でカバーされているが念のため
-          throw new Error('ユーザーIDが取得できません。再ログインしてください。');
-        }
-        const currentUserId = currentUser._id; 
-        
-        console.log(`問題を取得します: 難易度=${difficulty}, 日付=${selectedDate}, ユーザーID=${currentUserId}`);
-        
+      // キャッシュからの読み込み（開発モード以外）
+      if (cachedProblems && !import.meta.env.DEV) {
         try {
-          const apiResponse = await problemsAPI.getProblems(difficulty, selectedDate);
-          console.log('API応答:', apiResponse);
+          const parsedProblems = JSON.parse(cachedProblems);
+          console.log('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: ProblemData) => p.id), null, 2));
+          setCurrentProblems(parsedProblems);
+          setIsLoading(false);
+          return;
+        } catch (parseError) {
+          console.warn('問題キャッシュの解析に失敗しました:', parseError);
+        }
+      }
+
+      // API から問題を取得（統一リトライシステム使用）
+      try {
+        const problems = await problemsApiWithRetry.execute();
+        
+        if (problems) {
+          // 問題データを整形
+          const formattedProblems = problems.map((problem: any, index: number) => ({
+            id: problem.id.toString(),
+            question: problem.question,
+            type: problem.type || 'mixed'
+          }));
+          console.log('[Problems API] Loaded from API:', JSON.stringify(formattedProblems.map((p: ProblemData) => p.id), null, 2));
           
-          if (apiResponse.success && apiResponse.problems && apiResponse.problems.length > 0) {
-            // 問題データを整形
-            const formattedProblems = apiResponse.problems.map((problem: any, index: number) => ({
-              id: problem.id.toString(),
-              question: problem.question,
-              type: problem.type || 'mixed'
-            }));
-            console.log('[Problems API] Loaded from API:', JSON.stringify(formattedProblems.map((p: ProblemData) => p.id), null, 2)); // ★ログ追加、型注釈追加
-            
-            console.log(`${formattedProblems.length}問の問題を取得しました`);
-            setCurrentProblems(formattedProblems);
-            
-            // 問題をセッションストレージにキャッシュ
-            try {
-              sessionStorage.setItem(cacheKey, JSON.stringify(formattedProblems));
-            } catch (cacheError) {
-              console.warn('問題キャッシュの保存に失敗しました:', cacheError);
-            }
-          } else {
-            // データが空の場合
-            const errorMsg = apiResponse.message || `${selectedDate}の${difficultyToJapanese(difficulty)}問題は見つかりませんでした。`;
-            throw new Error(errorMsg);
+          console.log(`${formattedProblems.length}問の問題を取得しました`);
+          setCurrentProblems(formattedProblems);
+          
+          // 問題をセッションストレージにキャッシュ
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify(formattedProblems));
+          } catch (cacheError) {
+            console.warn('問題キャッシュの保存に失敗しました:', cacheError);
           }
-        } catch (apiError: any) {
-          console.error('API呼び出しエラー:', apiError);
-          throw apiError;
         }
       } catch (err: any) {
         console.error('問題の取得中にエラーが発生しました:', err);
-        let errorMessage = '問題の取得中にエラーが発生しました。';
-        
-        if (err.response) {
-          // エラーレスポンス
-          errorMessage = err.response.data?.message || err.response.data?.error || `エラー (${err.response.status})`;
-        } else if (err.request) {
-          // リクエストは送信されたが、レスポンスがない
-          errorMessage = 'サーバーに接続できませんでした。ネットワークを確認してください。';
-        } else {
-          // その他のエラー
-          errorMessage = err.message || '予期せぬエラーが発生しました。';
-        }
-        
-        setError(errorMessage);
-        setCurrentProblems([]);
+        // エラーはproblemsApiWithRetryが管理
       } finally {
         setIsLoading(false);
       }
