@@ -198,78 +198,114 @@
 /* テーブル - 完全リセット版 */
 .history-table-container {
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
+  padding: 0;
   overflow-x: auto;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative;
 }
 
 .history-table {
   width: 100%;
-  table-layout: fixed;
   border-collapse: collapse;
-  margin: 0;
-  background: white;
+  table-layout: fixed;
+  font-size: 14px;
+  min-width: 640px; /* 最小幅を設定してスクロール対応 */
 }
 
-.history-table colgroup col:nth-child(1) { width: 200px; }
-.history-table colgroup col:nth-child(2) { width: 120px; }
-.history-table colgroup col:nth-child(3) { width: 80px; }
-.history-table colgroup col:nth-child(4) { width: 120px; }
-.history-table colgroup col:nth-child(5) { width: 120px; }
+/* デスクトップ版の列幅（パーセンテージベース） */
+.history-table colgroup col:nth-child(1) { width: 31.25%; } /* 200px/640px */
+.history-table colgroup col:nth-child(2) { width: 18.75%; } /* 120px/640px */
+.history-table colgroup col:nth-child(3) { width: 12.5%; }  /* 80px/640px */
+.history-table colgroup col:nth-child(4) { width: 18.75%; } /* 120px/640px */
+.history-table colgroup col:nth-child(5) { width: 18.75%; } /* 120px/640px */
 
 .history-table th,
 .history-table td {
-  border: 1px solid #e5e7eb;
   padding: 12px 8px;
   text-align: center;
-  vertical-align: middle;
-  font-size: 14px;
+  border: 1px solid #e0e0e0;
   box-sizing: border-box;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .history-table th {
-  background: #f8fafc;
-  font-weight: 700;
-  color: #374151;
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+  font-size: 13px;
 }
 
 .history-table td {
   background: white;
-  color: #374151;
+  font-size: 13px;
 }
 
-/* バッジ - 超シンプル版 */
 .difficulty-badge {
   display: inline-block;
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  background: #10b981;
-  color: white;
-  width: 40px;
   text-align: center;
+  min-width: 60px;
+  white-space: nowrap;
+}
+
+/* 難易度別の色分け */
+.difficulty-badge.difficulty-beginner {
+  background: #28a745;
+  color: white;
+}
+
+.difficulty-badge.difficulty-intermediate {
+  background: #ffc107;
+  color: #212529;
+}
+
+.difficulty-badge.difficulty-advanced {
+  background: #dc3545;
+  color: white;
+}
+
+.difficulty-badge.difficulty-expert {
+  background: #6f42c1;
+  color: white;
 }
 
 .rank-badge {
   display: inline-block;
-  padding: 2px 6px;
+  padding: 4px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  background: #6b7280;
-  color: white;
-  width: 30px;
   text-align: center;
+  min-width: 40px;
+  background: #6c757d;
+  color: white;
+}
+
+/* ランク別の色分け */
+.rank-badge.rank-1 {
+  background: #ffd700; /* 金色 */
+  color: #212529;
+}
+
+.rank-badge.rank-2 {
+  background: #c0c0c0; /* 銀色 */
+  color: #212529;
+}
+
+.rank-badge.rank-3 {
+  background: #cd7f32; /* 銅色 */
+  color: white;
 }
 
 .score-display {
   font-weight: 600;
-  color: #374151;
-  font-size: 14px;
-  text-align: center;
+  color: #333;
 }
 
 /* ローディングとエラー */
@@ -376,7 +412,34 @@
   text-decoration: underline;
 }
 
-/* レスポンシブ対応 */
+/* レスポンシブ対応 - タブレット */
+@media (max-width: 1024px) {
+  .history-table {
+    min-width: 580px;
+    font-size: 13px;
+  }
+  
+  .history-table colgroup col:nth-child(1) { width: 30%; }
+  .history-table colgroup col:nth-child(2) { width: 20%; }
+  .history-table colgroup col:nth-child(3) { width: 15%; }
+  .history-table colgroup col:nth-child(4) { width: 17.5%; }
+  .history-table colgroup col:nth-child(5) { width: 17.5%; }
+  
+  .history-table th,
+  .history-table td {
+    padding: 10px 6px;
+    font-size: 12px;
+  }
+  
+  .difficulty-badge,
+  .rank-badge {
+    font-size: 10px;
+    padding: 3px 6px;
+    min-width: 50px;
+  }
+}
+
+/* レスポンシブ対応 - モバイル */
 @media (max-width: 768px) {
   .user-history-container h1 {
     font-size: 2rem;
@@ -406,14 +469,32 @@
     text-align: center;
   }
 
+  .history-table-container {
+    margin: 0 10px;
+  }
+  
   .history-table {
     min-width: 500px;
+    font-size: 12px;
   }
-
+  
+  .history-table colgroup col:nth-child(1) { width: 28%; }
+  .history-table colgroup col:nth-child(2) { width: 22%; }
+  .history-table colgroup col:nth-child(3) { width: 15%; }
+  .history-table colgroup col:nth-child(4) { width: 17.5%; }
+  .history-table colgroup col:nth-child(5) { width: 17.5%; }
+  
   .history-table th,
   .history-table td {
-    padding: 10px 8px;
-    font-size: 12px;
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+  
+  .difficulty-badge,
+  .rank-badge {
+    font-size: 9px;
+    padding: 2px 4px;
+    min-width: 40px;
   }
 
   .loading-container,
