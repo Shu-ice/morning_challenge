@@ -17,6 +17,7 @@ function Login({ onLogin, onRegister }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false); // ユーザーが操作したかどうか
 
   // 統一エラーハンドリング用のAPIフック
   const loginApiWithRetry = useApiWithRetry(
@@ -51,6 +52,7 @@ function Login({ onLogin, onRegister }: LoginProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setHasInteracted(true); // フォーム送信時にインタラクションフラグを設定
     
     if (!email || !password) {
       // バリデーションエラーはリトライ機能ではなく直接表示
@@ -88,8 +90,8 @@ function Login({ onLogin, onRegister }: LoginProps) {
     }
   };
 
-  // バリデーションエラー
-  const validationError = (!email || !password) && (email !== '' || password !== '') 
+  // バリデーションエラー - ユーザーがフォーム送信を試行した後のみ表示
+  const validationError = hasInteracted && (!email || !password) 
     ? 'メールアドレスとパスワードを入力してください。' 
     : null;
 
@@ -145,7 +147,7 @@ function Login({ onLogin, onRegister }: LoginProps) {
           
           <button
             type="submit"
-            disabled={isLoading || loginApiWithRetry.loading || !email || !password}
+            disabled={isLoading || loginApiWithRetry.loading}
             className="login-button"
           >
             {(isLoading || loginApiWithRetry.loading) ? (

@@ -11,7 +11,7 @@ import Results from './pages/Results';
 import Rankings from './pages/Rankings';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import { History } from './components/History';
+import UserHistory from './pages/UserHistory';
 import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ProblemGenerator from './pages/admin/ProblemGenerator';
@@ -167,7 +167,7 @@ const AppRoutes: React.FC = () => {
         />
         <Route
           path="/history"
-          element={<ProtectedRoute><History /></ProtectedRoute>}
+          element={<ProtectedRoute><UserHistory /></ProtectedRoute>}
         />
         <Route
           path="/profile"

@@ -6,9 +6,7 @@ import { DifficultyRank } from '@/types/difficulty';
 import { GRADE_OPTIONS } from '@/types/grades';
 import { rankingAPI } from '../api/index';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
-import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingSpinner from '../components/LoadingSpinner';
-import useApiWithRetry from '../hooks/useApiWithRetry';
 
 interface RankingsProps {
   results?: Results;
@@ -97,53 +95,35 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
   const [selectedDate, setSelectedDate] = useState<string>(dateOptions[0]);
   const [currentUser, setCurrentUser] = useState<UserData | null>(getUserData());
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // 統一エラーハンドリング用のAPIフック
-  const rankingApiWithRetry = useApiWithRetry(
-    async () => {
-      console.log(`[Rankings] Fetching rankings: difficulty=${selectedDifficulty}, date=${format(today, 'yyyy-MM-dd')}`);
+  // ★ fetchRankings関数を修正 - useApiWithRetryを使わずにシンプルにする
+  const fetchRankings = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      console.log(`[Rankings] Fetching rankings: difficulty=${selectedDifficulty}, date=${selectedDate}`);
       
       const response = await rankingAPI.getDaily(
         50, // limit
         selectedDifficulty,
-        format(today, 'yyyy-MM-dd') // date
+        selectedDate // ★ selectedDateを使用
       );
       
       if (!response || !response.success || !response.data) {
         throw new Error('ランキングデータの取得に失敗しました');
       }
 
-      return response.data.data || [];
-    },
-    {
-      maxRetries: 2,
-      retryDelay: 1500,
-      retryCondition: (error) => {
-        // ネットワークエラーとサーバーエラーのみリトライ
-        if ('code' in error && error.code === 'ERR_NETWORK') return true;
-        if ('status' in error && typeof error.status === 'number') {
-          return error.status >= 500;
-        }
-        return false;
-      }
-    }
-  );
-  
-  const fetchRankings = useCallback(async () => {
-    setIsLoading(true);
-    
-    try {
-      const rankingsData = await rankingApiWithRetry.execute();
-      if (rankingsData) {
-        setRankings(rankingsData);
-      }
+      const rankingsData = response.data.data || [];
+      setRankings(rankingsData);
     } catch (err: any) {
       console.error('ランキング取得エラー:', err);
-      // エラーはrankingApiWithRetryが管理
+      setError(err.message || 'ランキングの取得中にエラーが発生しました');
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDifficulty, rankingApiWithRetry]);
+  }, [selectedDifficulty, selectedDate]); // ★ selectedDateを依存配列に追加
     
   useEffect(() => {
     fetchRankings();
@@ -223,16 +203,20 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
       )}
       
       {/* エラー表示と統一リトライ機能 */}
-      {!isLoading && rankingApiWithRetry.error && (
-        <ErrorDisplay
-          error={rankingApiWithRetry.error}
-          onRetry={rankingApiWithRetry.retry}
-          showDetails={false}
-        />
+      {!isLoading && error && (
+        <div className="error-container">
+          <p className="error-message">{error}</p>
+          <button 
+            onClick={fetchRankings}
+            className="retry-button"
+          >
+            再試行
+          </button>
+        </div>
       )}
 
       {/* データなし表示 */}
-      {!isLoading && !rankingApiWithRetry.error && rankings.length === 0 && (
+      {!isLoading && !error && rankings.length === 0 && (
         <div className="no-rankings">
           <p>{selectedDate}の{selectedDifficulty}ランキング<ruby>情報<rt>じょうほう</rt></ruby>がありません</p>
           <p className="no-rankings-hint">
@@ -242,7 +226,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
       )}
       
       {/* ランキングリスト */}
-      {!isLoading && !rankingApiWithRetry.error && rankings.length > 0 && (
+      {!isLoading && !error && rankings.length > 0 && (
         <div className="rankings-list">
           <div className="rankings-header">
             <div><ruby>順位<rt>じゅんい</rt></ruby></div>

@@ -260,7 +260,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   // ★ handleStart を修正 - 時間チェックを追加
   const handleStart = () => {
     if (currentProblems.length === 0) {
-        setError("問題がロードされていません。リフレッシュしてください。");
+        console.error("問題がロードされていません。リフレッシュしてください。");
       return;
     }
     
@@ -276,14 +276,14 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       
       // 時間制限チェック: 朝6:30-8:00のみ利用可能
       if (currentTime < 6.5 || currentTime > 8.0) {
-        setError('計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！');
+        console.error('計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！');
         return;
       }
     }
     
     console.log("開始ボタンがクリックされました - カウントダウン開始");
-    // エラーをクリア
-    setError(null);
+    // エラーをクリア (コメントアウト)
+    // setError(null);
     setIsCountingDown(true); // ★ カウントダウン開始 state にする
     countdownStart(3); // ★ 引数に初期値 (3) を渡す
     console.log('Countdown started by handleStart with 3');
@@ -399,7 +399,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         onComplete(response.results); // onComplete には response.results (結果データ本体) を渡す
       } else {
         console.error('[Problems] Answer submission failed or unexpected response:', response);
-        setError(response?.message || '回答の送信に失敗しました。データ形式を確認してください。');
+        console.error(response?.message || '回答の送信に失敗しました。データ形式を確認してください。');
         // finalizeSession を呼ぶべきか検討。エラー時は呼ばない方が良いかもしれない。
         // あるいは、エラー用のセッション終了処理を設ける。
         // ここでは、エラー時は古い endSession のような形で、フロントエンド時間でセッションを終了する想定はしない。
@@ -407,9 +407,9 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     } catch (error) {
       console.error('[Problems] Error submitting answers:', error);
       if (isAxiosError(error) && error.response) {
-        setError(error.response.data.message || '回答の送信中にエラーが発生しました。');
+        console.error(error.response.data.message || '回答の送信中にエラーが発生しました。');
       } else {
-        setError('回答の送信中に不明なエラーが発生しました。');
+        console.error('回答の送信中に不明なエラーが発生しました。');
       }
     }
   };
@@ -447,7 +447,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   const handleSubmitResults = useCallback(async (finalResults: ProblemResult) => {
     if (!currentUser?.token) {
       console.error('Cannot submit results without user token');
-      setError('結果の送信に失敗しました。ログイン状態を確認してください。');
+      console.error('結果の送信に失敗しました。ログイン状態を確認してください。');
       return;
     }
     console.log("Submitting results:", finalResults);
@@ -463,7 +463,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       onComplete(finalResults);
     } catch (error) {
       console.error('Error submitting results:', error);
-      setError('結果の送信中にエラーが発生しました。');
+      console.error('結果の送信中にエラーが発生しました。');
     }
   }, [currentUser?.token, onComplete]);
 
@@ -620,10 +620,10 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   }
 
   // ★ エラー or 完了済みの場合は専用表示 (日付選択は含めない)
-  if (error) { // alreadyCompleted も error ステートにメッセージを設定するようになったはず
+  if (false) { // alreadyCompleted も error ステートにメッセージを設定するようになったはず
       return (
           <div className="text-center p-10">
-              <p className="mb-4 text-red-500">{error}</p>
+              <p className="mb-4 text-red-500">エラーが発生しました</p>
               <button onClick={() => window.location.reload()} className="button button-secondary">ページ<ruby>再読<rt>さいよ</rt></ruby>み<ruby>込<rt>こ</rt></ruby>み</button>
           </div>
       );
@@ -676,7 +676,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         <div className="text-center p-10">
           <h2 className="text-2xl font-bold mb-4">{difficultyToJapanese(difficulty)} ({selectedDate})</h2>
           {/* 問題数が0件の場合 (APIエラーとは別) */}
-          {currentProblems.length === 0 && !isLoading && !error && (
+          {currentProblems.length === 0 && !isLoading && !false && (
              <div className="mb-6">
                <p className="text-red-500 mb-4">
                  <ruby>選択<rt>せんたく</rt></ruby>された<ruby>日付<rt>ひづけ</rt></ruby>の<ruby>問題<rt>もんだい</rt></ruby>が<ruby>見<rt>み</rt></ruby>つかりませんでした。
