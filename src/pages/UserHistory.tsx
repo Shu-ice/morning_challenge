@@ -280,11 +280,12 @@ const UserHistory = () => {
       <h1><ruby>学習履歴<rt>がくしゅうりれき</rt></ruby></h1>
 
       {/* ストリーク情報カード */}
-      <div className="streak-cards">
-        <div className="streak-card current-streak-card">
-          <div className="streak-icon-large">🔥</div>
-          <div className="streak-number">{currentStreak}</div>
-          <div className="streak-label"><ruby>現在<rt>げんざい</rt></ruby>の<ruby>連続記録<rt>れんぞくきろく</rt></ruby></div>
+      <section className="streak-cards" aria-labelledby="streak-section-title">
+        <h2 id="streak-section-title" className="visually-hidden">継続記録</h2>
+        <div className="streak-card current-streak-card" role="img" aria-labelledby="current-streak-label">
+          <div className="streak-icon-large" aria-hidden="true">🔥</div>
+          <div className="streak-number" aria-label={`現在の連続記録 ${currentStreak}日`}>{currentStreak}</div>
+          <div id="current-streak-label" className="streak-label"><ruby>現在<rt>げんざい</rt></ruby>の<ruby>連続記録<rt>れんぞくきろく</rt></ruby></div>
           <div className="streak-description">
             <ruby>毎日<rt>まいにち</rt></ruby>の<ruby>継続<rt>けいぞく</rt></ruby>が<ruby>素晴<rt>すば</rt></ruby>らしい<ruby>成果<rt>せいか</rt></ruby>を<ruby>生<rt>う</rt></ruby>みます
           </div>
@@ -293,27 +294,31 @@ const UserHistory = () => {
           </div>
         </div>
         
-        <div className="streak-card max-streak-card">
-          <div className="streak-icon-large">👑</div>
-          <div className="streak-number">{maxStreak}</div>
-          <div className="streak-label"><ruby>自己最高連続記録<rt>じこさいこうれんぞくきろく</rt></ruby></div>
+        <div className="streak-card max-streak-card" role="img" aria-labelledby="max-streak-label">
+          <div className="streak-icon-large" aria-hidden="true">👑</div>
+          <div className="streak-number" aria-label={`自己最高連続記録 ${maxStreak}日`}>{maxStreak}</div>
+          <div id="max-streak-label" className="streak-label"><ruby>自己最高連続記録<rt>じこさいこうれんぞくきろく</rt></ruby></div>
           <div className="streak-unit"><ruby>日連続<rt>にちれんぞく</rt></ruby></div>
         </div>
-      </div>
+      </section>
 
       {/* ローディング表示 */}
       {isLoading && (
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
+        <div className="loading-container" role="status" aria-live="polite">
+          <div className="loading-spinner" aria-hidden="true"></div>
           <p><ruby>履歴<rt>りれき</rt></ruby>を<ruby>読<rt>よ</rt></ruby>み<ruby>込<rt>こ</rt></ruby>み<ruby>中<rt>ちゅう</rt></ruby>...</p>
         </div>
       )}
 
       {/* エラー表示 */}
       {!isLoading && error && (
-        <div className="error-container">
+        <div className="error-container" role="alert" aria-live="assertive">
           <p className="error-message">{error}</p>
-          <button onClick={handleRefresh} className="retry-button">
+          <button 
+            onClick={handleRefresh} 
+            className="retry-button"
+            aria-label="履歴の再読み込みを実行"
+          >
             <ruby>再試行<rt>さいしこう</rt></ruby>
           </button>
         </div>
@@ -321,7 +326,7 @@ const UserHistory = () => {
 
       {/* データなし表示 */}
       {!isLoading && !error && (!history || history.length === 0) && (
-        <div className="no-history-container">
+        <div className="no-history-container" role="status">
           <p className="no-history-message">まだ<ruby>解答履歴<rt>かいとうりれき</rt></ruby>がありません。</p>
           <p className="no-history-hint">
             <ruby>計算<rt>けいさん</rt></ruby>チャレンジに<ruby>挑戦<rt>ちょうせん</rt></ruby>して<ruby>履歴<rt>りれき</rt></ruby>を<ruby>作<rt>つく</rt></ruby>りましょう！
@@ -331,10 +336,19 @@ const UserHistory = () => {
 
       {/* 履歴リスト */}
       {!isLoading && !error && history && history.length > 0 && (
-        <div className="history-list-container">
-          <div className="history-header-info">
-            <h2><ruby>挑戦履歴<rt>ちょうせんりれき</rt></ruby> ({history.length}<ruby>件<rt>けん</rt></ruby>)</h2>
-            <button onClick={handleRefresh} className="refresh-button" disabled={isLoading}>
+        <section className="history-list-container" aria-labelledby="history-section-title">
+          <header className="history-header-info">
+            <h2 id="history-section-title"><ruby>挑戦履歴<rt>ちょうせんりれき</rt></ruby> ({history.length}<ruby>件<rt>けん</rt></ruby>)</h2>
+            <button 
+              onClick={handleRefresh} 
+              className="refresh-button" 
+              disabled={isLoading}
+              aria-label="履歴を最新の状態に更新"
+              aria-describedby="refresh-status"
+            >
+              <span id="refresh-status" className="visually-hidden">
+                {isLoading ? '更新中です' : '更新ボタン'}
+              </span>
               {isLoading ? (
                 <>
                   <ruby>更新中<rt>こうしんちゅう</rt></ruby>...
@@ -343,10 +357,16 @@ const UserHistory = () => {
                 <ruby>更新<rt>こうしん</rt></ruby>
               )}
             </button>
-          </div>
+          </header>
 
-          <div className="history-table-container">
-            <table className="history-table">
+          <div className="history-table-container" role="region" aria-labelledby="history-section-title">
+            <table 
+              className="history-table" 
+              role="table"
+              aria-label="学習履歴の詳細データ"
+              aria-rowcount={history.length + 1}
+              aria-colcount={5}
+            >
               <colgroup>
                 <col />
                 <col />
@@ -355,36 +375,65 @@ const UserHistory = () => {
                 <col />
               </colgroup>
               <thead>
-                <tr>
-                  <th><ruby>実施日時<rt>じっしにちじ</rt></ruby></th>
-                  <th><ruby>難易度<rt>なんいど</rt></ruby></th>
-                  <th><ruby>順位<rt>じゅんい</rt></ruby></th>
-                  <th><ruby>正解数<rt>せいかいすう</rt></ruby></th>
-                  <th><ruby>解答時間<rt>かいとうじかん</rt></ruby></th>
+                <tr role="row">
+                  <th scope="col" aria-sort="none" tabIndex={0}>
+                    <ruby>実施日時<rt>じっしにちじ</rt></ruby>
+                  </th>
+                  <th scope="col" aria-sort="none" tabIndex={0}>
+                    <ruby>難易度<rt>なんいど</rt></ruby>
+                  </th>
+                  <th scope="col" aria-sort="none" tabIndex={0}>
+                    <ruby>順位<rt>じゅんい</rt></ruby>
+                  </th>
+                  <th scope="col" aria-sort="none" tabIndex={0}>
+                    <ruby>正解数<rt>せいかいすう</rt></ruby>
+                  </th>
+                  <th scope="col" aria-sort="none" tabIndex={0}>
+                    <ruby>解答時間<rt>かいとうじかん</rt></ruby>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((item, index) => (
-                  <tr key={item._id || `history-${index}`} className="history-row">
-                    <td>{formatDate(item.timestamp)}</td>
-                    <td>
-                      <span className={`difficulty-badge difficulty-${item.difficulty}`}>
+                  <tr 
+                    key={item._id || `history-${index}`} 
+                    className="history-row"
+                    role="row"
+                    aria-rowindex={index + 2}
+                    tabIndex={0}
+                    aria-label={`${index + 1}件目の履歴: ${formatDate(item.timestamp)}, 難易度${difficultyToJapanese(item.difficulty as DifficultyRank)}, ${item.rank ? `${item.rank}位` : '順位なし'}, ${item.correctAnswers ?? '?'}/${item.totalProblems ?? 10}問正解, ${formatTime(item.totalTime || item.timeSpent)}`}
+                  >
+                    <td role="gridcell" aria-label={`実施日時: ${formatDate(item.timestamp)}`}>
+                      {formatDate(item.timestamp)}
+                    </td>
+                    <td role="gridcell" aria-label={`難易度: ${difficultyToJapanese(item.difficulty as DifficultyRank)}`}>
+                      <span 
+                        className={`difficulty-badge difficulty-${item.difficulty}`}
+                        role="img"
+                        aria-label={`難易度: ${difficultyToJapanese(item.difficulty as DifficultyRank)}`}
+                      >
                         {difficultyToJapanese(item.difficulty as DifficultyRank)}
                       </span>
                     </td>
-                    <td>
+                    <td role="gridcell" aria-label={item.rank ? `順位: ${item.rank}位` : '順位: 記録なし'}>
                       {item.rank ? (
-                        <span className={`rank-badge ${item.rank <= 3 ? `rank-${item.rank}` : ''}`}>
+                        <span 
+                          className={`rank-badge ${item.rank <= 3 ? `rank-${item.rank}` : ''}`}
+                          role="img"
+                          aria-label={`${item.rank}位`}
+                        >
                           {item.rank}<ruby>位<rt>い</rt></ruby>
                         </span>
-                      ) : '-'}
+                      ) : (
+                        <span aria-label="順位記録なし">-</span>
+                      )}
                     </td>
-                    <td>
+                    <td role="gridcell" aria-label={`正解数: ${item.correctAnswers ?? '?'}問中${item.totalProblems ?? 10}問`}>
                       <span className="score-display">
                         {item.correctAnswers ?? '?'} / {item.totalProblems ?? 10}
                       </span>
                     </td>
-                    <td>
+                    <td role="gridcell" aria-label={`解答時間: ${formatTime(item.totalTime || item.timeSpent)}`}>
                       {formatTime(item.totalTime || item.timeSpent)}
                     </td>
                   </tr>
@@ -392,7 +441,7 @@ const UserHistory = () => {
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

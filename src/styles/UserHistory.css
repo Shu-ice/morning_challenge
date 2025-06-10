@@ -1,5 +1,83 @@
 /* User History Page Styles - Beautiful Modern Design */
 
+/* CSS変数定義 - 一貫した設計システム */
+:root {
+  /* スペーシング */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* 色彩システム */
+  --primary-color: #007acc;
+  --primary-color-light: #5a9cff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --background-white: #ffffff;
+  --background-light: #f8f9fa;
+  --border-light: #e0e0e0;
+  --error-color: #dc2626;
+  --success-color: #28a745;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+  --purple-color: #6f42c1;
+
+  /* フォントサイズ */
+  --font-size-xs: 10px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-xxl: 32px;
+
+  /* 角の丸み */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* 影 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 25px 50px rgba(0, 0, 0, 0.15);
+
+  /* トランジション */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+}
+
+/* アクセシビリティ - スクリーンリーダー用の視覚的に隠れたテキスト */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* フォーカス管理 */
+.history-table th:focus,
+.history-table tbody tr:focus {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 2px;
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+.refresh-button:focus,
+.retry-button:focus {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 .user-history-container {
   width: 100%;
   max-width: 1000px;
@@ -9,6 +87,7 @@
   padding: 0;
   position: relative;
   overflow: hidden;
+  contain: layout style paint;
 }
 
 .user-history-container::before {
@@ -23,6 +102,7 @@
     radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
     radial-gradient(circle at 40% 40%, rgba(142, 142, 199, 0.2) 0%, transparent 50%);
   z-index: 1;
+  will-change: transform;
 }
 
 .user-history-container > * {
@@ -57,11 +137,13 @@
   border-radius: var(--radius-xl);
   padding: var(--spacing-xl);
   text-align: center;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-xl);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
+  transition: var(--transition-normal);
   position: relative;
   overflow: hidden;
+  contain: layout style paint;
+  transform: translateZ(0);
 }
 
 .streak-card::before {
@@ -72,7 +154,8 @@
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.1), transparent);
-  transition: left 0.5s;
+  transition: var(--transition-slow);
+  will-change: left;
 }
 
 .streak-card:hover::before {
@@ -80,8 +163,9 @@
 }
 
 .streak-card:hover {
-  transform: translateY(-8px);
+  transform: translateY(-8px) translateZ(0);
   box-shadow: 0 35px 70px rgba(0, 0, 0, 0.2);
+  will-change: transform, box-shadow;
 }
 
 .current-streak-card {
@@ -202,14 +286,17 @@
   padding: 0;
   overflow-x: auto;
   position: relative;
+  contain: layout style;
+  -webkit-overflow-scrolling: touch;
 }
 
 .history-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 14px;
-  min-width: 640px; /* 最小幅を設定してスクロール対応 */
+  font-size: var(--font-size-md);
+  min-width: 640px;
+  contain: layout style;
 }
 
 /* デスクトップ版の列幅（パーセンテージベース） */
@@ -232,24 +319,28 @@
 }
 
 .history-table th {
-  background: #f8f9fa;
+  background: var(--background-light);
   font-weight: 600;
-  color: #333;
-  font-size: 13px;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
   position: sticky;
   top: 0;
   z-index: 10;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
+  will-change: scroll-position;
+  contain: layout style;
 }
 
 .history-table td {
-  background: white;
-  font-size: 13px;
+  background: var(--background-white);
+  font-size: var(--font-size-sm);
 }
 
 /* テーブル行のホバー効果 - シンプル版 */
 .history-table tbody tr {
-  transition: background-color 0.2s ease;
+  transition: var(--transition-fast);
+  will-change: background-color;
+  contain: layout style paint;
 }
 
 .history-table tbody tr:hover {
@@ -262,8 +353,8 @@
 
 .difficulty-badge {
   display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 600;
   text-align: center;
@@ -273,56 +364,56 @@
 
 /* 難易度別の色分け */
 .difficulty-badge.difficulty-beginner {
-  background: #28a745;
-  color: white;
+  background: var(--success-color);
+  color: var(--background-white);
 }
 
 .difficulty-badge.difficulty-intermediate {
-  background: #ffc107;
-  color: #212529;
+  background: var(--warning-color);
+  color: var(--text-primary);
 }
 
 .difficulty-badge.difficulty-advanced {
-  background: #dc3545;
-  color: white;
+  background: var(--danger-color);
+  color: var(--background-white);
 }
 
 .difficulty-badge.difficulty-expert {
-  background: #6f42c1;
-  color: white;
+  background: var(--purple-color);
+  color: var(--background-white);
 }
 
 .rank-badge {
   display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
   font-size: 11px;
   font-weight: 600;
   text-align: center;
   min-width: 40px;
   background: #6c757d;
-  color: white;
+  color: var(--background-white);
 }
 
 /* ランク別の色分け */
 .rank-badge.rank-1 {
   background: #ffd700; /* 金色 */
-  color: #212529;
+  color: var(--text-primary);
 }
 
 .rank-badge.rank-2 {
   background: #c0c0c0; /* 銀色 */
-  color: #212529;
+  color: var(--text-primary);
 }
 
 .rank-badge.rank-3 {
   background: #cd7f32; /* 銅色 */
-  color: white;
+  color: var(--background-white);
 }
 
 .score-display {
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
 }
 
 /* ローディングとエラー */
@@ -344,11 +435,13 @@
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto var(--spacing-md);
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% { transform: rotate(0deg) translateZ(0); }
+  100% { transform: rotate(360deg) translateZ(0); }
 }
 
 .error-container {
