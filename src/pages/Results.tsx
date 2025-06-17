@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import '../styles/Results.css';
 import type { ApiResult } from '@/types/index';
 import { difficultyToJapanese } from '@/types/difficulty';
+import { formatTime } from '../utils/dateUtils';
 
 interface ResultsProps {
   results: ApiResult | null;
@@ -51,17 +52,7 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
   const difficulty = results.difficulty;
   const rank = results.rank; // rankもAPIから取得
   
-  // 時間をフォーマットする関数 (ミリ秒 -> 0.01秒単位) - UserHistory.tsx と同様の実装
-  const formatTime = (milliseconds: number | undefined): string => {
-    if (milliseconds === undefined || milliseconds === null || isNaN(milliseconds)) return '-';
-    try {
-      const seconds = milliseconds / 1000;
-      return `${seconds.toFixed(2)}秒`;
-    } catch (e) {
-      console.error('時間フォーマットエラー:', e);
-      return `${milliseconds} ms`; // エラー時はミリ秒をそのまま表示
-    }
-  };
+  // formatTime は dateUtils から利用
 
   const getResultMessage = () => {
     if (totalProblems === 0) return "";

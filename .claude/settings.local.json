@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(timeout:*)",
+      "Bash(node:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Bash(rm:*)",
+      "Bash(npm install)",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc:*)"
+    ],
+    "deny": []
+  }
+}

@@ -1,4 +1,4 @@
-const { logger } = require('../utils/logger');
+import { logger } from '../utils/logger.js';
 import User from '../models/User.js';
 import Result from '../models/Result.js';
 import DailyProblemSet from '../models/DailyProblemSet.js';

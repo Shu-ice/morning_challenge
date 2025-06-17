@@ -5,6 +5,7 @@ import '../styles/UserHistory.css';
 import { UserData, ProblemResult } from '../types/index';
 import axios from 'axios';
 import { logger } from '../utils/logger';
+import { formatTime } from '../utils/dateUtils';
 
 interface HistoryItem {
   _id: string;
@@ -266,29 +267,7 @@ const UserHistory = () => {
     }
   };
   
-  // 時間をフォーマットする関数
-  const formatTime = (milliseconds: number | undefined): string => {
-    if (milliseconds === undefined || milliseconds === null || isNaN(milliseconds)) return '-';
-    
-    // 負の値や異常に大きな値をチェック
-    if (milliseconds < 0) {
-      logger.warn('[UserHistory] Negative time value:', milliseconds);
-      return '-';
-    }
-    
-    if (milliseconds > 24 * 60 * 60 * 1000) { // 24時間より大きい値
-      logger.warn('[UserHistory] Unusually large time value:', milliseconds);
-      return `${Math.floor(milliseconds / 1000)}秒+`;
-    }
-    
-    try {
-      const seconds = milliseconds / 1000;
-      return `${seconds.toFixed(2)}秒`;
-    } catch (e) {
-      logger.error('時間フォーマットエラー:', e instanceof Error ? e : String(e));
-      return `${milliseconds} ms`;
-    }
-  };
+  // formatTime は dateUtils から利用
 
   // 手動リロードボタン
   const handleRefresh = () => {

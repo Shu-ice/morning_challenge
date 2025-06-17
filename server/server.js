@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import environmentConfig from './config/environment.js';
-const { logger } = require('./utils/logger');
+import { logger } from './utils/logger.js';
 
 // ESM環境で __dirname を再現
 const __filename = fileURLToPath(import.meta.url);

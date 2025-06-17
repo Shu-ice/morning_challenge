@@ -1,6 +1,6 @@
 // server/utils/problemGenerator.js
 
-const { logger } = require('./logger');
+import { logger } from './logger.js';
 import dayjs from 'dayjs'; // 追加: generateProblemsForNextDay で使用
 import DailyProblemSet from '../models/DailyProblemSet.js'; // 追加: generateProblemsForNextDay で使用
 import { DifficultyRank } from '../constants/difficultyRank.js'; // 独立ファイルからインポート

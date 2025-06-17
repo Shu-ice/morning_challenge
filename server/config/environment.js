@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-const { logger } = require('../utils/logger');
+import { logger } from '../utils/logger.js';
 
 // .envファイルを読み込み
 dotenv.config();

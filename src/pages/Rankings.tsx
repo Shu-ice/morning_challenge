@@ -5,8 +5,9 @@ import { Results, UserData } from '@/types/index';
 import { DifficultyRank } from '@/types/difficulty';
 import { GRADE_OPTIONS } from '@/types/grades';
 import { rankingAPI } from '../api/index';
-import { format, subDays, eachDayOfInterval } from 'date-fns';
+// date-fnsの使用を停止
 import LoadingSpinner from '../components/LoadingSpinner';
+import { formatTime } from '../utils/dateUtils';
 
 interface RankingsProps {
   results?: Results;
@@ -86,11 +87,22 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
     getInitialDifficulty()
   );
   
-  const today = new Date();
-  const lastWeek = subDays(today, 6);
-  const dateOptions = eachDayOfInterval({ start: lastWeek, end: today })
-    .map(date => format(date, 'yyyy-MM-dd'))
-    .reverse();
+  // 過去7日間の日付オプションを生成
+  const generateDateOptions = (): string[] => {
+    const options: string[] = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      options.push(dateString);
+    }
+    
+    return options;
+  };
+  
+  const dateOptions = generateDateOptions();
   
   const [selectedDate, setSelectedDate] = useState<string>(dateOptions[0]);
   const [currentUser, setCurrentUser] = useState<UserData | null>(getUserData());
@@ -130,14 +142,8 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
     fetchRankings();
   }, [fetchRankings]);
   
-  // 所要時間のフォーマット（ミリ秒 -> 秒単位で小数点以下2桁まで表示）
-  const formatTimeSpent = (timeInMilliseconds: number): string => {
-    if (timeInMilliseconds === undefined || timeInMilliseconds === null || isNaN(timeInMilliseconds)) {
-      return '-';
-    }
-    const timeInSeconds = timeInMilliseconds / 1000;
-    return `${timeInSeconds.toFixed(2)}秒`;
-  };
+  // formatTime は dateUtils から利用
+  const formatTimeSpent = formatTime; // 後方互換のためのエイリアス
 
   // 学年の表示処理を改善
   const formatGrade = (grade: string | number | undefined): string => {
@@ -186,7 +192,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
             className="filter-select"
             disabled={isLoading}
           >
-            {dateOptions.map((dateStr, index) => (
+            {dateOptions.map((dateStr: string, index: number) => (
               <option key={dateStr} value={dateStr}>
                 {index === 0 ? '今日' : dateStr}
               </option>

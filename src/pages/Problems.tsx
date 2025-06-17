@@ -8,7 +8,7 @@ import { problemsAPI } from '../api/index'; // ★ パスに index を明示的�
 import { DifficultyRank, difficultyToJapanese } from '../types/difficulty'; // 相対パスに変更
 import { usePreciseCountdown } from '../hooks/usePreciseCountdown'; // 相対パスに変更
 import axios, { isAxiosError } from 'axios';  // axiosのインポートをコメントアウト
-import { format } from 'date-fns'; // date-fns などの日付ライブラリを使用
+// import { format } from 'date-fns'; // date-fns の使用を停止
 import { useProblem } from '../contexts/ProblemContext'; // ★ useProblem をインポート
 import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -138,17 +138,8 @@ const calculateScore = (correct: number, total: number, time: number): number =>
   return Math.round(accuracyScore);
 };
 
-// YYYY-MM-DD形式の日付文字列を取得する関数
-const getFormattedDate = (date: Date): string => {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-};
-
-// 時間フォーマット関数 (秒単位、小数点以下2桁)
-const formatTime = (milliseconds: number) => {
-  const totalSeconds = milliseconds / 1000;
-  // 小数点以下は常に2桁表示
-  return `${totalSeconds.toFixed(2)}秒`;
-};
+// 統一ユーティリティのインポート
+import { getFormattedDate, formatTime } from '../utils/dateUtils';
 
 const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) => {
   // const { user } = useAuth(); // Comment out useAuth
@@ -467,32 +458,6 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     window.location.reload();
   };
 
-  // handleSubmitResults - Not used, kept for reference but commented out
-  /*
-  const handleSubmitResults = useCallback(async (finalResults: Results) => {
-    if (!currentUser?.token) {
-      logger.error('Cannot submit results without user token');
-      logger.error('結果の送信に失敗しました。ログイン状態を確認してください。');
-      return;
-    }
-    logger.debug("Submitting results:", typeof finalResults === 'object' ? JSON.stringify(finalResults) : String(finalResults));
-
-    try {
-      await axios.post('/api/results', finalResults, {
-         headers: {
-            Authorization: `Bearer ${currentUser.token}`,
-            'Content-Type': 'application/json'
-          },
-         baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000' 
-      });
-      onComplete(finalResults);
-    } catch (error) {
-      logger.error('Error submitting results:', error instanceof Error ? error : String(error));
-      logger.error('結果の送信中にエラーが発生しました。');
-    }
-  }, [currentUser?.token, onComplete]);
-  */
-
   // useEffect for timeout
   useEffect(() => {
       // remainingTime が 0 以下になり、かつゲームが開始されている場合
@@ -519,52 +484,40 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     }
   };
 
-  // 問題ロードと完了チェック (APIキャッシュを導入)
+  // ★ パフォーマンス最適化: 必要な値のみを依存配列に設定
+  const currentUserId = currentUser?._id;
+
+  // 問題ローディングのuseEffect - 最適化版
   useEffect(() => {
-    if (!currentUser || !currentUser.token) {
-      setIsLoading(false);
-      return;
-    }
-
-    // 完了チェックも selectedDate を基準にする
-    if (selectedDate === getFormattedDate(new Date()) && hasCompletedTodaysProblems(difficulty)) {
-      setAlreadyCompleted(true);
-      setIsLoading(false);
-      return;
-    } else {
-      setAlreadyCompleted(false);
-    }
-
     const loadProblems = async () => {
-      if (!currentUser || !currentUser._id) {
+      if (!currentUserId) {
         logger.error('[Problems] loadProblems: currentUser or currentUser._id is missing.');
-        setIsLoading(false);
         return;
       }
-      setIsLoading(true); 
-      logger.info(`[Problems] Loading problems for user: ${currentUser._id}, difficulty: ${difficulty}, date: ${selectedDate}`);
 
-      const cacheKey = `problems_${difficulty}_${selectedDate}`;
-      
-      // ★ 開発モードでは常にキャッシュをクリアして最新データを取得
+      setIsLoading(true);
+      logger.info(`[Problems] Loading problems for user: ${currentUserId}, difficulty: ${difficulty}, date: ${selectedDate}`);
+
+      const cacheKey = `problems_${difficulty}_${selectedDate}_${currentUserId}`;
+
+      // 開発モードでは常に最新データを取得
       if (import.meta.env.DEV) {
-        logger.debug('[Problems] Development mode: clearing cache to fetch latest data');
+        logger.info('[Problems] Development mode: clearing cache to fetch latest data');
         sessionStorage.removeItem(cacheKey);
       }
-      
-      const cachedProblems = sessionStorage.getItem(cacheKey);
-      
-      // キャッシュからの読み込み（開発モード以外）
-      if (cachedProblems && !import.meta.env.DEV) {
-        try {
-          const parsedProblems = JSON.parse(cachedProblems);
-          logger.debug('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: any) => p.id), null, 2));
+
+      // キャッシュから取得を試行
+      try {
+        const cachedData = sessionStorage.getItem(cacheKey);
+        if (cachedData) {
+          const parsedProblems = JSON.parse(cachedData) as ProblemData[];
+          logger.debug('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: ProblemData) => p.id), null, 2));
           setCurrentProblems(parsedProblems);
           setIsLoading(false);
           return;
-        } catch (parseError) {
-          logger.warn('問題キャッシュの解析に失敗しました:', parseError instanceof Error ? parseError : String(parseError));
         }
+      } catch (parseError) {
+        logger.warn('問題キャッシュの解析に失敗しました:', parseError instanceof Error ? parseError : String(parseError));
       }
 
       // API から問題を取得（統一リトライシステム使用）
@@ -601,7 +554,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
     loadProblems();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficulty, selectedDate, currentUser]);
+  }, [difficulty, selectedDate, currentUserId]); // 最適化: currentUserの代わりにcurrentUserIdのみ
 
   // ★ 経過時間タイマー (これは isStarted をトリガーにするので変更なし)
   useEffect(() => {
