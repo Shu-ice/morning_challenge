@@ -104,7 +104,7 @@ const saveCompletionData = (difficulty: DifficultyRank, user: UserData | null) =
     });
     localStorage.setItem('mathChallengeCompletion', JSON.stringify(parsedData));
   } catch (error) {
-    logger.error('Failed to save completion data:', error);
+    logger.error('Failed to save completion data:', error instanceof Error ? error : String(error));
   }
 };
 
@@ -125,7 +125,7 @@ export const getLastUsedDifficulty = (): DifficultyRank => {
     
     return 'beginner';
   } catch (error) {
-    logger.error('Failed to get last used difficulty:', error);
+    logger.error('Failed to get last used difficulty:', error instanceof Error ? error : String(error));
     return 'beginner';
   }
 };
@@ -187,7 +187,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       logger.info(`問題を取得します: 難易度=${difficulty}, 日付=${selectedDate}, ユーザーID=${currentUser._id}`);
       
       const apiResponse = await problemsAPI.getProblems(difficulty, selectedDate);
-      logger.debug('API応答:', apiResponse);
+      logger.debug('API応答:', typeof apiResponse === 'object' ? JSON.stringify(apiResponse) : String(apiResponse));
       
       if (!apiResponse.success || !apiResponse.problems || apiResponse.problems.length === 0) {
         const errorMsg = apiResponse.message || `${selectedDate}の${difficultyToJapanese(difficulty)}問題は見つかりませんでした。`;
@@ -225,7 +225,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           token: storedToken
         });
       } catch (e) {
-        logger.error("Failed to parse user info from localStorage", e);
+        logger.error("Failed to parse user info from localStorage", e instanceof Error ? e : String(e));
         setCurrentUser(null);
       }
     } else {
@@ -246,7 +246,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         try {
           inputRef.current.focus();
         } catch (error) {
-          logger.warn('[Problems] Failed to focus input:', error);
+          logger.warn('[Problems] Failed to focus input:', error instanceof Error ? error : String(error));
         }
       }
     }, 100);
@@ -369,7 +369,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         const parsedUser = JSON.parse(storedUser) as UserData;
         userId = parsedUser?._id || 'unknown_user';
       } catch (error) {
-        logger.error('[Problems] Failed to parse stored user data:', error);
+        logger.error('[Problems] Failed to parse stored user data:', error instanceof Error ? error : String(error));
         userId = 'unknown_user';
       }
     }
@@ -396,15 +396,15 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         userId: userId
       });
       
-      logger.debug('[Problems] API submitAnswers response:', response);
+      logger.debug('[Problems] API submitAnswers response:', typeof response === 'object' ? JSON.stringify(response) : String(response));
 
       if (response?.success && response.results) { // ★ .result を .results に変更
         // サーバーからの実績値を取得
         const apiResultFromServer = response.results; // ★ .result を .results に変更
 
         // ★★★ デバッグログ追加: APIレスポンス全体と、Resultsに渡すデータ ★★★
-        logger.debug('[Problems.tsx] Full API response:', JSON.stringify(response, null, 2));
-        logger.debug('[Problems.tsx] Data passed to onComplete (apiResultFromServer):', JSON.stringify(apiResultFromServer, null, 2));
+        logger.debug('[Problems.tsx] Full API response:', typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response));
+        logger.debug('[Problems.tsx] Data passed to onComplete (apiResultFromServer):', typeof apiResultFromServer === 'object' ? JSON.stringify(apiResultFromServer, null, 2) : String(apiResultFromServer));
         // ★★★ デバッグログここまで ★★★
 
         // ProblemContext の finalizeSession を呼び出し、サーバーからの結果を渡す
@@ -429,7 +429,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         // ここでは、エラー時は古い endSession のような形で、フロントエンド時間でセッションを終了する想定はしない。
       }
     } catch (error) {
-      logger.error('[Problems] Error submitting answers:', error);
+      logger.error('[Problems] Error submitting answers:', error instanceof Error ? error : String(error));
       if (isAxiosError(error) && error.response) {
         logger.error(error.response.data.message || '回答の送信中にエラーが発生しました。');
       } else {
@@ -467,14 +467,15 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     window.location.reload();
   };
 
-  // handleSubmitResults
-  const handleSubmitResults = useCallback(async (finalResults: ProblemResult) => {
+  // handleSubmitResults - Not used, kept for reference but commented out
+  /*
+  const handleSubmitResults = useCallback(async (finalResults: Results) => {
     if (!currentUser?.token) {
       logger.error('Cannot submit results without user token');
       logger.error('結果の送信に失敗しました。ログイン状態を確認してください。');
       return;
     }
-    logger.debug("Submitting results:", finalResults);
+    logger.debug("Submitting results:", typeof finalResults === 'object' ? JSON.stringify(finalResults) : String(finalResults));
 
     try {
       await axios.post('/api/results', finalResults, {
@@ -486,10 +487,11 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       });
       onComplete(finalResults);
     } catch (error) {
-      logger.error('Error submitting results:', error);
+      logger.error('Error submitting results:', error instanceof Error ? error : String(error));
       logger.error('結果の送信中にエラーが発生しました。');
     }
   }, [currentUser?.token, onComplete]);
+  */
 
   // useEffect for timeout
   useEffect(() => {
@@ -556,12 +558,12 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       if (cachedProblems && !import.meta.env.DEV) {
         try {
           const parsedProblems = JSON.parse(cachedProblems);
-          logger.debug('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: ProblemData) => p.id), null, 2));
+          logger.debug('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: any) => p.id), null, 2));
           setCurrentProblems(parsedProblems);
           setIsLoading(false);
           return;
         } catch (parseError) {
-          logger.warn('問題キャッシュの解析に失敗しました:', parseError);
+          logger.warn('問題キャッシュの解析に失敗しました:', parseError instanceof Error ? parseError : String(parseError));
         }
       }
 
@@ -576,7 +578,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
             question: problem?.question || `問題 ${index + 1}`,
             type: problem?.type || 'mixed'
           }));
-          logger.debug('[Problems API] Loaded from API:', JSON.stringify(formattedProblems.map((p: ProblemData) => p.id), null, 2));
+          logger.debug('[Problems API] Loaded from API:', JSON.stringify(formattedProblems.map((p: any) => p.id), null, 2));
           
           logger.info(`${formattedProblems.length}問の問題を取得しました`);
           setCurrentProblems(formattedProblems);
@@ -585,12 +587,12 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           try {
             sessionStorage.setItem(cacheKey, JSON.stringify(formattedProblems));
           } catch (cacheError) {
-            logger.warn('問題キャッシュの保存に失敗しました:', cacheError);
+            logger.warn('問題キャッシュの保存に失敗しました:', cacheError instanceof Error ? cacheError : String(cacheError));
           }
         }
       } catch (err: unknown) {
         const error = err as Error;
-        logger.error('問題の取得中にエラーが発生しました:', err);
+        logger.error('問題の取得中にエラーが発生しました:', err instanceof Error ? err : String(err));
         // エラーはproblemsApiWithRetryが管理
       } finally {
         setIsLoading(false);
@@ -631,7 +633,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
             // フォーカスが確実に設定されたか確認
             logger.debug('Input focused:', document.activeElement === inputRef.current);
           } catch (error) {
-            logger.warn('[Problems] Failed to focus input in useEffect:', error);
+            logger.warn('[Problems] Failed to focus input in useEffect:', error instanceof Error ? error : String(error));
           }
         }
       }, 100);

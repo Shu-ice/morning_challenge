@@ -17,7 +17,7 @@ const AdminLayout: React.FC = () => {
         // userInfo に isAdmin が含まれているか確認
         setIsAdmin(userData?.isAdmin === true); 
       } catch (e) {
-        logger.error("Failed to parse user info from localStorage", e);
+        logger.error("Failed to parse user info from localStorage", e instanceof Error ? e : String(e));
         setIsAdmin(false);
       }
     } else {

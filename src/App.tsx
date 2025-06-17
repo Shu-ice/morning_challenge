@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProblemProvider, useProblem } from './contexts/ProblemContext';
 import { MainLayout } from './layouts/MainLayout';
-import type { Results } from './types/index';
+import type { ApiResult } from './types/index';
 
 // ページコンポーネント
 import Home from './pages/Home';
@@ -150,7 +150,7 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute>
               <ResultsPage
-                results={currentSession as unknown as Results}
+                results={currentSession as unknown as ApiResult}
                 onViewRankings={() => {
                   // 難易度をランキングページに渡すためにstateを使用
                   navigate('/rankings', { 

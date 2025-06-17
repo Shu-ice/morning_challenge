@@ -292,7 +292,7 @@ const getSettings = (): ProblemSettings => {
       return JSON.parse(savedSettings);
     }
   } catch (error) {
-    logger.error("Failed to load problem settings:", error);
+    logger.error("Failed to load problem settings:", error instanceof Error ? error : String(error));
   }
   return defaultSettings;
 };
@@ -515,7 +515,7 @@ const generateSingleProblemInternal = (difficulty: DifficultyRank, seed: number)
     return null;
 
   } catch (error) {
-    logger.error(`[GenProbInt] Error generating problem:`, error);
+    logger.error(`[GenProbInt] Error generating problem:`, error instanceof Error ? error : String(error));
     return null;
   }
 };
@@ -576,7 +576,7 @@ export const generateProblems = (difficulty: DifficultyRank, count: number = 10)
         id: String(index),
     }));
   } catch (error) {
-    logger.error("Error in generateProblems wrapper:", error);
+    logger.error("Error in generateProblems wrapper:", error instanceof Error ? error : String(error));
     return [];
   }
 };

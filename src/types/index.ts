@@ -9,6 +9,7 @@ export interface Problem {
   difficulty: DifficultyRank;
   options?: number[];
   explanation?: string;
+  type?: string;
 }
 
 export interface ProblemResult {
@@ -80,23 +81,19 @@ export interface ApiResult {
   _id?: string; // _id はランキングや履歴用で、submit直後にはない可能性も考慮
   userId?: string;
   username?: string;
-  // problemResults: ProblemResult[]; // これは results.problems にあるので、ApiResult直下には不要かも。
-                                     // Problems.tsxのログでは APIレスポンスの `results` オブジェクトがこの型に相当し、
-                                     // その中に `problems` 配列がある。
   totalProblems: number;
   correctAnswers: number;
   incorrectAnswers: number;
   unanswered: number;
   totalTime: number;    // ミリ秒単位の合計解答時間 (サーバーレスポンスの totalTime)
   timeSpent: number;    // 秒単位の合計解答時間 (totalTime / 1000) (サーバーレスポンスの timeSpent)
-  problems: ProblemResult[]; // 詳細な問題ごとの結果 (サーバーレスポンスの problems)
+  results: ProblemResult[]; // 詳細な問題ごとの結果 (サーバーレスポンスの problems) - Note: renamed from 'problems' to 'results' for consistency
   score: number;
   difficulty: DifficultyRank; 
   date: string;
-  startTime: number; // サーバーで計算された開始時刻 (ミリ秒タイムスタンプ)
-  endTime: number;   // サーバーで計算された終了時刻 (ミリ秒タイムスタンプ)
+  startTime?: number; // サーバーで計算された開始時刻 (ミリ秒タイムスタンプ)
+  endTime?: number;   // サーバーで計算された終了時刻 (ミリ秒タイムスタンプ)
   rank?: number;
-  // rank?: number; // ランキングはレスポンスのトップレベルにあることが多い <- これはApiResultには不要で、SubmitApiResponseのような親の型で持つべき
 }
 
 // API共通レスポンス型

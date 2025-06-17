@@ -124,7 +124,7 @@ const UserHistory = () => {
           localStorage.removeItem('token');
         }
       } catch (e) {
-        logger.error("ユーザー情報の解析に失敗しました", e);
+        logger.error("ユーザー情報の解析に失敗しました", e instanceof Error ? e : String(e));
         setUser(null);
         localStorage.removeItem('user');
         localStorage.removeItem('token');
@@ -180,7 +180,7 @@ const UserHistory = () => {
         setError(response?.message || '履歴データの取得に失敗しました。');
       }
     } catch (err: unknown) {
-      logger.error('[UserHistory] 履歴取得エラー:', err);
+      logger.error('[UserHistory] 履歴取得エラー:', err instanceof Error ? err : String(err));
       let errorMessage = '履歴の取得中にエラーが発生しました。';
       
       if (axios.isAxiosError(err)) {
@@ -261,7 +261,7 @@ const UserHistory = () => {
         return date.toLocaleString('ja-JP', options);
       }
     } catch (e) {
-      logger.error('日付フォーマットエラー:', e);
+      logger.error('日付フォーマットエラー:', e instanceof Error ? e : String(e));
       return dateString || 'N/A';
     }
   };
@@ -285,7 +285,7 @@ const UserHistory = () => {
       const seconds = milliseconds / 1000;
       return `${seconds.toFixed(2)}秒`;
     } catch (e) {
-      logger.error('時間フォーマットエラー:', e);
+      logger.error('時間フォーマットエラー:', e instanceof Error ? e : String(e));
       return `${milliseconds} ms`;
     }
   };

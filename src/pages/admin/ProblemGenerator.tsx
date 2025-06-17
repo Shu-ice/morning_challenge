@@ -108,7 +108,7 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
         }
       }
     } catch (error) {
-      logger.error('ステータス確認エラー:', error);
+      logger.error('ステータス確認エラー:', error instanceof Error ? error : String(error));
       if (statusCheckInterval) {
         clearInterval(statusCheckInterval);
         setStatusCheckInterval(null);
@@ -203,7 +203,7 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
         setIsLoading(false);
       }
     } catch (err: unknown) {
-      logger.error('Problem generation error:', err);
+      logger.error('Problem generation error:', err instanceof Error ? err : String(err));
       
       const error = err as ApplicationError;
       const errorMessage = extractErrorMessage(error);

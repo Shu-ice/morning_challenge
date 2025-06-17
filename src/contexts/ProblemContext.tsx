@@ -43,8 +43,8 @@ export const ProblemProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const finalSession: PracticeSession = {
         ...currentSession, // id, userId, difficulty は元のセッションのものを維持
-        startTime: new Date(serverStartTimeMs).toISOString(), // サーバーの開始時刻 (ISO文字列に変換)
-        endTime: new Date(serverEndTimeMs).toISOString(),   // サーバーの終了時刻 (ISO文字列に変換)
+        startTime: serverStartTimeMs ? new Date(serverStartTimeMs).toISOString() : new Date().toISOString(), // サーバーの開始時刻 (ISO文字列に変換)
+        endTime: serverEndTimeMs ? new Date(serverEndTimeMs).toISOString() : new Date().toISOString(),   // サーバーの終了時刻 (ISO文字列に変換)
         results: detailedResults, // これは引数で渡ってくるのでそのまま使用
         score: scoreFromServer,
         totalTime: serverTotalTimeMs, // ★ totalTime を設定

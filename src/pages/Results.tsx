@@ -1,28 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import '../styles/Results.css';
-// import type { PracticeSession, ProblemResult } from '@/types/index'; // ★ PracticeSession は使わない
-import type { ProblemResult } from '@/types/index'; // ProblemResult は流用
-import { difficultyToJapanese, DifficultyRank } from '@/types/difficulty'; // ★ DifficultyRank もインポート
-
-// ★ サーバーの resultsData に合わせた型定義
-interface ApiResultData {
-  totalProblems: number;
-  correctAnswers: number;
-  incorrectAnswers: number;
-  unanswered: number;
-  totalTime: number; // ★ APIレスポンスの totalTime (ミリ秒単位) を使用
-  // timeSpent: number; // 秒単位のものは不要であれば削除、または型を修正
-  results: ProblemResult[];
-  score: number;
-  difficulty: DifficultyRank;
-  date: string;
-  startTime?: number;
-  endTime?: number;
-  rank?: number;
-}
+import type { ApiResult } from '@/types/index';
+import { difficultyToJapanese } from '@/types/difficulty';
 
 interface ResultsProps {
-  results: ApiResultData | null; // ★ 型を変更
+  results: ApiResult | null;
   onViewRankings: () => void;
   onBackToHome: () => void;
 }

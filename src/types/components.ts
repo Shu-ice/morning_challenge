@@ -1,4 +1,4 @@
-import { UserData, Problem, ProblemResult, DifficultyRank } from './index';
+import { UserData, Problem, ProblemResult, DifficultyRank, Results } from './index';
 
 export interface LoginProps {
   onLogin: (userData: UserData, token: string) => void;
@@ -18,12 +18,12 @@ export interface HomeProps {
 
 export interface ProblemsProps {
   difficulty: DifficultyRank;
-  onComplete: (results: ProblemResult[]) => void;
+  onComplete: (results: Results) => void;
   onBack: () => void;
 }
 
 export interface ResultsProps {
-  results: ProblemResult[];
+  results: Results;
   onViewRankings: () => void;
   onBackToHome: () => void;
 }
