@@ -1,3 +1,4 @@
+const { logger } = require('../utils/logger');
 import User from '../models/User.js';
 import Result from '../models/Result.js';
 import DailyProblemSet from '../models/DailyProblemSet.js';
@@ -52,11 +53,11 @@ export const getProblems = async (req, res) => {
         });
       }
       
-    console.log(`[getProblems] 検索条件: date=${targetDate}, difficulty=${difficulty}`);
+    logger.debug(`[getProblems] 検索条件: date=${targetDate}, difficulty=${difficulty}`);
     const problemSet = await DailyProblemSet.findOne({ date: targetDate, difficulty: difficulty });
 
     if (!problemSet || !problemSet.problems || problemSet.problems.length === 0) {
-      console.warn(`[getProblems] No problem set found for ${targetDate} (${difficulty}). Returning 404.`);
+      logger.warn(`[getProblems] No problem set found for ${targetDate} (${difficulty}). Returning 404.`);
       return res.status(404).json({
         success: false,
         message: `指定された日付・難易度の問題が見つかりません: ${targetDate} (${difficulty})`,
@@ -65,13 +66,13 @@ export const getProblems = async (req, res) => {
     }
 
     // ★ デバッグログ追加
-    console.log(`[getProblems] 取得した問題セット詳細:`);
-    console.log(`  - 日付: ${problemSet.date}`);
-    console.log(`  - 難易度: ${problemSet.difficulty}`);
-    console.log(`  - 問題数: ${problemSet.problems.length}`);
-    console.log(`  - 最初の3問:`);
+    logger.debug(`[getProblems] 取得した問題セット詳細:`);
+    logger.debug(`  - 日付: ${problemSet.date}`);
+    logger.debug(`  - 難易度: ${problemSet.difficulty}`);
+    logger.debug(`  - 問題数: ${problemSet.problems.length}`);
+    logger.debug(`  - 最初の3問:`);
     problemSet.problems.slice(0, 3).forEach((p, i) => {
-      console.log(`    問題${i + 1}: ID=${p.id}, 質問="${p.question}", 正解=${p.correctAnswer}`);
+      logger.debug(`    問題${i + 1}: ID=${p.id}, 質問="${p.question}", 正解=${p.correctAnswer}`);
     });
 
     const problemsForClient = problemSet.problems.map(p => ({
@@ -91,7 +92,7 @@ export const getProblems = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('問題取得エラー:', error);
+    logger.error('問題取得エラー:', error);
     res.status(500).json({ 
       success: false, 
       message: 'サーバーエラーが発生しました。' 
@@ -113,7 +114,7 @@ export const getProblemSetForEdit = async (req, res) => {
   }
 
   try {
-    console.log(`[getProblemSetForEdit] 検索条件: date=${date}, difficulty=${difficulty}`);
+    logger.debug(`[getProblemSetForEdit] 検索条件: date=${date}, difficulty=${difficulty}`);
     const problemSet = await DailyProblemSet.findOne({ date, difficulty });
 
     if (!problemSet) {
@@ -124,13 +125,13 @@ export const getProblemSetForEdit = async (req, res) => {
     }
 
     // ★ デバッグログ追加
-    console.log(`[getProblemSetForEdit] 取得した問題セット詳細:`);
-    console.log(`  - 日付: ${problemSet.date}`);
-    console.log(`  - 難易度: ${problemSet.difficulty}`);
-    console.log(`  - 問題数: ${problemSet.problems.length}`);
-    console.log(`  - 最初の3問:`);
+    logger.debug(`[getProblemSetForEdit] 取得した問題セット詳細:`);
+    logger.debug(`  - 日付: ${problemSet.date}`);
+    logger.debug(`  - 難易度: ${problemSet.difficulty}`);
+    logger.debug(`  - 問題数: ${problemSet.problems.length}`);
+    logger.debug(`  - 最初の3問:`);
     problemSet.problems.slice(0, 3).forEach((p, i) => {
-      console.log(`    問題${i + 1}: ID=${p.id}, 質問="${p.question}", 正解=${p.correctAnswer}`);
+      logger.debug(`    問題${i + 1}: ID=${p.id}, 質問="${p.question}", 正解=${p.correctAnswer}`);
     });
 
     // 問題セット全体を返す (編集に必要なすべての情報を含むことを想定)
@@ -140,7 +141,7 @@ export const getProblemSetForEdit = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('問題セット編集用取得エラー:', error);
+    logger.error('問題セット編集用取得エラー:', error);
     res.status(500).json({ 
       success: false, 
       message: 'サーバーエラーが発生しました。' 
@@ -174,7 +175,7 @@ export const generateProblemSet = async (req, res) => {
 
     // 問題を生成
     const requestId = uuidv4();
-    console.log(`[generateProblemSet] 問題生成開始: ${date}, ${difficulty}, ${count}問`);
+    logger.info(`[generateProblemSet] 問題生成開始: ${date}, ${difficulty}, ${count}問`);
     
     const generatedProblems = await generateProblems(difficulty, count, null, requestId);
     
@@ -223,7 +224,7 @@ export const generateProblemSet = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('問題生成エラー:', error);
+    logger.error('問題生成エラー:', error);
     res.status(500).json({ 
       success: false, 
       message: 'サーバーエラーが発生しました。',
@@ -271,7 +272,7 @@ export const saveEditedProblems = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('問題編集保存エラー:', error);
+    logger.error('問題編集保存エラー:', error);
     res.status(500).json({ 
       success: false, 
       message: 'サーバーエラーが発生しました。',
@@ -311,7 +312,7 @@ export const getGenerationStatus = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('進捗状況確認エラー:', error);
+    logger.error('進捗状況確認エラー:', error);
     res.status(500).json({ 
       success: false, 
       message: 'サーバーエラーが発生しました。',
@@ -335,7 +336,7 @@ export const submitAnswers = async (req, res) => {
 
   try {
     // データベースから問題セット取得
-    console.log(`[Submit] 問題セット取得: date=${date}, difficulty=${difficulty}`);
+    logger.debug(`[Submit] 問題セット取得: date=${date}, difficulty=${difficulty}`);
     
     const problemSet = await DailyProblemSet.findOne({ date, difficulty });
     
@@ -361,28 +362,28 @@ export const submitAnswers = async (req, res) => {
         if (problem) {
           orderedProblems.push(problem);
         } else {
-          console.warn(`[Submit] 問題ID ${id} がデータベースに見つかりません`);
+          logger.warn(`[Submit] 問題ID ${id} がデータベースに見つかりません`);
         }
       }
       
       if (orderedProblems.length > 0) {
         problems = orderedProblems;
-        console.log(`[Submit] 問題IDの順序に合わせて問題を並び替えました: ${problems.length}問`);
+        logger.debug(`[Submit] 問題IDの順序に合わせて問題を並び替えました: ${problems.length}問`);
       } else {
-        console.warn(`[Submit] 問題IDマッチングに失敗、元の順序を使用`);
+        logger.warn(`[Submit] 問題IDマッチングに失敗、元の順序を使用`);
       }
     }
     
     // ★ デバッグログ: 使用している問題ソースと回答数を確認
-    console.log(`[Submit Controller] Date: ${date}, Difficulty: ${difficulty}`);
-    console.log(`[Submit Controller] Problems count: ${problems.length}`);
-    console.log(`[Submit Controller] Problem IDs used: ${problems.map(p => p.id).join(', ')}`);
-    console.log(`[Submit Controller] Received answers count: ${answers ? answers.length : 'N/A'}`);
+    logger.debug(`[Submit Controller] Date: ${date}, Difficulty: ${difficulty}`);
+    logger.debug(`[Submit Controller] Problems count: ${problems.length}`);
+    logger.debug(`[Submit Controller] Problem IDs used: ${problems.map(p => p.id).join(', ')}`);
+    logger.debug(`[Submit Controller] Received answers count: ${answers ? answers.length : 'N/A'}`);
     // ★ デバッグログここまで
     
     // 問題数と解答数の検証
     if (!Array.isArray(answers) || problems.length !== answers.length) {
-      console.error(`[Submit Controller] Validation Error: Expected ${problems.length} problems, but received ${answers?.length} answers.`);
+      logger.error(`[Submit Controller] Validation Error: Expected ${problems.length} problems, but received ${answers?.length} answers.`);
       return res.status(400).json({
         success: false,
         error: '問題数と解答数が一致しません。'
@@ -468,10 +469,10 @@ export const submitAnswers = async (req, res) => {
     let user = null;
     if (userId) {
       user = await User.findById(userId).lean();
-      console.log(`[Submit] ユーザー検索 (ID): ${user ? '見つかりました' : '見つかりません'}`);
+      logger.debug(`[Submit] ユーザー検索 (ID): ${user ? '見つかりました' : '見つかりません'}`);
     } else if (req.user && req.user._id) {
       user = await User.findById(req.user._id).lean();
-      console.log(`[Submit] ユーザー検索 (req.user): ${user ? '見つかりました' : '見つかりません'}`);
+      logger.debug(`[Submit] ユーザー検索 (req.user): ${user ? '見つかりました' : '見つかりません'}`);
     }
     
     // 結果の保存
@@ -497,19 +498,19 @@ export const submitAnswers = async (req, res) => {
           setDefaultsOnInsert: true 
         }
       );
-      console.log(`[Submit] 結果を保存/更新しました (1日1レコード): ID=${savedResult._id}, UpsertedId=${savedResult.upsertedId || 'N/A'}`);
+      logger.info(`[Submit] 結果を保存/更新しました (1日1レコード): ID=${savedResult._id}, UpsertedId=${savedResult.upsertedId || 'N/A'}`);
       
       // ランキング情報の取得を試みる
       try {
         const rank = await getRankForResult(savedResult);
         resultsData.rank = rank;
-        console.log(`[Submit] ランキング計算: ${rank}位`);
+        logger.debug(`[Submit] ランキング計算: ${rank}位`);
       } catch (rankErr) {
-        console.error('[Submit] ランキング計算エラー:', rankErr);
+        logger.error('[Submit] ランキング計算エラー:', rankErr);
         // ランキング計算エラーは無視して処理を続行
       }
     } else {
-      console.log('[Submit] 有効なユーザーが見つからないため、結果を保存しません');
+      logger.debug('[Submit] 有効なユーザーが見つからないため、結果を保存しません');
     }
     
     // クライアントに結果を返す
@@ -520,7 +521,7 @@ export const submitAnswers = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('[Submit] Error:', error);
+    logger.error('[Submit] Error:', error);
     res.status(500).json({ 
       success: false, 
       message: '回答の処理中にエラーが発生しました',
@@ -561,7 +562,7 @@ export const getHistory = async (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ success: true, count: history.length, data: history });
   } catch (error) {
-    console.error('履歴取得エラー:', error);
+    logger.error('履歴取得エラー:', error);
     res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
   }
 };

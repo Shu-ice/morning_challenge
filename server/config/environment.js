@@ -1,111 +1,98 @@
-require('dotenv').config();
+import dotenv from 'dotenv';
+const { logger } = require('../utils/logger');
+
+// .envファイルを読み込み
+dotenv.config();
 
 /**
- * 環境変数設定と検証
+ * 環境設定管理クラス
  */
 class EnvironmentConfig {
   constructor() {
-    this.validateRequiredEnvVars();
-    this.config = {
-      // サーバー設定
-      NODE_ENV: process.env.NODE_ENV || 'development',
-      PORT: parseInt(process.env.PORT) || 3001,
-      HOST: process.env.HOST || 'localhost',
-
-      // データベース設定
-      MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/morning_challenge',
-
-      // セキュリティ設定
-      JWT_SECRET: process.env.JWT_SECRET || 'default-secret-change-in-production',
-      BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS) || 12,
-
-      // CORS設定
-      CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
-
-      // レート制限設定
-      RATE_LIMIT_WINDOW: parseInt(process.env.RATE_LIMIT_WINDOW) || 15 * 60 * 1000, // 15分
-      RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX) || 100,
-
-      // ログ設定
-      LOG_LEVEL: process.env.LOG_LEVEL || 'info',
-
-      // 問題生成設定
-      MAX_PROBLEMS_PER_REQUEST: parseInt(process.env.MAX_PROBLEMS_PER_REQUEST) || 10,
-      CACHE_TTL: parseInt(process.env.CACHE_TTL) || 3600 // 1時間（秒）
-    };
-  }
-
-  /**
-   * 必須環境変数の検証
-   */
-  validateRequiredEnvVars() {
-    const required = [];
+    this.environment = process.env.NODE_ENV || 'development';
+    this.port = parseInt(process.env.PORT || process.env.BACKEND_PORT || '5003', 10);
+    this.frontendPort = parseInt(process.env.FRONTEND_PORT || '3004', 10);
+    this.jwtSecret = process.env.JWT_SECRET;
+    this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '30d';
+    this.mongodbUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/morning_challenge';
+    this.mongodbMock = process.env.MONGODB_MOCK === 'true';
+    this.disableTimeCheck = process.env.DISABLE_TIME_CHECK === 'true';
+    this.logLevel = process.env.LOG_LEVEL || 'info';
     
-    // 本番環境でのみ必須
-    if (process.env.NODE_ENV === 'production') {
-      required.push('JWT_SECRET', 'MONGODB_URI');
-    }
+    this.validateConfig();
+  }
 
-    const missing = required.filter(key => !process.env[key]);
+  /**
+   * 必須設定項目の検証
+   */
+  validateConfig() {
+    if (!this.jwtSecret) {
+      throw new Error('JWT_SECRET環境変数が設定されていません');
+    }
     
-    if (missing.length > 0) {
-      console.error('❌ 必須の環境変数が設定されていません:', missing.join(', '));
-      console.error('💡 .env.exampleファイルを参考にしてください');
-      process.exit(1);
+    if (this.jwtSecret.length < 32) {
+      logger.warn('⚠️ JWT_SECRETが短すぎます。セキュリティのため32文字以上を推奨します。');
     }
-  }
-
-  /**
-   * 設定を取得
-   */
-  get(key) {
-    return this.config[key];
-  }
-
-  /**
-   * 全設定を取得
-   */
-  getAll() {
-    return { ...this.config };
+    
+    if (this.environment === 'production' && this.mongodbMock) {
+      logger.warn('⚠️ 本番環境でモックデータベースが有効になっています。');
+    }
   }
 
   /**
    * 開発環境かどうか
    */
   isDevelopment() {
-    return this.config.NODE_ENV === 'development';
+    return this.environment === 'development';
   }
 
   /**
    * 本番環境かどうか
    */
   isProduction() {
-    return this.config.NODE_ENV === 'production';
+    return this.environment === 'production';
   }
 
   /**
    * テスト環境かどうか
    */
   isTest() {
-    return this.config.NODE_ENV === 'test';
+    return this.environment === 'test';
   }
 
   /**
-   * 設定情報をログ出力（機密情報は隠す）
+   * CORS設定を取得
    */
-  logConfig() {
-    const safeConfig = { ...this.config };
+  getCorsOrigin() {
+    if (this.isDevelopment()) {
+      return [`http://localhost:${this.frontendPort}`, 'http://localhost:3000'];
+    }
     
-    // 機密情報をマスク
-    if (safeConfig.JWT_SECRET) {
-      safeConfig.JWT_SECRET = '***masked***';
-    }
-    if (safeConfig.MONGODB_URI && safeConfig.MONGODB_URI.includes('@')) {
-      safeConfig.MONGODB_URI = safeConfig.MONGODB_URI.replace(/\/\/.*@/, '//***:***@');
-    }
+    // 本番環境では環境変数から取得
+    return process.env.CORS_ORIGIN?.split(',') || false;
+  }
 
-    console.log('🔧 環境設定:', JSON.stringify(safeConfig, null, 2));
+  /**
+   * データベース接続文字列を取得
+   */
+  getDatabaseUrl() {
+    return this.mongodbUri;
+  }
+
+  /**
+   * 設定情報を表示（機密情報はマスク）
+   */
+  displayConfig() {
+    logger.info('📋 現在の設定:');
+    logger.info(`   環境: ${this.environment}`);
+    logger.info(`   ポート: ${this.port}`);
+    logger.info(`   フロントエンドポート: ${this.frontendPort}`);
+    logger.info(`   JWT有効期限: ${this.jwtExpiresIn}`);
+    logger.info(`   MongoDB URI: ${this.mongodbUri.replace(/\/\/.*@/, '//***:***@')}`); // パスワードをマスク
+    logger.info(`   モックDB: ${this.mongodbMock}`);
+    logger.info(`   時間制限無効: ${this.disableTimeCheck}`);
+    logger.info(`   ログレベル: ${this.logLevel}`);
   }
 }
 
-module.exports = new EnvironmentConfig(); 
+export default new EnvironmentConfig(); 

@@ -49,11 +49,6 @@ export interface UserData {
   isAdmin?: boolean;
 }
 
-export interface LoginCredentials {
-  username: string;
-  password: string;
-}
-
 // Login APIからのレスポンスデータの型定義
 export interface LoginResponseData {
   success: boolean;
@@ -102,4 +97,131 @@ export interface ApiResult {
   endTime: number;   // サーバーで計算された終了時刻 (ミリ秒タイムスタンプ)
   rank?: number;
   // rank?: number; // ランキングはレスポンスのトップレベルにあることが多い <- これはApiResultには不要で、SubmitApiResponseのような親の型で持つべき
-} 
+}
+
+// API共通レスポンス型
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
+// 問題取得APIレスポンス型
+export interface ProblemsApiResponse {
+  success: boolean;
+  problems: Problem[];
+  message?: string;
+}
+
+// 回答送信APIレスポンス型
+export interface SubmitAnswersApiResponse {
+  success: boolean;
+  results: ApiResult;
+  message?: string;
+  rank?: number;
+}
+
+// エラーレスポンス型
+export interface ErrorResponse {
+  success: false;
+  message: string;
+  errors?: ValidationError[];
+}
+
+export interface ValidationError {
+  field: string;
+  msg: string;
+}
+
+// ランキングAPIレスポンス型
+export interface RankingApiResponse {
+  success: boolean;
+  users: RankingUser[];
+  message?: string;
+}
+
+export interface RankingUser {
+  _id: string;
+  username: string;
+  avatar?: string;
+  grade?: number;
+  points?: number;
+  totalScore?: number;
+}
+
+// プロフィール更新APIレスポンス型
+export interface ProfileUpdateApiResponse {
+  success: boolean;
+  user: UserData;
+  message?: string;
+}
+
+// 認証関連の型定義
+export interface RegisterData {
+  username: string;
+  email: string;
+  password: string;
+  grade?: number;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface ProfileUpdateData {
+  grade?: number;
+  avatar?: string;
+}
+
+// HTTP Request type for error handling
+export interface HttpRequest {
+  method?: string;
+  url?: string;
+  headers?: Record<string, string>;
+  body?: unknown;
+  timeout?: number;
+}
+
+// Logger argument types
+export type LoggerArgs = (string | number | boolean | object | Error | null | undefined)[];
+
+// History API response type
+export interface HistoryApiResponse {
+  success: boolean;
+  history: HistoryItem[];
+  currentStreak?: number;
+  maxStreak?: number;
+  message?: string;
+}
+
+// History item type
+export interface HistoryItem {
+  _id?: string;
+  date: string;
+  difficulty: DifficultyRank;
+  timeSpent: number;
+  totalTime?: number;
+  score: number;
+  correctAnswers: number;
+  totalProblems: number;
+  incorrectAnswers?: number;
+  unanswered?: number;
+  rank?: number;
+  timestamp?: string;
+  createdAt?: string;
+  userId?: string;
+  username?: string;
+  grade?: number;
+  problems?: ProblemResult[];
+}
+
+// 回答送信データ型
+export interface SubmitAnswersRequest {
+  difficulty: DifficultyRank;
+  date: string;
+  problemIds: string[];
+  answers: string[];
+  timeSpentMs: number;
+  userId: string;
+}

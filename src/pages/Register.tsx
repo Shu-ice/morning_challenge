@@ -75,21 +75,23 @@ function Register({ onRegister, onLogin }: RegisterProps) {
         console.error('[Register] Invalid response structure:', response);
         throw new Error(errorMessage);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Register] API登録エラー:', err);
       
-      if (err.code === 'ERR_NETWORK') {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'ERR_NETWORK') {
         setError('サーバーに接続できません。サーバーが起動しているか確認してください。');
-      } else if (err.response) {
-        const backendErrors = err.response?.data?.errors;
+      } else if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { errors?: Array<{ msg: string }>; error?: string; message?: string } }; message?: string };
+        const backendErrors = axiosError.response?.data?.errors;
         if (backendErrors && Array.isArray(backendErrors)) {
-          setError(backendErrors.map((e: any) => e.msg).join(', '));
+          setError(backendErrors.map((e: { msg: string }) => e.msg).join(', '));
         } else {
-          const message = err.response?.data?.error || err.response?.data?.message || err.message || '登録処理中にエラーが発生しました。';
+          const message = axiosError.response?.data?.error || axiosError.response?.data?.message || axiosError.message || '登録処理中にエラーが発生しました。';
           setError(message);
         }
       } else {
-        setError('ネットワークエラー: ' + (err.message || '登録処理中に不明なエラーが発生しました'));
+        const errorMessage = err instanceof Error ? err.message : '登録処理中に不明なエラーが発生しました';
+        setError('ネットワークエラー: ' + errorMessage);
       }
     } finally {
       setIsLoading(false);

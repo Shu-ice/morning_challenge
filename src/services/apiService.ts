@@ -46,7 +46,7 @@ class ApiService {
   }
 
   // POSTリクエスト
-  async post(endpoint: string, data: any) {
+  async post(endpoint: string, data: unknown) {
     try {
       console.log(`[ApiService] POST request to: ${this.baseUrl}${endpoint}`, data);
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -68,7 +68,7 @@ class ApiService {
   }
 
   // PUTリクエスト
-  async put(endpoint: string, data: any) {
+  async put(endpoint: string, data: unknown) {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         method: 'PUT',

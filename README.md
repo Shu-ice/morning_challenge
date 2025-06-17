@@ -1,218 +1,172 @@
-# MongoDB起動
-# Windowsの場合
-# 管理者権限でコマンドプロンプトを開き、以下を実行
-# "C:\Program Files\MongoDB\Server\{version}\bin\mongod.exe" --dbpath="C:\data\db"
+# 🌅 Morning Math Challenge
 
-# macOSの場合
-# brew services start mongodb-community
+朝の計算チャレンジアプリ - React + Node.js + MongoDB で構築されたフルスタック数学練習プラットフォーム
 
-# サーバー起動手順
-# サーバーディレクトリに移動し、以下を実行
-cd server
+## 📋 **プロジェクト概要**
+
+毎朝6:30-8:00の時間帯に数学問題にチャレンジできるWebアプリケーションです。
+- 難易度別の問題生成
+- リアルタイムランキング
+- 学習履歴の管理
+- 管理者機能
+
+## 🚀 **技術スタック**
+
+### フロントエンド
+- **React 19** + **TypeScript**
+- **Vite** (開発サーバー)
+- **Tailwind CSS** (スタイリング)
+- **React Router** (ルーティング)
+- **TanStack Query** (状態管理・API通信)
+
+### バックエンド
+- **Node.js** + **Express** (ES6モジュール)
+- **MongoDB** + **Mongoose** (データベース)
+- **JWT** (認証)
+- **bcryptjs** (パスワードハッシュ)
+
+### 開発環境
+- **TypeScript** (型安全性)
+- **ESLint** (コード品質)
+- **concurrently** (同時実行)
+
+## 🔧 **セットアップ**
+
+### 1. 依存関係のインストール
+```bash
+# ルートディレクトリ
 npm install
+
+# サーバー側の依存関係
+cd server && npm install
+```
+
+### 2. 環境変数の設定
+```bash
+# env.example をコピーして .env ファイルを作成
+cp env.example .env
+
+# server/.env ファイルを作成
+cd server
+cp ../env.example .env
+```
+
+### 3. 開発サーバーの起動
+```bash
+# フロントエンド + バックエンド同時起動
 npm run dev
 
-# 別のターミナルでクライアント起動
-cd ..
-npm install
-npm start
+# 個別起動
+npm run dev:frontend  # フロントエンド (Vite)
+npm run dev:backend   # バックエンド (Node.js)
+```
 
-# 完全に開発モードで動かしたい場合（時間制限を無視する）
-# 問題取得APIに?skipTimeCheck=trueを追加
-# 例: GET /api/problems?skipTimeCheck=true
+### 4. アクセス
+- **フロントエンド**: http://localhost:3004 (または自動割り当てポート)
+- **バックエンドAPI**: http://localhost:5003
+- **管理者アカウント**: admin@example.com / admin123
 
-# 朝の計算チャレンジアプリケーション
-
-本アプリケーションは、朝の学習時間に算数の練習ができるウェブアプリケーションです。
-学年や難易度に応じた問題を生成し、解答を記録して成績を確認できます。
-
-## 主な機能
-
-- ユーザー登録・ログイン機能
-- 学年（1〜6年）に応じた問題生成
-- 難易度別（初級、中級、上級、超級）の問題提供
-- 解答記録と成績管理
-- ランキング表示
-- 管理者機能（問題バッチ生成、ユーザー管理）
-
-## 最近の主な改善点 (2023-12-20更新)
-
-### Expert難易度の問題生成安定化
-
-- **問題生成アルゴリズムの最適化**
-  - Expert難易度での項の数を2つに固定（計算量削減）
-  - 数値の生成範囲を制限し、タイムアウトリスクを低減
-  - 早期タイムアウト検出機能の追加（10秒以上かかる場合）
-
-- **パフォーマンス改善**
-  - 問題生成処理のキャッシュ機能強化
-  - 生成の進捗状況追跡システムの実装
-  - 一度に生成できる問題数を10問に制限（安定性確保）
-  - フォールバックメカニズムの導入（タイムアウト時に部分的な結果を保存）
-
-- **サーバー設定の最適化**
-  - サーバーのタイムアウト設定を120秒に延長
-  - リクエスト本文のサイズ制限を増加（10MB）
-  - 非同期処理と進捗状況の監視機能を追加
-
-- **UI改善**
-  - 問題生成進捗のリアルタイム表示
-  - 難易度ごとの最大問題数の制限表示
-  - タイムアウト時の適切なエラーメッセージ
-  - 強制更新機能の追加（既存問題の上書き）
-
-## 開発環境のセットアップ
-
-### 前提条件
-- Node.js (v14以上)
-- MongoDB
-
-### インストール手順
-1. リポジトリをクローン
-   ```
-   git clone <repository-url>
-   ```
-
-2. パッケージのインストール
-   ```
-   npm install
-   ```
-
-3. 環境変数の設定
-   `.env`ファイルを作成し、以下の変数を設定
-   ```
-   NODE_ENV=development
-   PORT=5000
-   MONGO_URI=<your-mongodb-connection-string>
-   JWT_SECRET=<your-jwt-secret>
-   DISABLE_TIME_CHECK=true  # 開発時は時間チェックを無効化
-   ```
-
-4. 開発サーバーの起動
-   ```
-   npm run dev
-   ```
-
-## ライセンス
-このプロジェクトは[MITライセンス](LICENSE)の下で公開されています。
-
-## リファクタリング提案
-
-現在のコードベースには、以下の改善が必要です：
-
-1. **サーバーコードの統一**
-   - 現在`server/`と`backend/`にサーバーコードが分散
-   - 推奨：`backend/`を削除し、`server/`に一本化
-
-2. **ポート設定の統一**
-   - フロントエンドとバックエンドで異なるポート設定
-   - 統一したポート（5003）を使用するように設定
-
-3. **フロントエンド-バックエンド通信**
-   - API URLの設定を環境変数で一元管理
-   - `VITE_API_URL`を使った柔軟な設定
-
-4. **開発環境の整備**
-   - `.env`ファイルの作成と管理
-   - 開発/本番環境の切り替えの容易化
-
-5. **エラーハンドリングの強化**
-   - タイムアウト設定の調整
-   - エラーメッセージの改善
-
-## ユーザー識別の最適化 (NEW)
-
-アプリケーションの信頼性と拡張性を向上させるために、ユーザー識別方法を`username`ベースから`userId`ベースに変更しました。
-
-### 変更の理由
-- **データの一貫性**: ユーザー名は変更される可能性がありますが、IDは不変です
-- **効率性**: 整数型IDでのクエリは文字列での検索よりも高速です
-- **セキュリティ**: ユーザー名の代わりにIDを使用することでセキュリティが向上します
-- **拡張性**: 外部サービスとの連携時に一貫した参照が可能になります
-
-### 実装の詳細
-- サーバー側とクライアント側の両方で`userId`を優先的に使用するよう修正
-- 後方互換性のために`username`も引き続きサポート
-- ユーザー情報の取得方法を多層化し、以下の順序で取得を試みます:
-  1. JWT認証トークンからのユーザーID
-  2. リクエストパラメータからのユーザーID
-  3. ローカルストレージからのユーザー情報
-  4. 最終手段として匿名ユーザー識別子の生成
-
-### 開発者向け注意事項
-- 新しいAPIリクエストでは常に`userId`パラメータを使用してください
-- ユーザー関連の操作では`username`の代わりに`userId`をキーとして使用してください
-- ローカルストレージには必ず`userId`を含めるようにしてください
-
-## 開始方法
+## 📝 **スクリプト**
 
 ```bash
-# 開発環境の起動
-npm run dev
+# 開発
+npm run dev              # フロント+バック同時起動
+npm run dev:frontend     # フロントエンドのみ
+npm run dev:backend      # バックエンドのみ
 
-# フロントエンドのみ起動
-npm run dev:frontend
+# ビルド
+npm run build            # プロダクションビルド
+npm run preview          # ビルド結果のプレビュー
 
-# バックエンドのみ起動
-npm run dev:backend
+# 品質管理
+npm run lint             # ESLintチェック
+npm run lint:fix         # ESLint自動修正
+npm run type-check       # TypeScript型チェック
+
+# クリーンアップ
+npm run clean            # キャッシュクリア
 ```
 
-# Morning Challenge - 朝のプログラミング練習アプリ
-
-## 📁 プロジェクト構造（最適化版）
+## 🏗️ **プロジェクト構造**
 
 ```
-morning_challenge/    （プロジェクトルート）
-├── server/           （バックエンドのソースディレクトリ）
-│   ├── controllers/      （コントローラ：各APIエンドポイントの処理）
-│   ├── routes/           （ルーティング定義：Expressのルーター）
-│   ├── models/           （データモデル：MongoDBのスキーマとORM）
-│   ├── middleware/       （ミドルウェア：認証やエラーハンドリング）
-│   ├── utils/            （ユーティリティ：問題生成ロジックなど共通処理）
-│   ├── config/           （設定：DB接続や環境変数の読み込み処理） 
-│   ├── constants/        （定数定義：アプリケーション全体で使用する定数）
-│   ├── scripts/          （スクリプト：データベース初期化など）
-│   └── server.js         （サーバー起動スクリプト：Expressアプリのエントリーポイント）
-├── src/              （フロントエンドのソースディレクトリ）
-│   ├── components/       （再利用可能なReactコンポーネント郡）
-│   ├── pages/            （ページコンポーネント：画面ごとのコンテナ）
-│   ├── contexts/         （React Contextによるグローバル状態管理）
-│   ├── hooks/            （カスタムフック）
-│   ├── services/         （API通信サービス等ビジネスロジック）
-│   ├── types/            （型定義：TypeScriptのインターフェースや型）
-│   ├── utils/            （フロントエンドユーティリティ関数）
-│   ├── styles/           （スタイルファイル：CSSモジュールやstyled-components）
-│   ├── App.tsx           （ルートコンポーネント：アプリケーションのレイアウト）
-│   ├── main.tsx          （エントリーポイント：ReactDOMによるレンダリング） 
-│   └── index.css         （グローバルCSS：Tailwindのベースやカスタムスタイル）
-├── public/           （公開アセット置き場：静的ファイル類）
-│   ├── favicon.ico       （ファビコン画像）
-│   └── index.html        （HTMLテンプレート）
-├── .env.example      （環境変数のサンプル定義ファイル） 
-├── package.json      （プロジェクト全体のパッケージ依存とスクリプト定義）
-├── tsconfig.json     （フロントエンド向けTypeScript設定：jsx含む）
-├── tsconfig.node.json（バックエンド向けTypeScript設定：Nodeターゲット）
-├── vite.config.ts    （Viteのビルド設定ファイル）
-├── tailwind.config.js（Tailwind CSSの設定ファイル）
-├── postcss.config.js （PostCSSの設定ファイル）
-├── README.md         （プロジェクトのREADME：起動方法・概要・変更履歴等）
-└── .gitignore        （Gitで追跡しないファイルの指定）
+morning_challenge/
+├── src/                    # フロントエンド (React/TypeScript)
+│   ├── components/         # 再利用可能なコンポーネント
+│   ├── pages/             # ページコンポーネント
+│   ├── contexts/          # React Context
+│   ├── hooks/             # カスタムフック
+│   ├── services/          # API サービス
+│   ├── types/             # TypeScript型定義
+│   └── utils/             # ユーティリティ関数
+├── server/                # バックエンド (Node.js/ES6)
+│   ├── config/           # 設定ファイル
+│   ├── controllers/      # API コントローラー
+│   ├── middleware/       # Express ミドルウェア
+│   ├── models/           # MongoDB モデル
+│   ├── routes/           # API ルート
+│   └── utils/            # ユーティリティ関数
+├── public/               # 静的ファイル
+└── dist/                 # ビルド出力
 ```
 
-## 🔧 最適化改善点
+## 🎯 **主要機能**
 
-### 1. ファイル配置の整理
-- `App.tsx`, `index.tsx` を `src/` ディレクトリ内に移動
-- `index.html` を `public/` ディレクトリに移動
-- 不要な `front-end/` ディレクトリを削除
+### ユーザー機能
+- ✅ ユーザー登録・ログイン
+- ✅ 難易度別問題チャレンジ（beginner/intermediate/advanced/expert）
+- ✅ リアルタイムタイマー
+- ✅ 即座の結果表示とランキング
+- ✅ 過去の学習履歴閲覧
 
-### 2. バックエンド構造の強化
-- `config/` ディレクトリを追加してデータベース設定や環境変数処理を分離
-- 既存の `constants/`, `scripts/` ディレクトリを活用
+### 管理者機能
+- ✅ 問題の生成・編集
+- ✅ ユーザー管理
+- ✅ ランキング管理
+- ✅ システム設定
 
-### 3. フロントエンド構造の最適化
-- 既存の良好なディレクトリ構造（`components/`, `pages/`, `hooks/` 等）を維持
-- CSS関連を `src/styles/` と `src/index.css` で整理
+### 技術的特徴
+- ✅ 時間制限機能（朝6:30-8:00のみ）
+- ✅ インメモリDB対応（開発環境）
+- ✅ 自動問題生成
+- ✅ レスポンシブデザイン
 
-### 4. 設定ファイルの整理
-- TypeScript, Vite, Tailwind設定をルートレベルで統一管理
+## 🛠️ **最近の改善**
+
+### 2025年6月
+- ✅ ES6モジュールへの統一
+- ✅ TypeScript型安全性の向上
+- ✅ 環境設定管理の改善
+- ✅ ポート競合問題の解決
+- ✅ API型定義の整備
+- 🔄 ログシステムの最適化（進行中）
+
+## 🔒 **セキュリティ**
+
+- JWT トークンベース認証
+- パスワードのbcryptハッシュ化
+- CORS設定
+- 入力値検証
+
+## 📊 **監視・ログ**
+
+- リクエストロギング
+- エラーハンドリング
+- パフォーマンス監視
+
+## 🤝 **開発に参加**
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if needed
+5. Submit a pull request
+
+## 📄 **ライセンス**
+
+MIT License
+
+---
+
+**作成者**: Your Name  
+**最終更新**: 2025年6月17日

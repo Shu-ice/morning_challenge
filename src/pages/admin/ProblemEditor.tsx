@@ -58,7 +58,7 @@ const ProblemEditor: React.FC = () => {
           // ★★★ APIからの応答データをログに出力 (dataキーを使用) ★★★
           console.log('[ProblemEditor] API Response Data (data):', response.data.data);
           
-          setProblems(response.data.data.map((p: any) => ({
+          setProblems(response.data.data.map((p: { _id?: string; id?: string; correctAnswer?: number; question: string }) => ({
           ...p,
             id: p._id || p.id, 
             correctAnswer: p.correctAnswer !== undefined ? Number(p.correctAnswer) : undefined, // correctAnswerを数値に変換
@@ -80,12 +80,14 @@ const ProblemEditor: React.FC = () => {
         setError(response.data.message || '問題の取得に失敗しました。');
         setProblems([]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Problem loading error:', err);
       // デバッグログを追加
-      if (err.code) console.error('Error code:', err.code);
-      if (err.message) console.error('Error message:', err.message);
-      if (err.stack) console.error('Error stack:', err.stack);
+      if (err && typeof err === 'object') {
+        if ('code' in err) console.error('Error code:', err.code);
+        if ('message' in err) console.error('Error message:', err.message);
+        if ('stack' in err) console.error('Error stack:', err.stack);
+      }
       
       if (axios.isAxiosError(err)) {
         if (err.response) {
@@ -100,7 +102,8 @@ const ProblemEditor: React.FC = () => {
           setError(`リクエストエラー: ${err.message}`);
         }
       } else {
-        setError(`問題の取得中に予期せぬエラーが発生しました: ${err.message || 'Unknown error'}`);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(`問題の取得中に予期せぬエラーが発生しました: ${errorMessage}`);
       }
       setProblems([]);
     } finally {
@@ -187,12 +190,14 @@ const ProblemEditor: React.FC = () => {
       } else {
         setError(response.data.message || '問題の保存に失敗しました。');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Problem saving error:', err);
       // デバッグログを追加
-      if (err.code) console.error('Error code:', err.code);
-      if (err.message) console.error('Error message:', err.message);
-      if (err.stack) console.error('Error stack:', err.stack);
+      if (err && typeof err === 'object') {
+        if ('code' in err) console.error('Error code:', err.code);
+        if ('message' in err) console.error('Error message:', err.message);
+        if ('stack' in err) console.error('Error stack:', err.stack);
+      }
       
       if (axios.isAxiosError(err)) {
         if (err.response) {
@@ -203,7 +208,8 @@ const ProblemEditor: React.FC = () => {
           setError(`リクエストエラー: ${err.message}`);
         }
       } else {
-        setError(`問題の保存中に予期せぬエラーが発生しました: ${err.message || 'Unknown error'}`);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(`問題の保存中に予期せぬエラーが発生しました: ${errorMessage}`);
       }
     } finally {
       setIsSaving(false);

@@ -117,9 +117,10 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
 
       const rankingsData = response.data.data || [];
       setRankings(rankingsData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('ランキング取得エラー:', err);
-      setError(err.message || 'ランキングの取得中にエラーが発生しました');
+      const errorMessage = err instanceof Error ? err.message : 'ランキングの取得中にエラーが発生しました';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

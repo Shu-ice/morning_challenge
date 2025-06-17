@@ -5,6 +5,7 @@ import { DifficultyRank, difficultyToJapanese } from '@/types/difficulty';
 import '@/styles/admin/ProblemGenerator.css';
 import type { ApplicationError } from '../../types/error';
 import { extractErrorMessage } from '../../types/error';
+import { logger } from '@/utils/logger';
 
 // スタイル用のCSSファイルも後で作成想定
 // import '@/styles/ProblemGenerator.css'; 
@@ -44,9 +45,9 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
 
   // ★ マウント・アンマウント、isActive変更時のログ出力useEffect
   useEffect(() => {
-    console.log(`[ProblemGenerator] useEffect - Component mounted or isActive changed. isActive: ${isActive}`);
+    logger.debug(`[ProblemGenerator] useEffect - Component mounted or isActive changed. isActive: ${isActive}`);
     return () => {
-      console.log('[ProblemGenerator] useEffect - Component unmounted.');
+      logger.debug('[ProblemGenerator] useEffect - Component unmounted.');
       if (statusCheckInterval) {
         clearInterval(statusCheckInterval);
       }
@@ -66,7 +67,7 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
       // ★ トークンを取得
       const token = localStorage.getItem('token');
       if (!token) {
-        console.error('[checkGenerationStatus] No token found. Cannot check status.');
+        logger.error('[checkGenerationStatus] No token found. Cannot check status.');
         // 必要に応じてエラーメッセージをユーザーに表示
         setMessage('認証エラーが発生しました。再ログインしてください。');
         setIsLoading(false);
@@ -107,7 +108,7 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
         }
       }
     } catch (error) {
-      console.error('ステータス確認エラー:', error);
+      logger.error('ステータス確認エラー:', error);
       if (statusCheckInterval) {
         clearInterval(statusCheckInterval);
         setStatusCheckInterval(null);
@@ -125,14 +126,14 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
 
   const handleGenerate = async () => {
     // ★ is Active チェック直前のログ
-    console.log('[ProblemGenerator] handleGenerate - Checking isActive:', isActive);
+    logger.debug('[ProblemGenerator] handleGenerate - Checking isActive:', isActive);
     // ★ ガード節を追加: 非アクティブなら処理中断
     if (!isActive) {
-      console.warn('[ProblemGenerator.tsx] handleGenerate called but component is not active. Aborting.');
+      logger.warn('[ProblemGenerator.tsx] handleGenerate called but component is not active. Aborting.');
       return;
     }
     
-    console.log('[ProblemGenerator.tsx] handleGenerate called. Current view might be ProblemEditor.');
+    logger.debug('[ProblemGenerator.tsx] handleGenerate called. Current view might be ProblemEditor.');
     setIsLoading(true);
     setMessage(null);
     setError(null);
@@ -202,7 +203,7 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
         setIsLoading(false);
       }
     } catch (err: unknown) {
-      console.error('Problem generation error:', err);
+      logger.error('Problem generation error:', err);
       
       const error = err as ApplicationError;
       const errorMessage = extractErrorMessage(error);
@@ -259,7 +260,7 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
   };
 
   // ★ レンダリング時の isActive ログ
-  console.log('[ProblemGenerator] Rendering. isActive:', isActive);
+  logger.debug('[ProblemGenerator] Rendering. isActive:', isActive);
 
   return (
     <div className="problem-generator-container">

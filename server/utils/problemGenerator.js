@@ -1,5 +1,6 @@
 // server/utils/problemGenerator.js
 
+const { logger } = require('./logger');
 import dayjs from 'dayjs'; // 追加: generateProblemsForNextDay で使用
 import DailyProblemSet from '../models/DailyProblemSet.js'; // 追加: generateProblemsForNextDay で使用
 import { DifficultyRank } from '../constants/difficultyRank.js'; // 独立ファイルからインポート
@@ -78,11 +79,11 @@ const getOpSymbol = (opIndex) => {
 const calculateAnswer = (nums, ops, maxDecimalPlaces) => {
     // 計算ロジック（既存のままでOK）
     if (nums.length !== ops.length + 1) {
-        console.error("[BE_calculateAnswer] Invalid input length");
+        logger.error("[BE_calculateAnswer] Invalid input length");
         return undefined;
     }
     if (nums.some(isNaN) || nums.some(n => !Number.isFinite(n))) {
-        console.error("[BE_calculateAnswer] Invalid number input");
+        logger.error("[BE_calculateAnswer] Invalid number input");
         return undefined;
     }
 
@@ -90,7 +91,7 @@ const calculateAnswer = (nums, ops, maxDecimalPlaces) => {
         if (ops[i] === '÷') {
             const divisor = nums[i + 1];
             if (divisor === 0) {
-                console.warn(`[BE_calculateAnswer] Zero division detected`);
+                logger.warn(`[BE_calculateAnswer] Zero division detected`);
                 return undefined;
             }
         }
@@ -111,7 +112,7 @@ const calculateAnswer = (nums, ops, maxDecimalPlaces) => {
                 result = left / right;
             }
             if (!Number.isFinite(result)) {
-                 console.warn(`[BE_calculateAnswer] Infinite result after Mul/Div`);
+                 logger.warn(`[BE_calculateAnswer] Infinite result after Mul/Div`);
                  return undefined;
             }
             numbers.splice(i, 2, result);
@@ -133,7 +134,7 @@ const calculateAnswer = (nums, ops, maxDecimalPlaces) => {
     }
 
     if (!Number.isFinite(finalResult)) {
-        console.error("[BE_calculateAnswer] Final result is Infinity or NaN");
+        logger.error("[BE_calculateAnswer] Final result is Infinity or NaN");
           return undefined;
     }
 
@@ -141,17 +142,17 @@ const calculateAnswer = (nums, ops, maxDecimalPlaces) => {
 };
 
 const isCleanNumber = (num, allowedDecimalPlaces) => {
-    console.log(`[isCleanNumber DEBUG] Input: num=${num}, allowedDecimalPlaces=${allowedDecimalPlaces}`);
+    logger.debug(`[isCleanNumber DEBUG] Input: num=${num}, allowedDecimalPlaces=${allowedDecimalPlaces}`);
 
     if (!Number.isFinite(num)) {
-        console.log(`[isCleanNumber DEBUG] Result: false (num is not finite: ${num})`);
+        logger.debug(`[isCleanNumber DEBUG] Result: false (num is not finite: ${num})`);
         return false;
     }
 
     // 整数チェック (ほぼ整数とみなせるか)
     if (Math.abs(num - Math.round(num)) < 1e-9) {
         if (allowedDecimalPlaces >= 0) { // どんな小数点以下の桁数指定でも整数はOK
-            console.log(`[isCleanNumber DEBUG] Result: true (num is effectively integer: ${num})`);
+            logger.debug(`[isCleanNumber DEBUG] Result: true (num is effectively integer: ${num})`);
             return true;
         }
     }
@@ -161,7 +162,7 @@ const isCleanNumber = (num, allowedDecimalPlaces) => {
     const decimalPart = s.split('.')[1];
 
     if (!decimalPart) { // 小数点がない (整数だが上記でtrueにならなかったケース、例: allowedDecimalPlaces < 0 はありえないが念のため)
-        console.log(`[isCleanNumber DEBUG] Result: true (num is integer string: ${s}, no decimal part)`);
+        logger.debug(`[isCleanNumber DEBUG] Result: true (num is integer string: ${s}, no decimal part)`);
         return true; 
     }
 
@@ -169,7 +170,7 @@ const isCleanNumber = (num, allowedDecimalPlaces) => {
     const actualDecimalLength = decimalPart.replace(/0+$/, '').length;
     
     if (actualDecimalLength > allowedDecimalPlaces) {
-        console.log(`[isCleanNumber DEBUG] Result: false (actualDecimalLength ${actualDecimalLength} > allowedDecimalPlaces ${allowedDecimalPlaces} for num ${num})`);
+        logger.debug(`[isCleanNumber DEBUG] Result: false (actualDecimalLength ${actualDecimalLength} > allowedDecimalPlaces ${allowedDecimalPlaces} for num ${num})`);
         return false;
     }
 
@@ -179,11 +180,11 @@ const isCleanNumber = (num, allowedDecimalPlaces) => {
     const roundedNum = Math.round(num * factor) / factor;
 
     if (Math.abs(num - roundedNum) >= 1e-9) { // 1e-9 は許容誤差
-        console.log(`[isCleanNumber DEBUG] Result: false (num ${num} vs roundedNum ${roundedNum} difference is too large)`);
+        logger.debug(`[isCleanNumber DEBUG] Result: false (num ${num} vs roundedNum ${roundedNum} difference is too large)`);
         return false;
     }
     
-    console.log(`[isCleanNumber DEBUG] Result: true (num ${num} passed all checks for allowedDecimalPlaces ${allowedDecimalPlaces})`);
+    logger.debug(`[isCleanNumber DEBUG] Result: true (num ${num} passed all checks for allowedDecimalPlaces ${allowedDecimalPlaces})`);
     return true;
 };
 
@@ -382,7 +383,7 @@ const getParamsForDifficulty = (difficulty) => {
 const generateOptions = (answer, difficulty, seed) => {
     // 既存のロジック（問題なし）
     if (answer === undefined) {
-        console.error("[BE_generateOptions] Answer is undefined");
+        logger.error("[BE_generateOptions] Answer is undefined");
         return [1, 2, 3, 4]; // ダミー
     }
 
@@ -440,7 +441,7 @@ const generateOptions = (answer, difficulty, seed) => {
 
     // Ensure options array always has 4 elements (robust padding)
     if (options.length < 4) {
-        console.warn(`[BE_generateOptions] Generated only ${options.length} options for answer ${roundedAnswer} (difficulty: ${difficulty}). Padding to ensure 4.`);
+        logger.warn(`[BE_generateOptions] Generated only ${options.length} options for answer ${roundedAnswer} (difficulty: ${difficulty}). Padding to ensure 4.`);
         let padAttempt = 0;
         const baseStep = Number.isInteger(roundedAnswer) ? 1 : Math.pow(10, -decimals); // Define a base step for padding, e.g., 1 or 0.1 or 0.01
 
@@ -533,7 +534,7 @@ const selectProblemType = (difficulty, seed) => {
   const params = getParamsForDifficulty(difficulty);
   if (!params.problemTypes || params.problemTypes.length === 0) {
     if (difficulty === DifficultyRank.BEGINNER) return 'add_subtract_2digit'; // デフォルト変更
-    console.warn(`[selectProblemType] No problemTypes defined for ${difficulty}, or empty.`);
+    logger.warn(`[selectProblemType] No problemTypes defined for ${difficulty}, or empty.`);
     return params.ops && params.ops.length > 0 ? 'generic_calculation' : null; 
   }
 
@@ -621,7 +622,7 @@ const selectProblemType = (difficulty, seed) => {
 // 単一問題生成関数
 const generateSingleProblemInternal = async (difficulty, seed) => {
     const funcStartTime = Date.now();
-    console.log(`[ProblemGenerator DEBUG] generateSingleProblemInternal CALLED - difficulty: ${difficulty}, seed: ${seed}`);
+    logger.debug(`[ProblemGenerator DEBUG] generateSingleProblemInternal CALLED - difficulty: ${difficulty}, seed: ${seed}`);
 
     const params = getParamsForDifficulty(difficulty);
   let attempts = 0;
@@ -636,7 +637,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
             const currentSeed = seed + attempts; // 試行ごとにシードを変更
             problemType = selectProblemType(difficulty, currentSeed); // ループ内で問題タイプを再選択する可能性も考慮
 
-            console.log(`[ProblemGenerator DEBUG] Attempt #${attempts}/${MAX_ATTEMPTS_INTERNAL} for ${difficulty} (seed: ${currentSeed}, type: ${problemType})`);
+            logger.debug(`[ProblemGenerator DEBUG] Attempt #${attempts}/${MAX_ATTEMPTS_INTERNAL} for ${difficulty} (seed: ${currentSeed}, type: ${problemType})`);
 
             let question, answer, options;
             let nums = [], ops = [];
@@ -660,7 +661,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 nums = [num1, num2];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated add_subtract_2digit: ${question}`);
+                logger.debug(`[ProblemGenerator DEBUG] Generated add_subtract_2digit: ${question}`);
 
             } else if (problemType === 'multiplication_table') {
                 const num1 = getRandomInt(1, 9, currentSeed + 1);
@@ -669,7 +670,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
         nums = [num1, num2];
         ops = ['×'];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated multiplication_table: ${question}`);
+                logger.debug(`[ProblemGenerator DEBUG] Generated multiplication_table: ${question}`);
 
             } else if (problemType === 'add_subtract_4digit') {
                 const op = seededRandom(currentSeed + 30) > 0.5 ? '+' : '-';
@@ -702,7 +703,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
         nums = [num1, num2];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated add_subtract_4digit: ${question}, Seed: ${currentSeed}`);
+                logger.debug(`[ProblemGenerator DEBUG] Generated add_subtract_4digit: ${question}, Seed: ${currentSeed}`);
       } else if (problemType === 'multiply_2digit_2digit') {
                 const termRanges = params.digitRanges.multiply_2digit_2digit || [[2,2],[2,2]]; // Default from getParamsForDifficulty
                 
@@ -717,7 +718,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
         nums = [num1, num2];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated multiply_2digit_2digit: ${question}, Seed: ${currentSeed}`);
+                logger.debug(`[ProblemGenerator DEBUG] Generated multiply_2digit_2digit: ${question}, Seed: ${currentSeed}`);
             } else if (problemType === 'multiply_3digit_2digit') {
                 const termRanges = params.digitRanges.multiply_3digit_2digit || [[2,3],[1,1]]; // Default from getParamsForDifficulty
                 
@@ -732,7 +733,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
         nums = [num1, num2];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated multiply_3digit_2digit: ${question}, Seed: ${currentSeed}`);
+                logger.debug(`[ProblemGenerator DEBUG] Generated multiply_3digit_2digit: ${question}, Seed: ${currentSeed}`);
             } else if (problemType === 'divide_3digit_1digit') {
                 const termRanges = params.digitRanges.divide_3digit_1digit || [[2,3],[1,1]]; // Default: (2-3 digit) / (1 digit)
                 
@@ -753,7 +754,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 if (minQuotient > maxQuotient || maxQuotient <=0) { // Invalid quotient range, try to adjust divisor or skip
                      // This can happen if divisor is too large for the dividend range.
                      // Fallback: make divisor smaller or regenerate. For now, log and potentially skip.
-                     console.warn(`[ProblemGenerator WARN] divide_3digit_1digit: Divisor ${divisor} might be too large for dividend range ${dividendMinDigits}-${dividendMaxDigits} digits. MaxQ ${maxQuotient}, MinQ ${minQuotient}. Attempting to adjust divisor.`);
+                     logger.warn(`[ProblemGenerator WARN] divide_3digit_1digit: Divisor ${divisor} might be too large for dividend range ${dividendMinDigits}-${dividendMaxDigits} digits. MaxQ ${maxQuotient}, MinQ ${minQuotient}. Attempting to adjust divisor.`);
                      // Attempt to reduce divisor to a single digit number if it's not already
                      if (divisorDigits > 1) {
                          divisor = getRandomInt(2, 9, currentSeed + 622); // Fallback to simple 1-digit divisor (2-9)
@@ -762,7 +763,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                          if (minQuotient === 0 && (Math.pow(10, dividendMinDigits -1) > 0) ) minQuotient = 1;
                      }
                      if (minQuotient > maxQuotient || maxQuotient <=0) { // Still bad
-                         console.error(`[ProblemGenerator ERROR] divide_3digit_1digit: Could not determine valid quotient range for divisor ${divisor}. Skipping.`);
+                         logger.error(`[ProblemGenerator ERROR] divide_3digit_1digit: Could not determine valid quotient range for divisor ${divisor}. Skipping.`);
                          lastError = `Invalid quotient range for divisor ${divisor}`;
                          continue; // Skip to next attempt in the while loop
                      }
@@ -776,7 +777,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 nums = [dividend, divisor];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated divide_3digit_1digit (clean): ${question}, Quotient: ${quotient}, Seed: ${currentSeed}`);
+                logger.debug(`[ProblemGenerator DEBUG] Generated divide_3digit_1digit (clean): ${question}, Quotient: ${quotient}, Seed: ${currentSeed}`);
             } else if (problemType === 'divide_3digit_2digit') {
                 const termRanges = params.digitRanges.divide_3digit_2digit || [[2,3],[1,1]]; // Default: (2-3 digit) / (1 digit)
                 
@@ -797,7 +798,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 if (minQuotient > maxQuotient || maxQuotient <=0) { // Invalid quotient range, try to adjust divisor or skip
                      // This can happen if divisor is too large for the dividend range.
                      // Fallback: make divisor smaller or regenerate. For now, log and potentially skip.
-                     console.warn(`[ProblemGenerator WARN] divide_3digit_2digit: Divisor ${divisor} might be too large for dividend range ${dividendMinDigits}-${dividendMaxDigits} digits. MaxQ ${maxQuotient}, MinQ ${minQuotient}. Attempting to adjust divisor.`);
+                     logger.warn(`[ProblemGenerator WARN] divide_3digit_2digit: Divisor ${divisor} might be too large for dividend range ${dividendMinDigits}-${dividendMaxDigits} digits. MaxQ ${maxQuotient}, MinQ ${minQuotient}. Attempting to adjust divisor.`);
                      // Attempt to reduce divisor to a single digit number if it's not already
                      if (divisorDigits > 1) {
                          divisor = getRandomInt(2, 9, currentSeed + 722); // Fallback to simple 1-digit divisor (2-9)
@@ -806,7 +807,7 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                          if (minQuotient === 0 && (Math.pow(10, dividendMinDigits -1) > 0) ) minQuotient = 1;
                      }
                      if (minQuotient > maxQuotient || maxQuotient <=0) { // Still bad
-                         console.error(`[ProblemGenerator ERROR] divide_3digit_2digit: Could not determine valid quotient range for divisor ${divisor}. Skipping.`);
+                         logger.error(`[ProblemGenerator ERROR] divide_3digit_2digit: Could not determine valid quotient range for divisor ${divisor}. Skipping.`);
                          lastError = `Invalid quotient range for divisor ${divisor}`;
                          continue; // Skip to next attempt in the while loop
                      }
@@ -820,9 +821,9 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 nums = [dividend, divisor];
                 ops = [op];
                 generatedDetails = { nums, ops, questionString: question };
-                console.log(`[ProblemGenerator DEBUG] Generated divide_3digit_2digit (clean): ${question}, Quotient: ${quotient}, Seed: ${currentSeed}`);
+                logger.debug(`[ProblemGenerator DEBUG] Generated divide_3digit_2digit (clean): ${question}, Quotient: ${quotient}, Seed: ${currentSeed}`);
             } else {
-                console.warn(`[ProblemGenerator WARN] Unknown or unhandled problemType: ${problemType} in attempt ${attempts}. Skipping.`);
+                logger.warn(`[ProblemGenerator WARN] Unknown or unhandled problemType: ${problemType} in attempt ${attempts}. Skipping.`);
                 lastError = `Unknown problemType: ${problemType}`;
                 continue; // 次の試行へ
             }
@@ -833,9 +834,9 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                 nums = generatedDetails.nums;
                 ops = generatedDetails.ops;
                 answer = calculateAnswer(nums, ops, params.decimals);
-                console.log(`[ProblemGenerator DEBUG] Attempt ${attempts}: type=${problemType}, Q=${question}, RawAnswer=${answer}, Seed=${currentSeed}`);
+                logger.debug(`[ProblemGenerator DEBUG] Attempt ${attempts}: type=${problemType}, Q=${question}, RawAnswer=${answer}, Seed=${currentSeed}`);
             } else {
-                console.warn(`[ProblemGenerator WARN] No details generated for type ${problemType}, attempt ${attempts}`);
+                logger.warn(`[ProblemGenerator WARN] No details generated for type ${problemType}, attempt ${attempts}`);
                 lastError = `No details for ${problemType}`;
             }
 
@@ -853,48 +854,48 @@ const generateSingleProblemInternal = async (difficulty, seed) => {
                     maxVal: params.maxResultValue, minVal: params.minResultValue, actualVal: answer,
                     decimals: params.decimals
                 };
-                console.log(`[ProblemGenerator DEBUG] Attempt ${attempts} Validation: Answer=${answer}, Conditions=${JSON.stringify(allConditions)}`);
+                logger.debug(`[ProblemGenerator DEBUG] Attempt ${attempts} Validation: Answer=${answer}, Conditions=${JSON.stringify(allConditions)}`);
 
                 if (isIntOk && isNegativeOk && isValueOk && isClean) {
                     options = []; // ★ 選択肢生成をスキップし、空配列を設定
                     problem = { question, answer, options, problemType };
-                    console.log(`[ProblemGenerator INFO] SUCCESS: ${difficulty}, type: ${problemType}, Q: ${question}, A: ${answer} (Attempts: ${attempts}, ${Date.now() - funcStartTime}ms)`);
+                    logger.info(`[ProblemGenerator INFO] SUCCESS: ${difficulty}, type: ${problemType}, Q: ${question}, A: ${answer} (Attempts: ${attempts}, ${Date.now() - funcStartTime}ms)`);
                     lastError = null;
                     break; // ループ脱出
                 } else {
                     lastError = `Validation failed: ${JSON.stringify(allConditions)}`;
                 }
             } else {
-                console.log(`[ProblemGenerator DEBUG] Attempt ${attempts}: Answer is undefined or not finite (${answer})`);
+                logger.debug(`[ProblemGenerator DEBUG] Attempt ${attempts}: Answer is undefined or not finite (${answer})`);
                 lastError = `Answer undefined or not finite: ${answer}`;
             }
 
             // タイムアウトチェック (ループ内部)
             if (checkTimeout(funcStartTime, 5000)) { // 5秒でこの内部ループは警告 (長すぎ)
-                console.warn(`[ProblemGenerator WARN] INNER LOOP TIMEOUT for ${difficulty}, type ${problemType}, attempt ${attempts}. Duration: ${Date.now() - funcStartTime}ms`);
+                logger.warn(`[ProblemGenerator WARN] INNER LOOP TIMEOUT for ${difficulty}, type ${problemType}, attempt ${attempts}. Duration: ${Date.now() - funcStartTime}ms`);
                 lastError = `Inner loop timeout after 5s`;
                 // break; // このループを抜けるか、あるいは全体を抜けるかは設計次第
             }
         } // end while
 
         if (!problem) {
-            console.warn(`[ProblemGenerator WARN] FAILED to generate ${difficulty} problem (type: ${problemType}) after ${MAX_ATTEMPTS_INTERNAL} attempts. LastError: ${lastError}. Duration: ${Date.now() - funcStartTime}ms. Trying fallback...`);
+            logger.warn(`[ProblemGenerator WARN] FAILED to generate ${difficulty} problem (type: ${problemType}) after ${MAX_ATTEMPTS_INTERNAL} attempts. LastError: ${lastError}. Duration: ${Date.now() - funcStartTime}ms. Trying fallback...`);
             problem = await generateFallbackProblem(difficulty, seed + attempts + 1); // フォールバック
             if (problem) {
-                console.log(`[ProblemGenerator INFO] Fallback problem generated for ${difficulty}. Duration: ${Date.now() - funcStartTime}ms`);
+                logger.info(`[ProblemGenerator INFO] Fallback problem generated for ${difficulty}. Duration: ${Date.now() - funcStartTime}ms`);
             } else {
-                console.error(`[ProblemGenerator ERROR] FALLBACK FAILED for ${difficulty}. Duration: ${Date.now() - funcStartTime}ms`);
+                logger.error(`[ProblemGenerator ERROR] FALLBACK FAILED for ${difficulty}. Duration: ${Date.now() - funcStartTime}ms`);
             }
         }
 
     } catch (error) {
-        console.error(`[ProblemGenerator ERROR] EXCEPTION in generateSingleProblemInternal for ${difficulty}, seed ${seed}, attempt ${attempts}, type ${problemType}. Error: ${error.message}`, error.stack);
+        logger.error(`[ProblemGenerator ERROR] EXCEPTION in generateSingleProblemInternal for ${difficulty}, seed ${seed}, attempt ${attempts}, type ${problemType}. Error: ${error.message}`, error.stack);
         lastError = `Exception: ${error.message}`;
         problem = null; // エラー時は問題なしとする
     }
 
     const funcEndTime = Date.now();
-    console.log(`[ProblemGenerator DEBUG] generateSingleProblemInternal COMPLETED - ${difficulty}, seed: ${seed}. Found: ${!!problem}. Attempts: ${attempts}. Total Duration: ${funcEndTime - funcStartTime}ms. LastError: ${lastError}`);
+    logger.debug(`[ProblemGenerator DEBUG] generateSingleProblemInternal COMPLETED - ${difficulty}, seed: ${seed}. Found: ${!!problem}. Attempts: ${attempts}. Total Duration: ${funcEndTime - funcStartTime}ms. LastError: ${lastError}`);
     return problem;
 };
 
@@ -1014,7 +1015,7 @@ const generateSingleProblem = async (difficulty, seed) => {
       const { v4: uuidv4 } = await import('uuid');
       return { ...problem, id: uuidv4() };
     }
-    console.warn(`Failed to generate problem using normal algorithm. Using simplified generator for ${difficulty}`);
+    logger.warn(`Failed to generate problem using normal algorithm. Using simplified generator for ${difficulty}`);
     const simpleProblem = await generateSimpleProblem(difficulty, seed);
     if (simpleProblem) {
       const { v4: uuidv4 } = await import('uuid');
@@ -1022,7 +1023,7 @@ const generateSingleProblem = async (difficulty, seed) => {
     }
     throw new Error('Simplified generator also failed');
   } catch (error) {
-    console.error(`Error in problem generation: ${error.message}. Using fallback.`);
+    logger.error(`Error in problem generation: ${error.message}. Using fallback.`);
     const fallbackProblem = await generateFallbackProblem(difficulty, seed);
     const { v4: uuidv4 } = await import('uuid');
     return { ...fallbackProblem, id: uuidv4() };
@@ -1054,7 +1055,7 @@ const generateProblemsByDifficulty = async (difficulty, count = 10, requestId = 
 
     const actualCount = difficulty === DifficultyRank.EXPERT && count > 10 ? 10 : count;
     if (difficulty === DifficultyRank.EXPERT && count > 10) {
-      console.warn(`[ProblemGenerator] Expert難易度では最大10問に制限されています (${count}要求 -> 10生成)`);
+      logger.warn(`[ProblemGenerator] Expert難易度では最大10問に制限されています (${count}要求 -> 10生成)`);
     }
 
     let generatedCount = 0;
@@ -1066,7 +1067,7 @@ const generateProblemsByDifficulty = async (difficulty, count = 10, requestId = 
         generationAttempts++;
         
         if (checkTimeout(startTime, 25000)) {
-          console.warn(`[generateProblemsByDifficulty] Timeout detected after generating ${generatedCount} problems. Returning partial results.`);
+          logger.warn(`[generateProblemsByDifficulty] Timeout detected after generating ${generatedCount} problems. Returning partial results.`);
           
           if (requestId) {
             processingStatusMap.set(requestId, {
@@ -1114,7 +1115,7 @@ const generateProblemsByDifficulty = async (difficulty, count = 10, requestId = 
     }
 
     if (generatedCount < actualCount) {
-         console.warn(`[ProblemGenerator] 要求された${actualCount}問のうち、${generatedCount}問のみ生成されました`);
+         logger.warn(`[ProblemGenerator] 要求された${actualCount}問のうち、${generatedCount}問のみ生成されました`);
     }
     return problems;
 };
@@ -1131,7 +1132,7 @@ export const generateProblems = async (difficulty, count = 10, seed = null, requ
   try {
     // より良いランダム性を確保するため、複数の要素を組み合わせてシード値を生成
     const actualSeed = seed || (Date.now() + Math.random() * 1000000 + (requestId ? requestId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0));
-    console.log(`[ProblemGenerator] 新基準に基づく${count}問の生成開始 (${difficulty}) シード値: ${actualSeed}`);
+    logger.info(`[ProblemGenerator] 新基準に基づく${count}問の生成開始 (${difficulty}) シード値: ${actualSeed}`);
     
     if (requestId) {
       const now = Date.now();
@@ -1149,7 +1150,7 @@ export const generateProblems = async (difficulty, count = 10, seed = null, requ
     const problems = await generateProblemSetByComposition(difficulty, requestId);
 
     if (problems.length === 0) {
-      console.warn(`新基準での問題生成に失敗したため、フォールバック問題を使用します`);
+      logger.warn(`新基準での問題生成に失敗したため、フォールバック問題を使用します`);
       const fallbackProblems = [];
       for (let i = 0; i < Math.min(count, 5); i++) {
         // フォールバック問題でもランダム性を確保
@@ -1165,7 +1166,7 @@ export const generateProblems = async (difficulty, count = 10, seed = null, requ
     }
     
     const endTime = performance.now();
-    console.log(`[ProblemGenerator] ${problems.length}問の生成完了 (${difficulty}). 所要時間: ${(endTime - startTime).toFixed(2)}ms`);
+    logger.info(`[ProblemGenerator] ${problems.length}問の生成完了 (${difficulty}). 所要時間: ${(endTime - startTime).toFixed(2)}ms`);
     
     if (requestId) {
       processingStatusMap.set(requestId, {
@@ -1184,11 +1185,11 @@ export const generateProblems = async (difficulty, count = 10, seed = null, requ
     }));
     
   } catch (error) {
-    console.error('[ProblemGenerator] 問題生成中の重大エラー:', error);
-    console.error("Error Name: ", error.name);
-    console.error("Error Message: ", error.message);
+    logger.error('[ProblemGenerator] 問題生成中の重大エラー:', error);
+    logger.error("Error Name: ", error.name);
+    logger.error("Error Message: ", error.message);
     if (error.stack) {
-        console.error("Error Stack: ", error.stack);
+        logger.error("Error Stack: ", error.stack);
     }
     
     if (requestId) {
@@ -1216,15 +1217,15 @@ export const getProcessingStatus = (requestId) => {
 /* // コメントアウト開始: この ensureProblemsForToday は server.js のものと重複しており、未使用
 const ensureProblemsForToday = async () => {
     const funcStartTime = Date.now();
-    console.log(`[ProblemGenerator INFO] ensureProblemsForToday CALLED.`);
+    logger.info(`[ProblemGenerator INFO] ensureProblemsForToday CALLED.`);
     const today = getTodayDateStringJST(); // この関数も problemGenerator.js 内にはない
     let allProblemsGeneratedSuccessfully = true;
 
     try {
-        console.log(`[ProblemGenerator DEBUG] Checking/Generating problems for date: ${today}`);
+        logger.debug(`[ProblemGenerator DEBUG] Checking/Generating problems for date: ${today}`);
       for (const difficulty of Object.values(DifficultyRank)) {
             const difficultyStartTime = Date.now();
-            console.log(`[ProblemGenerator DEBUG] Processing difficulty: ${difficulty} for date: ${today}`);
+            logger.debug(`[ProblemGenerator DEBUG] Processing difficulty: ${difficulty} for date: ${today}`);
             
             let problemsExist = false; 
             try {
@@ -1235,45 +1236,45 @@ const ensureProblemsForToday = async () => {
                  // 仮の処理として、DailyProblemSetで確認 (ただし、この関数自体が未使用)
                  const setCount = await DailyProblemSet.countDocuments({ date: today, difficulty: difficulty });
                  problemsExist = setCount > 0;
-                 console.log(`[ProblemGenerator (unused) DEBUG] Problems for ${today}, ${difficulty}: ${setCount} found (exists=${problemsExist})`);
+                 logger.debug(`[ProblemGenerator (unused) DEBUG] Problems for ${today}, ${difficulty}: ${setCount} found (exists=${problemsExist})`);
 
             } catch (dbError) {
-                console.error(`[ProblemGenerator ERROR] DB error checking problems for ${today}, ${difficulty}: ${dbError.message}`, dbError.stack);
+                logger.error(`[ProblemGenerator ERROR] DB error checking problems for ${today}, ${difficulty}: ${dbError.message}`, dbError.stack);
                 allProblemsGeneratedSuccessfully = false;
                 continue; 
             }
 
             if (!problemsExist) {
-                console.log(`[ProblemGenerator INFO] No problems for ${today}, ${difficulty}. Generating new set (10 problems).`);
+                logger.info(`[ProblemGenerator INFO] No problems for ${today}, ${difficulty}. Generating new set (10 problems).`);
                 const generationTaskStartTime = Date.now();
                 try {
                     const generatedProblems = await generateProblems(difficulty, 10, Date.now(), null);
                     
                     // ★★★ DB保存処理がここにはない ★★★ (server.js側で対応済み)
                     if (generatedProblems && generatedProblems.length > 0) {
-                        console.log(`[ProblemGenerator INFO] Successfully generated ${generatedProblems.length} problems for ${today}, ${difficulty}. Duration: ${Date.now() - generationTaskStartTime}ms`);
+                        logger.info(`[ProblemGenerator INFO] Successfully generated ${generatedProblems.length} problems for ${today}, ${difficulty}. Duration: ${Date.now() - generationTaskStartTime}ms`);
                 } else {
-                        console.warn(`[ProblemGenerator WARN] generateProblems returned empty or null for ${today}, ${difficulty}. Duration: ${Date.now() - generationTaskStartTime}ms`);
+                        logger.warn(`[ProblemGenerator WARN] generateProblems returned empty or null for ${today}, ${difficulty}. Duration: ${Date.now() - generationTaskStartTime}ms`);
                         allProblemsGeneratedSuccessfully = false; 
                     }
                 } catch (error) {
-                    console.error(`[ProblemGenerator ERROR] EXCEPTION during generateProblems for ${today}, ${difficulty}. Duration: ${Date.now() - generationTaskStartTime}ms. Error: ${error.message}`, error.stack);
+                    logger.error(`[ProblemGenerator ERROR] EXCEPTION during generateProblems for ${today}, ${difficulty}. Duration: ${Date.now() - generationTaskStartTime}ms. Error: ${error.message}`, error.stack);
                     allProblemsGeneratedSuccessfully = false;
                 }
             } else {
-                console.log(`[ProblemGenerator INFO] Problems already exist for ${today}, ${difficulty}. Skipping generation.`);
+                logger.info(`[ProblemGenerator INFO] Problems already exist for ${today}, ${difficulty}. Skipping generation.`);
             }
-            console.log(`[ProblemGenerator DEBUG] Difficulty ${difficulty} processing time: ${Date.now() - difficultyStartTime}ms`);
+            logger.debug(`[ProblemGenerator DEBUG] Difficulty ${difficulty} processing time: ${Date.now() - difficultyStartTime}ms`);
         }
     } catch (overallError) {
-        console.error(`[ProblemGenerator ERROR] OVERALL EXCEPTION in ensureProblemsForToday for date ${today}. Error: ${overallError.message}`, overallError.stack);
+        logger.error(`[ProblemGenerator ERROR] OVERALL EXCEPTION in ensureProblemsForToday for date ${today}. Error: ${overallError.message}`, overallError.stack);
         allProblemsGeneratedSuccessfully = false;
     }
 
     const funcEndTime = Date.now();
-    console.log(`[ProblemGenerator INFO] ensureProblemsForToday COMPLETED. All successful: ${allProblemsGeneratedSuccessfully}. Total duration: ${funcEndTime - funcStartTime}ms`);
+    logger.info(`[ProblemGenerator INFO] ensureProblemsForToday COMPLETED. All successful: ${allProblemsGeneratedSuccessfully}. Total duration: ${funcEndTime - funcStartTime}ms`);
     if (!allProblemsGeneratedSuccessfully) {
-        console.error(`[ProblemGenerator MAJOR ERROR] One or more problem sets FAILED to generate for ${today}.`);
+        logger.error(`[ProblemGenerator MAJOR ERROR] One or more problem sets FAILED to generate for ${today}.`);
     }
 };
 */ // コメントアウト終了
@@ -1281,21 +1282,21 @@ const ensureProblemsForToday = async () => {
 const generateProblemsForNextDay = async () => {
   try {
     const tomorrow = dayjs().tz().add(1, 'day').format('YYYY-MM-DD');
-    console.log(`[自動生成] ${tomorrow}の問題セットを生成します...`);
+    logger.info(`[自動生成] ${tomorrow}の問題セットを生成します...`);
     for (const difficulty of Object.values(DifficultyRank)) {
       const existingSet = await DailyProblemSet.findOne({ date: tomorrow, difficulty });
       if (existingSet) {
-        console.log(`[自動生成] ${tomorrow}の${difficulty}難易度の問題セットは既に存在します。スキップします。`);
+        logger.info(`[自動生成] ${tomorrow}の${difficulty}難易度の問題セットは既に存在します。スキップします。`);
         continue;
       }
-      console.log(`[自動生成] ${tomorrow}の${difficulty}難易度の問題を生成します...`);
+      logger.info(`[自動生成] ${tomorrow}の${difficulty}難易度の問題を生成します...`);
       try {
         // より良いランダム性を確保するため、日付・難易度・現在時刻・ランダム値を組み合わせ
         const baseSeed = `${tomorrow}_${difficulty}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         const seed = baseSeed + Date.now() + Math.random() * 1000000;
         const problems = await generateProblems(difficulty, 10, seed);
         if (!problems || problems.length === 0) {
-          console.error(`[自動生成] ${tomorrow}の${difficulty}難易度の問題生成に失敗しました。`);
+          logger.error(`[自動生成] ${tomorrow}の${difficulty}難易度の問題生成に失敗しました。`);
           continue;
         }
         const newProblemSet = new DailyProblemSet({
@@ -1309,14 +1310,14 @@ const generateProblemsForNextDay = async () => {
           }))
         });
         await newProblemSet.save();
-        console.log(`[自動生成] ${tomorrow}の${difficulty}難易度の問題生成完了 (${problems.length}問)`);
+        logger.info(`[自動生成] ${tomorrow}の${difficulty}難易度の問題生成完了 (${problems.length}問)`);
       } catch (error) {
-        console.error(`[自動生成] ${tomorrow}の${difficulty}難易度の問題生成中にエラー:`, error);
+        logger.error(`[自動生成] ${tomorrow}の${difficulty}難易度の問題生成中にエラー:`, error);
       }
     }
-    console.log(`[自動生成] ${tomorrow}の全難易度の問題生成が完了しました。`);
+    logger.info(`[自動生成] ${tomorrow}の全難易度の問題生成が完了しました。`);
   } catch (error) {
-    console.error('[自動生成] 翌日問題の生成中にエラー:', error);
+    logger.error('[自動生成] 翌日問題の生成中にエラー:', error);
   }
 };
 
@@ -1339,7 +1340,7 @@ const generateProblemSetByComposition = async (difficulty, requestId = null) => 
     const problemComposition = params.problemComposition;
     
     if (!problemComposition) {
-        console.warn(`[generateProblemSetByComposition] No problemComposition defined for ${difficulty}`);
+        logger.warn(`[generateProblemSetByComposition] No problemComposition defined for ${difficulty}`);
         return await generateProblemsByDifficulty(difficulty, 10, requestId);
     }
     
@@ -1349,7 +1350,7 @@ const generateProblemSetByComposition = async (difficulty, requestId = null) => 
     
     // 各問題タイプごとに指定数の問題を生成
     for (const [problemType, count] of Object.entries(problemComposition)) {
-        console.log(`[ProblemSet] Generating ${count} problems of type: ${problemType}`);
+        logger.debug(`[ProblemSet] Generating ${count} problems of type: ${problemType}`);
         
         for (let i = 0; i < count; i++) {
             // 各問題で異なるシード値を使用
@@ -1358,9 +1359,9 @@ const generateProblemSetByComposition = async (difficulty, requestId = null) => 
             
             if (problem) {
                 allProblems.push(problem);
-                console.log(`[ProblemSet] Generated ${problemType} #${i + 1}: ${problem.question}`);
+                logger.debug(`[ProblemSet] Generated ${problemType} #${i + 1}: ${problem.question}`);
             } else {
-                console.warn(`[ProblemSet] Failed to generate ${problemType} #${i + 1}`);
+                logger.warn(`[ProblemSet] Failed to generate ${problemType} #${i + 1}`);
             }
         }
     }
@@ -1495,7 +1496,7 @@ const generateSpecificProblem = async (problemType, difficulty, seed) => {
                 question = `${n1} × ${n2} = ?`;
                 
             } else {
-                console.warn(`[generateSpecificProblem] Unknown problem type: ${problemType}`);
+                logger.warn(`[generateSpecificProblem] Unknown problem type: ${problemType}`);
                 continue;
             }
             
@@ -1528,12 +1529,12 @@ const generateSpecificProblem = async (problemType, difficulty, seed) => {
             };
             
         } catch (error) {
-            console.warn(`[generateSpecificProblem] Error in attempt ${attempt}:`, error.message);
+            logger.warn(`[generateSpecificProblem] Error in attempt ${attempt}:`, error.message);
             continue;
         }
     }
     
-    console.error(`[generateSpecificProblem] Failed to generate ${problemType} after ${maxAttempts} attempts`);
+    logger.error(`[generateSpecificProblem] Failed to generate ${problemType} after ${maxAttempts} attempts`);
     return null;
 };
 

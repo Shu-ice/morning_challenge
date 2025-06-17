@@ -1,14 +1,15 @@
-const express = require('express');
-const router = express.Router();
-const { 
+import express from 'express';
+import { 
   registerUser, 
   loginUser, 
   logoutUser,
   getUserProfile, 
   updateUserProfile,
   getTopUsers
-} = require('../controllers/userController');
-const { protect } = require('../middleware/authMiddleware');
+} from '../controllers/userController.js';
+import { protect } from '../middleware/authMiddleware.js';
+
+const router = express.Router();
 
 // 公開ルート
 router.post('/register', registerUser);
@@ -20,4 +21,4 @@ router.get('/top', getTopUsers);
 router.get('/profile', protect, getUserProfile);
 router.put('/profile', protect, updateUserProfile);
 
-module.exports = router;
+export default router;

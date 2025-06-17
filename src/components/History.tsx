@@ -3,6 +3,8 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { problemsAPI } from '../api';
 import '../styles/UserHistory.css';
+import { logger } from '../utils/logger';
+import type { ProblemResult } from '../types/index';
 
 interface HistoryItem {
   _id?: string;
@@ -15,7 +17,7 @@ interface HistoryItem {
   rank: number | null;
   createdAt?: string;
   userId?: string;
-  problems?: any[];
+  problems?: ProblemResult[];
   timestamp?: string;
 }
 
@@ -38,43 +40,48 @@ export const History: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        console.log('[History] 履歴取得開始');
+        logger.info('[History] 履歴取得開始');
         
         const response = await problemsAPI.getHistory();
-        console.log('[History] API response:', response);
+        logger.debug('[History] API response:', response);
         
         if (response && response.success !== false) {
           // APIレスポンスの構造を確認
           // サーバーは { success: true, data: [], count?: number } の形式で返す
           const historyData = response.data || [];
-          console.log('[History] 履歴データ:', historyData);
-          console.log('[History] 履歴データ数:', historyData.length);
+          logger.debug('[History] 履歴データ:', historyData);
+          logger.debug('[History] 履歴データ数:', historyData.length);
           
           setHistory(historyData);
           setCurrentStreak(response.currentStreak || 5);
           setMaxStreak(response.maxStreak || 12);
           setError(null);
         } else {
-          console.warn('[History] API returned false success or empty data:', response);
+          logger.warn('[History] API returned false success or empty data:', response);
           setError(response?.message || '履歴データの取得に失敗しました');
           setHistory([]);
         }
-      } catch (err: any) {
-        console.error('[History] 履歴取得エラー:', err);
+      } catch (err: unknown) {
+        logger.error('[History] 履歴取得エラー:', err as Error);
         let errorMessage = '履歴の取得に失敗しました';
         
-        if (err.response) {
-          if (err.response.status === 401) {
-            errorMessage = '認証が必要です。再ログインしてください。';
-          } else if (err.response.status === 403) {
-            errorMessage = 'アクセス権限がありません。';
+        if (err && typeof err === 'object' && 'response' in err) {
+          const axiosError = err as { response?: { status: number; data?: { message?: string } }; request?: unknown; message?: string };
+          if (axiosError.response) {
+            if (axiosError.response.status === 401) {
+              errorMessage = '認証が必要です。再ログインしてください。';
+            } else if (axiosError.response.status === 403) {
+              errorMessage = 'アクセス権限がありません。';
+            } else {
+              errorMessage = axiosError.response.data?.message || `サーバーエラー (${axiosError.response.status})`;
+            }
+          } else if (axiosError.request) {
+            errorMessage = 'サーバーに接続できませんでした。';
           } else {
-            errorMessage = err.response.data?.message || `サーバーエラー (${err.response.status})`;
+            errorMessage = axiosError.message || '予期せぬエラーが発生しました。';
           }
-        } else if (err.request) {
-          errorMessage = 'サーバーに接続できませんでした。';
-        } else {
-          errorMessage = err.message || '予期せぬエラーが発生しました。';
+        } else if (err instanceof Error) {
+          errorMessage = err.message;
         }
         
         setError(errorMessage);

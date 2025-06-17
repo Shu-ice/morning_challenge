@@ -1,5 +1,6 @@
-const User = require('../models/userModel');
-const jwt = require('jsonwebtoken');
+import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
+import { logger } from '../utils/logger.js';
 
 // トークン生成関数
 const generateToken = (id) => {
@@ -11,7 +12,7 @@ const generateToken = (id) => {
 // @desc    ユーザー登録
 // @route   POST /api/users/register
 // @access  Public
-exports.registerUser = async (req, res) => {
+export const registerUser = async (req, res) => {
   try {
     const { username, password, grade } = req.body;
     
@@ -72,7 +73,7 @@ exports.registerUser = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('ユーザー登録エラー:', error);
+    logger.error('ユーザー登録エラー:', error);
     res.status(500).json({
       success: false, 
       message: 'サーバーエラーが発生しました'
@@ -83,7 +84,7 @@ exports.registerUser = async (req, res) => {
 // @desc    ユーザーログイン
 // @route   POST /api/users/login
 // @access  Public
-exports.loginUser = async (req, res) => {
+export const loginUser = async (req, res) => {
   try {
     const { username, password } = req.body;
     
@@ -142,7 +143,7 @@ exports.loginUser = async (req, res) => {
       token
     });
   } catch (error) {
-    console.error('ログインエラー:', error);
+    logger.error('ログインエラー:', error);
     res.status(500).json({
       success: false, 
       message: 'サーバーエラーが発生しました'
@@ -153,7 +154,7 @@ exports.loginUser = async (req, res) => {
 // @desc    ユーザープロフィールの取得
 // @route   GET /api/users/profile
 // @access  Private
-exports.getUserProfile = async (req, res) => {
+export const getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     
@@ -179,7 +180,7 @@ exports.getUserProfile = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('プロファイル取得エラー:', error);
+    logger.error('プロファイル取得エラー:', error);
     res.status(500).json({
       success: false, 
       message: 'サーバーエラーが発生しました'
@@ -190,7 +191,7 @@ exports.getUserProfile = async (req, res) => {
 // @desc    ユーザープロフィールの更新
 // @route   PUT /api/users/profile
 // @access  Private
-exports.updateUserProfile = async (req, res) => {
+export const updateUserProfile = async (req, res) => {
   try {
     const { grade, avatar } = req.body;
     
@@ -221,7 +222,7 @@ exports.updateUserProfile = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('プロファイル更新エラー:', error);
+    logger.error('プロファイル更新エラー:', error);
     res.status(500).json({
       success: false, 
       message: 'サーバーエラーが発生しました'
@@ -232,11 +233,11 @@ exports.updateUserProfile = async (req, res) => {
 // @desc    ユーザーのアイテム購入
 // @route   POST /api/users/purchase
 // @access  Private
-exports.purchaseItem = async (req, res) => {
+export const purchaseItem = async (req, res) => {
   try {
     const { itemId } = req.body;
     const user = await User.findById(req.user._id);
-    const Item = require('../models/itemModel');
+    const { default: Item } = await import('../models/Item.js');
     const item = await Item.findById(itemId);
     
     if (!user) {
@@ -286,7 +287,7 @@ exports.purchaseItem = async (req, res) => {
 // @desc    ユーザーログアウト
 // @route   POST /api/users/logout
 // @access  Private
-exports.logoutUser = (req, res) => {
+export const logoutUser = (req, res) => {
   try {
     res.cookie('token', '', {
       httpOnly: true,
@@ -298,7 +299,7 @@ exports.logoutUser = (req, res) => {
       message: 'ログアウトしました'
     });
   } catch (error) {
-    console.error('ログアウトエラー:', error);
+    logger.error('ログアウトエラー:', error);
     res.status(500).json({
       success: false, 
       message: 'サーバーエラーが発生しました'
@@ -309,7 +310,7 @@ exports.logoutUser = (req, res) => {
 // @desc    トップユーザーの取得（ランキング用）
 // @route   GET /api/users/top
 // @access  Public
-exports.getTopUsers = async (req, res) => {
+export const getTopUsers = async (req, res) => {
   try {
     const { period, limit } = req.query;
     const userLimit = parseInt(limit) || 10;
@@ -366,7 +367,7 @@ exports.getTopUsers = async (req, res) => {
       users
     });
   } catch (error) {
-    console.error('ランキング取得エラー:', error);
+    logger.error('ランキング取得エラー:', error);
     res.status(500).json({
       success: false, 
       message: 'サーバーエラーが発生しました'
@@ -374,7 +375,7 @@ exports.getTopUsers = async (req, res) => {
   }
 };
 
-module.exports = {
+export default {
   registerUser,
   loginUser,
   logoutUser,

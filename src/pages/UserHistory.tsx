@@ -4,6 +4,7 @@ import { difficultyToJapanese, DifficultyRank } from '../types/difficulty';
 import '../styles/UserHistory.css';
 import { UserData, ProblemResult } from '../types/index';
 import axios from 'axios';
+import { logger } from '../utils/logger';
 
 interface HistoryItem {
   _id: string;
@@ -95,28 +96,35 @@ const UserHistory = () => {
 
   // ストリーク情報を計算
   const { currentStreak, maxStreak } = useMemo(() => {
-    console.log('=== ストリーク計算 ===');
-    console.log('履歴データ数:', history?.length || 0);
+    logger.debug('=== ストリーク計算 ===');
+    logger.debug('履歴データ数:', history?.length || 0);
     if (history && history.length > 0) {
-      console.log('最初の履歴:', history[0]);
+      logger.debug('最初の履歴:', history[0]);
     }
     
     const result = calculateStreaks(history);
-    console.log('計算結果:', result);
-    console.log('=================');
+    logger.debug('計算結果:', result);
+    logger.debug('=================');
     return result;
   }, [history]);
 
   // ユーザー情報をlocalStorageから取得
   useEffect(() => {
-    const storedUserInfo = localStorage.getItem('user');
+      const storedUserInfo = localStorage.getItem('user');
     const storedToken = localStorage.getItem('token');
     if (storedUserInfo && storedToken) {
       try {
         const parsedUser = JSON.parse(storedUserInfo) as UserData;
-        setUser({ ...parsedUser, token: storedToken });
+        if (parsedUser && typeof parsedUser === 'object' && parsedUser._id) {
+          setUser({ ...parsedUser, token: storedToken });
+        } else {
+          logger.warn('[UserHistory] Invalid user data structure:', parsedUser);
+          setUser(null);
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+        }
       } catch (e) {
-        console.error("ユーザー情報の解析に失敗しました", e);
+        logger.error("ユーザー情報の解析に失敗しました", e);
         setUser(null);
         localStorage.removeItem('user');
         localStorage.removeItem('token');
@@ -138,50 +146,77 @@ const UserHistory = () => {
     setError(null);
     
     try {
-      console.log('[UserHistory] 履歴取得開始');
+      logger.info('[UserHistory] 履歴取得開始');
       
       const response = await historyAPI.getUserHistory(50);
-      console.log('=== API レスポンス ===');
-      console.log('成功:', response.success);
-      console.log('履歴件数:', response.history?.length || 0);
+      logger.debug('=== API レスポンス ===');
+      logger.debug('成功:', response.success);
+      logger.debug('履歴件数:', response.history?.length || 0);
       if (response.history && response.history.length > 0) {
-        console.log('最初の履歴項目:', response.history[0]);
+        logger.debug('最初の履歴項目:', response.history[0]);
       }
-      console.log('==================');
+      logger.debug('==================');
       
-      let historyArray = null;
-      if (response.success && Array.isArray(response.history)) {
-        historyArray = response.history;
-        console.log('[UserHistory] 有効な履歴データを検出:', historyArray.length, '件');
-      }
-      
-      if (historyArray) {
-        setHistory(historyArray);
-      } else {
-        console.warn('[UserHistory] APIレスポンスに有効な履歴データが含まれていません:', response);
-        setError(response.message || '履歴データの取得に失敗しました。');
+      let historyArray: HistoryItem[] = [];
+      if (response?.success && Array.isArray(response.history)) {
+        historyArray = response.history.filter((item: HistoryItem) => {
+          // 必須フィールドがあるかチェック
+          return item && typeof item === 'object' && (item._id || item.date);
+        });
+        logger.info('[UserHistory] 有効な履歴データを検出:', historyArray.length, '件');
+      } else if (response?.history && !Array.isArray(response.history)) {
+        logger.warn('[UserHistory] History data is not an array:', typeof response.history);
+        setError('履歴データの形式が異常です。');
         setHistory([]);
+        return;
       }
-    } catch (err: any) {
-      console.error('[UserHistory] 履歴取得エラー:', err);
+      
+      setHistory(historyArray);
+      
+      if (historyArray.length === 0 && response?.success) {
+        logger.info('[UserHistory] No history data available (empty but successful response)');
+      } else if (!response?.success) {
+        logger.warn('[UserHistory] APIレスポンスに有効な履歴データが含まれていません:', response);
+        setError(response?.message || '履歴データの取得に失敗しました。');
+      }
+    } catch (err: unknown) {
+      logger.error('[UserHistory] 履歴取得エラー:', err);
       let errorMessage = '履歴の取得中にエラーが発生しました。';
+      
       if (axios.isAxiosError(err)) {
-        if (err.response) {
-          errorMessage = err.response.data?.message || `サーバーエラー (${err.response.status})`;
-          if (err.response.status === 401) {
-            errorMessage = '認証エラーが発生しました。再ログインしてください。';
-            setUser(null);
-            localStorage.removeItem('user');
-            localStorage.removeItem('token');
+        if (err.response?.data?.message) {
+          errorMessage = err.response.data.message;
+        } else if (err.response?.status) {
+          switch (err.response.status) {
+            case 401:
+              errorMessage = '認証エラーが発生しました。再ログインしてください。';
+              setUser(null);
+              localStorage.removeItem('user');
+              localStorage.removeItem('token');
+              break;
+            case 403:
+              errorMessage = 'アクセス権限がありません。';
+              break;
+            case 404:
+              errorMessage = '履歴データが見つかりません。';
+              break;
+            case 500:
+              errorMessage = 'サーバー内部エラーが発生しました。';
+              break;
+            default:
+              errorMessage = `サーバーエラー (${err.response.status})`;
           }
         } else if (err.request) {
-          errorMessage = 'サーバーに接続できませんでした。';
-        } else {
+          errorMessage = 'サーバーに接続できませんでした。ネットワーク接続を確認してください。';
+        } else if (err.message) {
           errorMessage = err.message;
         }
-      } else if (err instanceof Error) {
+      } else if (err instanceof Error && err.message) {
         errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
       }
+      
       setError(errorMessage);
       setHistory([]);
     } finally {
@@ -203,8 +238,14 @@ const UserHistory = () => {
     try {
       const date = new Date(dateString);
       
+      // 無効な日付をチェック
+      if (isNaN(date.getTime())) {
+        logger.warn('[UserHistory] Invalid date string:', dateString);
+        return dateString; // 元の文字列を返す
+      }
+      
       // モバイル表示用の短い形式
-      const isMobile = window.innerWidth <= 768;
+      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
       
       if (isMobile) {
         const options: Intl.DateTimeFormatOptions = { 
@@ -220,19 +261,31 @@ const UserHistory = () => {
         return date.toLocaleString('ja-JP', options);
       }
     } catch (e) {
-      console.error('日付フォーマットエラー:', e);
-      return dateString;
+      logger.error('日付フォーマットエラー:', e);
+      return dateString || 'N/A';
     }
   };
   
   // 時間をフォーマットする関数
   const formatTime = (milliseconds: number | undefined): string => {
     if (milliseconds === undefined || milliseconds === null || isNaN(milliseconds)) return '-';
+    
+    // 負の値や異常に大きな値をチェック
+    if (milliseconds < 0) {
+      logger.warn('[UserHistory] Negative time value:', milliseconds);
+      return '-';
+    }
+    
+    if (milliseconds > 24 * 60 * 60 * 1000) { // 24時間より大きい値
+      logger.warn('[UserHistory] Unusually large time value:', milliseconds);
+      return `${Math.floor(milliseconds / 1000)}秒+`;
+    }
+    
     try {
       const seconds = milliseconds / 1000;
       return `${seconds.toFixed(2)}秒`;
     } catch (e) {
-      console.error('時間フォーマットエラー:', e);
+      logger.error('時間フォーマットエラー:', e);
       return `${milliseconds} ms`;
     }
   };
@@ -403,20 +456,20 @@ const UserHistory = () => {
                     tabIndex={0}
                     aria-label={`${index + 1}件目の履歴: ${formatDate(item.timestamp)}, 難易度${difficultyToJapanese(item.difficulty as DifficultyRank)}, ${item.rank ? `${item.rank}位` : '順位なし'}, ${item.correctAnswers ?? '?'}/${item.totalProblems ?? 10}問正解, ${formatTime(item.totalTime || item.timeSpent)}`}
                   >
-                    <td role="gridcell" aria-label={`実施日時: ${formatDate(item.timestamp)}`}>
-                      {formatDate(item.timestamp)}
+                    <td role="gridcell" aria-label={`実施日時: ${formatDate(item?.timestamp || item?.date)}`}>
+                      {formatDate(item?.timestamp || item?.date)}
                     </td>
-                    <td role="gridcell" aria-label={`難易度: ${difficultyToJapanese(item.difficulty as DifficultyRank)}`}>
+                    <td role="gridcell" aria-label={`難易度: ${difficultyToJapanese((item?.difficulty || 'beginner') as DifficultyRank)}`}>
                       <span 
-                        className={`difficulty-badge difficulty-${item.difficulty}`}
+                        className={`difficulty-badge difficulty-${item?.difficulty || 'beginner'}`}
                         role="img"
-                        aria-label={`難易度: ${difficultyToJapanese(item.difficulty as DifficultyRank)}`}
+                        aria-label={`難易度: ${difficultyToJapanese((item?.difficulty || 'beginner') as DifficultyRank)}`}
                       >
-                        {difficultyToJapanese(item.difficulty as DifficultyRank)}
+                        {difficultyToJapanese((item?.difficulty || 'beginner') as DifficultyRank)}
                       </span>
                     </td>
-                    <td role="gridcell" aria-label={item.rank ? `順位: ${item.rank}位` : '順位: 記録なし'}>
-                      {item.rank ? (
+                    <td role="gridcell" aria-label={item?.rank ? `順位: ${item.rank}位` : '順位: 記録なし'}>
+                      {item?.rank ? (
                         <span 
                           className={`rank-badge ${item.rank <= 3 ? `rank-${item.rank}` : ''}`}
                           role="img"
@@ -428,13 +481,13 @@ const UserHistory = () => {
                         <span aria-label="順位記録なし">-</span>
                       )}
                     </td>
-                    <td role="gridcell" aria-label={`正解数: ${item.correctAnswers ?? '?'}問中${item.totalProblems ?? 10}問`}>
+                    <td role="gridcell" aria-label={`正解数: ${item?.correctAnswers ?? '?'}問中${item?.totalProblems ?? 10}問`}>
                       <span className="score-display">
-                        {item.correctAnswers ?? '?'} / {item.totalProblems ?? 10}
+                        {item?.correctAnswers ?? '?'} / {item?.totalProblems ?? 10}
                       </span>
                     </td>
-                    <td role="gridcell" aria-label={`解答時間: ${formatTime(item.totalTime || item.timeSpent)}`}>
-                      {formatTime(item.totalTime || item.timeSpent)}
+                    <td role="gridcell" aria-label={`解答時間: ${formatTime(item?.totalTime || item?.timeSpent)}`}>
+                      {formatTime(item?.totalTime || item?.timeSpent)}
                     </td>
                   </tr>
                 ))}

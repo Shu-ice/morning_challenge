@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import '../styles/Problems.css';
 // import { useNavigate, useLocation } from 'react-router-dom'; // useNavigate を削除
 // import { useAuth } from '@/contexts/AuthContext'; // Use localStorage instead for now
-import type { Problem, ProblemResult, Results, UserData } from '../types/index'; // Results をインポート
+import type { Problem, ProblemResult, Results, UserData, ApiResult } from '../types/index'; // Results をインポート
 import { problemsAPI } from '../api/index'; // ★ パスに index を明示的に含める
 // import { generateProblems } from '@/utils/problemGenerator'; // フロントエンド生成は不要に
 import { DifficultyRank, difficultyToJapanese } from '../types/difficulty'; // 相対パスに変更
@@ -13,18 +13,24 @@ import { useProblem } from '../contexts/ProblemContext'; // ★ useProblem を�
 import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingSpinner from '../components/LoadingSpinner';
 import useApiWithRetry from '../hooks/useApiWithRetry';
+import { logger } from '../utils/logger';
 
 interface ProblemData {
-  id: string; // ★ API から返る問題IDが string であれば string に（現状はnumberの想定かもしれないので注意）
+  id: string;
   question: string;
-  // userAnswer?: number | null; // ユーザー解答や正誤はここでは管理しない想定
-  // isCorrect?: boolean;
-  // type?: string;
+  type?: string;
+}
+
+interface CompletionItem {
+  date: string;
+  difficulty: DifficultyRank;
+  username: string;
+  timestamp: string;
 }
 
 interface ProblemsProps {
   difficulty: DifficultyRank;
-  onComplete: (results: any) => void;
+  onComplete: (results: Results) => void;
   onBack: () => void;
 }
 
@@ -67,13 +73,13 @@ const hasCompletedTodaysProblems = (difficulty: DifficultyRank) => {
     const parsedData = JSON.parse(completionData);
     const today = getDateString();
 
-    return parsedData.some((item: any) =>
+    return parsedData.some((item: CompletionItem) =>
       item.date === today &&
       item.difficulty === difficulty &&
       item.username === currentUser.username // ★ ユーザー名もチェック
     );
   } catch (error) {
-    console.error('Failed to check completion status:', error);
+    logger.error('Failed to check completion status:', error);
     return false;
   }
   */
@@ -82,7 +88,7 @@ const hasCompletedTodaysProblems = (difficulty: DifficultyRank) => {
 // 完了情報を保存 (ユーザー名を考慮)
 const saveCompletionData = (difficulty: DifficultyRank, user: UserData | null) => {
   if (!user || !user.username) { // ユーザー情報とユーザー名があるか確認
-    console.warn('[saveCompletionData] User or username is missing, cannot save completion.');
+    logger.warn('[saveCompletionData] User or username is missing, cannot save completion.');
     return; 
   }
 
@@ -98,7 +104,7 @@ const saveCompletionData = (difficulty: DifficultyRank, user: UserData | null) =
     });
     localStorage.setItem('mathChallengeCompletion', JSON.stringify(parsedData));
   } catch (error) {
-    console.error('Failed to save completion data:', error);
+    logger.error('Failed to save completion data:', error);
   }
 };
 
@@ -110,16 +116,16 @@ export const getLastUsedDifficulty = (): DifficultyRank => {
     
     const parsedData = JSON.parse(completionData);
     // 日付の降順でソート
-    parsedData.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    parsedData.sort((a: CompletionItem, b: CompletionItem) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     
     // 最新のエントリからdifficultyを取得
-    if (parsedData.length > 0 && parsedData[0].difficulty) {
+    if (parsedData?.length > 0 && parsedData[0]?.difficulty) {
       return parsedData[0].difficulty as DifficultyRank;
     }
     
     return 'beginner';
   } catch (error) {
-    console.error('Failed to get last used difficulty:', error);
+    logger.error('Failed to get last used difficulty:', error);
     return 'beginner';
   }
 };
@@ -164,8 +170,8 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   const [selectedDate, setSelectedDate] = useState<string>(() => getFormattedDate(new Date())); // ★ より確実に今日の日付を初期化
   // ★ 初期値の確認ログを追加
   useEffect(() => {
-    console.log('[Problems] Initial selectedDate:', selectedDate);
-    console.log('[Problems] Today formatted date:', getFormattedDate(new Date()));
+    logger.debug('[Problems] Initial selectedDate:', selectedDate);
+    logger.debug('[Problems] Today formatted date:', getFormattedDate(new Date()));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 初回レンダリング時のみ実行
   const { count: remainingTime, startCountdown } = usePreciseCountdown(300);
@@ -178,10 +184,10 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         throw new Error('ユーザーIDが取得できません。再ログインしてください。');
       }
 
-      console.log(`問題を取得します: 難易度=${difficulty}, 日付=${selectedDate}, ユーザーID=${currentUser._id}`);
+      logger.info(`問題を取得します: 難易度=${difficulty}, 日付=${selectedDate}, ユーザーID=${currentUser._id}`);
       
       const apiResponse = await problemsAPI.getProblems(difficulty, selectedDate);
-      console.log('API応答:', apiResponse);
+      logger.debug('API応答:', apiResponse);
       
       if (!apiResponse.success || !apiResponse.problems || apiResponse.problems.length === 0) {
         const errorMsg = apiResponse.message || `${selectedDate}の${difficultyToJapanese(difficulty)}問題は見つかりませんでした。`;
@@ -212,14 +218,14 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       try {
         const parsedUser = JSON.parse(storedUserInfo) as UserData; 
         if (!parsedUser._id) {
-          console.warn("[Problems Page] User data from localStorage is missing '_id'. Data:", parsedUser);
+          logger.warn("[Problems Page] User data from localStorage is missing '_id'. Data:", parsedUser);
         }
         setCurrentUser({ 
           ...parsedUser, 
           token: storedToken
         });
       } catch (e) {
-        console.error("Failed to parse user info from localStorage", e);
+        logger.error("Failed to parse user info from localStorage", e);
         setCurrentUser(null);
       }
     } else {
@@ -229,7 +235,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   // カウントダウン完了時の処理を定義 (useCallbackでメモ化)
   const handleCountdownComplete = useCallback(() => {
-    console.log("Countdown complete, starting game!");
+    logger.info("Countdown complete, starting game!");
     setIsStarted(true);      // ゲーム開始状態にする
     setIsCountingDown(false); // ★ カウントダウン終了
     setStartTime(Date.now()); // 開始時間を記録
@@ -237,7 +243,11 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     // 最初の問題にフォーカス
     setTimeout(() => {
       if (inputRef.current) {
-        inputRef.current.focus();
+        try {
+          inputRef.current.focus();
+        } catch (error) {
+          logger.warn('[Problems] Failed to focus input:', error);
+        }
       }
     }, 100);
   }, []); // 依存配列に setIsCountingDown を追加 (念のため)
@@ -260,7 +270,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   // ★ handleStart を修正 - 時間チェックを追加
   const handleStart = () => {
     if (currentProblems.length === 0) {
-        console.error("問題がロードされていません。リフレッシュしてください。");
+        logger.error("問題がロードされていません。リフレッシュしてください。");
       return;
     }
     
@@ -276,22 +286,22 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       
       // 時間制限チェック: 朝6:30-8:00のみ利用可能
       if (currentTime < 6.5 || currentTime > 8.0) {
-        console.error('計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！');
+        logger.error('計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！');
         return;
       }
     }
     
-    console.log("開始ボタンがクリックされました - カウントダウン開始");
+    logger.info("開始ボタンがクリックされました - カウントダウン開始");
     // エラーをクリア (コメントアウト)
     // setError(null);
     setIsCountingDown(true); // ★ カウントダウン開始 state にする
     countdownStart(3); // ★ 引数に初期値 (3) を渡す
-    console.log('Countdown started by handleStart with 3');
+    logger.debug('Countdown started by handleStart with 3');
   };
 
   // inputの値が変わったときのハンドラ
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('Input changed:', event.target.value); // デバッグログ
+    logger.debug('Input changed:', event.target.value); // デバッグログ
     
     // 空の入力、数字、小数点、マイナス記号を許可
     const value = event.target.value;
@@ -343,7 +353,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   // ★ handleComplete をサーバー送信ロジックに変更
   const handleComplete = async (finalAnswers: string[]) => {
-    console.log('[Problems] handleComplete CALLED. startTime:', startTime, 'isStarted:', isStarted); // ★デバッグログ追加
+    logger.debug('[Problems] handleComplete CALLED. startTime:', startTime, 'isStarted:', isStarted); // ★デバッグログ追加
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
@@ -353,11 +363,20 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
     // ユーザー情報を取得（ローカルストレージから）
     const storedUser = localStorage.getItem('user');
-    const userId = storedUser ? (JSON.parse(storedUser) as UserData)._id : 'unknown_user';
+    let userId = 'unknown_user';
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser) as UserData;
+        userId = parsedUser?._id || 'unknown_user';
+      } catch (error) {
+        logger.error('[Problems] Failed to parse stored user data:', error);
+        userId = 'unknown_user';
+      }
+    }
 
     // デバッグログ
-    console.log('[Problems] handleComplete called.');
-    console.log('[Problems] Submitting with:', {
+    logger.debug('[Problems] handleComplete called.');
+    logger.debug('[Problems] Submitting with:', {
       difficulty: difficulty,
       date: selectedDate, // ★ 選択された日付を使用
       problemIds: currentProblems.map((p: ProblemData) => p.id),
@@ -377,39 +396,44 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         userId: userId
       });
       
-      console.log('[Problems] API submitAnswers response:', response);
+      logger.debug('[Problems] API submitAnswers response:', response);
 
-      if (response && response.success && response.results) { // ★ .result を .results に変更
+      if (response?.success && response.results) { // ★ .result を .results に変更
         // サーバーからの実績値を取得
         const apiResultFromServer = response.results; // ★ .result を .results に変更
 
         // ★★★ デバッグログ追加: APIレスポンス全体と、Resultsに渡すデータ ★★★
-        console.log('[Problems.tsx] Full API response:', JSON.stringify(response, null, 2));
-        console.log('[Problems.tsx] Data passed to onComplete (apiResultFromServer):', JSON.stringify(apiResultFromServer, null, 2));
+        logger.debug('[Problems.tsx] Full API response:', JSON.stringify(response, null, 2));
+        logger.debug('[Problems.tsx] Data passed to onComplete (apiResultFromServer):', JSON.stringify(apiResultFromServer, null, 2));
         // ★★★ デバッグログここまで ★★★
 
         // ProblemContext の finalizeSession を呼び出し、サーバーからの結果を渡す
         // apiResultFromServer は ApiResultData 型と想定される。
         // ApiResultData には problems というフィールドがあり、これが ProblemResult[] 型。
         // finalizeSession の第一引数は ProblemResult[] を期待している。
-        finalizeSession(apiResultFromServer.problems, apiResultFromServer);
+        const problems = apiResultFromServer?.problems || [];
+        if (problems.length > 0) {
+          finalizeSession(problems, apiResultFromServer);
+        } else {
+          logger.warn('[Problems] No problems found in API response for finalizeSession');
+        }
 
         // ローカルストレージに完了情報を保存
         saveCompletionData(difficulty, currentUser);
         onComplete(response.results); // onComplete には response.results (結果データ本体) を渡す
       } else {
-        console.error('[Problems] Answer submission failed or unexpected response:', response);
-        console.error(response?.message || '回答の送信に失敗しました。データ形式を確認してください。');
+        logger.error('[Problems] Answer submission failed or unexpected response:', response);
+        logger.error(response?.message || '回答の送信に失敗しました。データ形式を確認してください。');
         // finalizeSession を呼ぶべきか検討。エラー時は呼ばない方が良いかもしれない。
         // あるいは、エラー用のセッション終了処理を設ける。
         // ここでは、エラー時は古い endSession のような形で、フロントエンド時間でセッションを終了する想定はしない。
       }
     } catch (error) {
-      console.error('[Problems] Error submitting answers:', error);
+      logger.error('[Problems] Error submitting answers:', error);
       if (isAxiosError(error) && error.response) {
-        console.error(error.response.data.message || '回答の送信中にエラーが発生しました。');
+        logger.error(error.response.data.message || '回答の送信中にエラーが発生しました。');
       } else {
-        console.error('回答の送信中に不明なエラーが発生しました。');
+        logger.error('回答の送信中に不明なエラーが発生しました。');
       }
     }
   };
@@ -428,9 +452,9 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         // ★ 日付変更時にキャッシュもクリア
         const cacheKey = `problems_${difficulty}_${newDate}`;
         sessionStorage.removeItem(cacheKey);
-        console.log('[Problems] Cache cleared due to date change');
+        logger.info('[Problems] Cache cleared due to date change');
     } else {
-        console.warn("Invalid date format selected:", newDate);
+        logger.warn("Invalid date format selected:", newDate);
     }
   };
 
@@ -438,7 +462,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   const clearCache = () => {
     const cacheKey = `problems_${difficulty}_${selectedDate}`;
     sessionStorage.removeItem(cacheKey);
-    console.log('[Problems] Cache manually cleared');
+    logger.info('[Problems] Cache manually cleared');
     // 問題を再読み込み
     window.location.reload();
   };
@@ -446,11 +470,11 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   // handleSubmitResults
   const handleSubmitResults = useCallback(async (finalResults: ProblemResult) => {
     if (!currentUser?.token) {
-      console.error('Cannot submit results without user token');
-      console.error('結果の送信に失敗しました。ログイン状態を確認してください。');
+      logger.error('Cannot submit results without user token');
+      logger.error('結果の送信に失敗しました。ログイン状態を確認してください。');
       return;
     }
-    console.log("Submitting results:", finalResults);
+    logger.debug("Submitting results:", finalResults);
 
     try {
       await axios.post('/api/results', finalResults, {
@@ -462,8 +486,8 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       });
       onComplete(finalResults);
     } catch (error) {
-      console.error('Error submitting results:', error);
-      console.error('結果の送信中にエラーが発生しました。');
+      logger.error('Error submitting results:', error);
+      logger.error('結果の送信中にエラーが発生しました。');
     }
   }, [currentUser?.token, onComplete]);
 
@@ -471,7 +495,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   useEffect(() => {
       // remainingTime が 0 以下になり、かつゲームが開始されている場合
       if (isStarted && remainingTime !== null && remainingTime <= 0 && currentProblems.length > 0) { // ★ isStarted を条件に追加
-          console.log("Time's up!");
+          logger.info("Time's up!");
           // タイムアウトした場合も handleComplete を呼び出す
           // その時点での回答状況 (answers) を渡す
           handleComplete(answers); // ★ calculateResults の代わりに handleComplete を呼ぶ
@@ -511,18 +535,18 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
     const loadProblems = async () => {
       if (!currentUser || !currentUser._id) {
-        console.error('[Problems] loadProblems: currentUser or currentUser._id is missing.');
+        logger.error('[Problems] loadProblems: currentUser or currentUser._id is missing.');
         setIsLoading(false);
         return;
       }
       setIsLoading(true); 
-      console.log(`[Problems] Loading problems for user: ${currentUser._id}, difficulty: ${difficulty}, date: ${selectedDate}`);
+      logger.info(`[Problems] Loading problems for user: ${currentUser._id}, difficulty: ${difficulty}, date: ${selectedDate}`);
 
       const cacheKey = `problems_${difficulty}_${selectedDate}`;
       
       // ★ 開発モードでは常にキャッシュをクリアして最新データを取得
       if (import.meta.env.DEV) {
-        console.log('[Problems] Development mode: clearing cache to fetch latest data');
+        logger.debug('[Problems] Development mode: clearing cache to fetch latest data');
         sessionStorage.removeItem(cacheKey);
       }
       
@@ -532,12 +556,12 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       if (cachedProblems && !import.meta.env.DEV) {
         try {
           const parsedProblems = JSON.parse(cachedProblems);
-          console.log('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: ProblemData) => p.id), null, 2));
+          logger.debug('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: ProblemData) => p.id), null, 2));
           setCurrentProblems(parsedProblems);
           setIsLoading(false);
           return;
         } catch (parseError) {
-          console.warn('問題キャッシュの解析に失敗しました:', parseError);
+          logger.warn('問題キャッシュの解析に失敗しました:', parseError);
         }
       }
 
@@ -545,27 +569,28 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       try {
         const problems = await problemsApiWithRetry.execute();
         
-        if (problems) {
+        if (problems && Array.isArray(problems)) {
           // 問題データを整形
-          const formattedProblems = problems.map((problem: any, index: number) => ({
-            id: problem.id.toString(),
-            question: problem.question,
-            type: problem.type || 'mixed'
+          const formattedProblems = problems.map((problem: Problem, index: number) => ({
+            id: problem?.id?.toString() || `problem-${index}`,
+            question: problem?.question || `問題 ${index + 1}`,
+            type: problem?.type || 'mixed'
           }));
-          console.log('[Problems API] Loaded from API:', JSON.stringify(formattedProblems.map((p: ProblemData) => p.id), null, 2));
+          logger.debug('[Problems API] Loaded from API:', JSON.stringify(formattedProblems.map((p: ProblemData) => p.id), null, 2));
           
-          console.log(`${formattedProblems.length}問の問題を取得しました`);
+          logger.info(`${formattedProblems.length}問の問題を取得しました`);
           setCurrentProblems(formattedProblems);
           
           // 問題をセッションストレージにキャッシュ
           try {
             sessionStorage.setItem(cacheKey, JSON.stringify(formattedProblems));
           } catch (cacheError) {
-            console.warn('問題キャッシュの保存に失敗しました:', cacheError);
+            logger.warn('問題キャッシュの保存に失敗しました:', cacheError);
           }
         }
-      } catch (err: any) {
-        console.error('問題の取得中にエラーが発生しました:', err);
+      } catch (err: unknown) {
+        const error = err as Error;
+        logger.error('問題の取得中にエラーが発生しました:', err);
         // エラーはproblemsApiWithRetryが管理
       } finally {
         setIsLoading(false);
@@ -578,7 +603,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   // ★ 経過時間タイマー (これは isStarted をトリガーにするので変更なし)
   useEffect(() => {
-    console.log('[Problems] elapsedTime useEffect. isStarted:', isStarted, 'startTime:', startTime); // ★デバッグログ追加
+    logger.debug('[Problems] elapsedTime useEffect. isStarted:', isStarted, 'startTime:', startTime); // ★デバッグログ追加
     if (isStarted && startTime !== null) {
       timerRef.current = setInterval(() => {
         setElapsedTime(Date.now() - startTime);
@@ -601,9 +626,13 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       // 非同期でフォーカスを設定（レンダリング完了後に確実にフォーカスするため）
       setTimeout(() => {
         if (inputRef.current) {
-          inputRef.current.focus();
-          // フォーカスが確実に設定されたか確認
-          console.log('Input focused:', document.activeElement === inputRef.current);
+          try {
+            inputRef.current.focus();
+            // フォーカスが確実に設定されたか確認
+            logger.debug('Input focused:', document.activeElement === inputRef.current);
+          } catch (error) {
+            logger.warn('[Problems] Failed to focus input in useEffect:', error);
+          }
         }
       }, 100);
 
@@ -746,7 +775,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
           {/* 問題文 */} 
           <div className="problem-text text-3xl font-bold text-center mb-8">
-            {currentProblems[currentIndex].question}
+            {currentProblems[currentIndex]?.question || '問題を読み込んでいます...'}
           </div>
 
           {/* 回答入力欄 */} 

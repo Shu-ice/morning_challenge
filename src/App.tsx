@@ -3,11 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProblemProvider, useProblem } from './contexts/ProblemContext';
 import { MainLayout } from './layouts/MainLayout';
+import type { Results } from './types/index';
 
 // ページコンポーネント
 import Home from './pages/Home';
 import Problems from './pages/Problems';
-import Results from './pages/Results';
+import ResultsPage from './pages/Results';
 import Rankings from './pages/Rankings';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -148,8 +149,8 @@ const AppRoutes: React.FC = () => {
           path="/results"
           element={
             <ProtectedRoute>
-              <Results
-                results={currentSession as any}
+              <ResultsPage
+                results={currentSession as unknown as Results}
                 onViewRankings={() => {
                   // 難易度をランキングページに渡すためにstateを使用
                   navigate('/rankings', { 

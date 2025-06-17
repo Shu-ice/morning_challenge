@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 /**
  * データベース接続設定
@@ -71,4 +71,4 @@ class DatabaseConfig {
   }
 }
 
-module.exports = new DatabaseConfig(); 
+export default new DatabaseConfig(); 

@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, Link } from 'react-router-dom';
 // import { useAuth } from '@/contexts/AuthContext'; // localStorage を使用
 import '@/styles/AdminLayout.css'; // CSSファイルも後で作成
+import { logger } from '@/utils/logger';
 
 const AdminLayout: React.FC = () => {
   // localStorage から管理者フラグを確認
@@ -16,7 +17,7 @@ const AdminLayout: React.FC = () => {
         // userInfo に isAdmin が含まれているか確認
         setIsAdmin(userData?.isAdmin === true); 
       } catch (e) {
-        console.error("Failed to parse user info from localStorage", e);
+        logger.error("Failed to parse user info from localStorage", e);
         setIsAdmin(false);
       }
     } else {
@@ -32,7 +33,7 @@ const AdminLayout: React.FC = () => {
 
   if (!isAdmin) {
     // 管理者でなければホームページなどにリダイレクト
-    console.warn("AdminLayout: User is not an admin. Redirecting to login...");
+    logger.warn("AdminLayout: User is not an admin. Redirecting to login...");
     // ログインページにリダイレクトするのが適切かもしれません
     return <Navigate to="/login" replace />;
   }

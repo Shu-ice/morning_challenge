@@ -39,11 +39,11 @@ export const useProblems = (difficulty: DifficultyRank, date: string) => {
     queryFn: () => problemsAPI.getProblems(difficulty, date),
     enabled: !!difficulty && !!date, // 必要なパラメータがある場合のみ実行
     staleTime: 10 * 60 * 1000, // 10分間フレッシュ
-    select: (data: any) => {
+    select: (data: { success: boolean; message?: string; problems?: Problem[]; difficulty?: DifficultyRank; date?: string }) => {
       // データ変換ロジック
       return {
         ...data,
-        problems: data.problems?.map((p: any, index: number) => ({
+        problems: data.problems?.map((p, index: number) => ({
           ...p,
           id: p.id || String(index + 1),
         })) || [],
@@ -140,10 +140,10 @@ export const useSubmitAnswers = () => {
       // 特定のクエリのデータを更新
       queryClient.setQueryData(
         [QUERY_KEYS.rankings, variables.date, variables.difficulty],
-        (oldData: any) => {
+        (oldData: unknown) => {
           if (!oldData) return oldData
           // 新しいランキングデータがあれば更新
-          return data.results?.rankings || oldData
+          return (data as { results?: { rankings?: unknown } }).results?.rankings || oldData
         }
       )
     },

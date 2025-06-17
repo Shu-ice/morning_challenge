@@ -104,9 +104,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onLogout, onViewHistory
       } else {
         setPasswordError(response.data?.message || 'パスワードの変更に失敗しました。');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Password update API error:', err);
-      const message = err.response?.data?.message || err.message || 'パスワード変更中にエラーが発生しました。';
+      let message = 'パスワード変更中にエラーが発生しました。';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { message?: string } }; message?: string };
+        message = axiosError.response?.data?.message || axiosError.message || message;
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
       setPasswordError(message);
     } finally {
       setIsPasswordLoading(false);

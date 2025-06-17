@@ -16,7 +16,12 @@ export interface ApiError extends AppError {
       message?: string;
     };
   };
-  request?: any;
+  request?: {
+    method?: string;
+    url?: string;
+    headers?: Record<string, string>;
+    data?: unknown;
+  };
 }
 
 // ネットワークエラー型

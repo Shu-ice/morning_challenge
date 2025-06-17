@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import App from './App.tsx'
 import './styles/index.css'
+import { logger } from './utils/logger'
 
 // React Query クライアントの設定
 const queryClient = new QueryClient({
@@ -59,7 +60,7 @@ if (process.env.NODE_ENV === 'development') {
       stagewiseRoot.render(<StagewiseToolbar config={stagewiseConfig} />);
       
     } catch (error) {
-      console.warn('Stagewise toolbar could not be loaded:', error);
+      logger.warn('Stagewise toolbar could not be loaded:', error as Error);
     }
   };
 

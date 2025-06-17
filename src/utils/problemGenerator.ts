@@ -1,5 +1,6 @@
 import { Problem } from '@/types';
 import { DifficultyRank, difficultyToJapanese, japaneseToDifficulty } from '@/types/difficulty';
+import { logger } from './logger';
 
 // シード付き乱数生成関数
 const seededRandom = (seed: number): number => {
@@ -42,14 +43,14 @@ const getOpSymbol = (opIndex: number): string => {
 
 // --- 安全な計算ヘルパー関数 (演算子の優先順位を考慮し、丸めなし) ---
 const calculateAnswer = (nums: number[], ops: string[], maxDecimalPlaces: number): number | undefined => {
-    console.log(`[calculateAnswer] Start: nums=${JSON.stringify(nums)}, ops=${JSON.stringify(ops)}`);
+    logger.debug(`[calculateAnswer] Start: nums=${JSON.stringify(nums)}, ops=${JSON.stringify(ops)}`);
 
     if (nums.length !== ops.length + 1) {
-        console.error("[calculateAnswer] Invalid input length", nums, ops);
+        logger.error("[calculateAnswer] Invalid input length", nums, ops);
         return undefined;
     }
     if (nums.some(isNaN) || nums.some(n => !Number.isFinite(n))) {
-        console.error("[calculateAnswer] Invalid number input (NaN or Infinity)", nums);
+        logger.error("[calculateAnswer] Invalid number input (NaN or Infinity)", nums);
         return undefined;
     }
 
@@ -62,7 +63,7 @@ const calculateAnswer = (nums: number[], ops: string[], maxDecimalPlaces: number
             
             // ゼロ除算チェック
             if (divisor === 0) {
-                console.warn(`[calculateAnswer] Zero division detected: ${dividend} / ${divisor}`);
+                logger.warn(`[calculateAnswer] Zero division detected: ${dividend} / ${divisor}`);
                 return undefined;
             }
         }
@@ -72,7 +73,7 @@ const calculateAnswer = (nums: number[], ops: string[], maxDecimalPlaces: number
     const operators = [...ops];
 
     // 1. 乗算と除算 (中間丸めなし)
-    console.log(`[calculateAnswer] Before Mul/Div: numbers=${JSON.stringify(numbers)}, operators=${JSON.stringify(operators)}`);
+    logger.debug(`[calculateAnswer] Before Mul/Div: numbers=${JSON.stringify(numbers)}, operators=${JSON.stringify(operators)}`);
     for (let i = 0; i < operators.length; ) {
         if (operators[i] === '×' || operators[i] === '÷') {
             const left = numbers[i];
@@ -80,14 +81,14 @@ const calculateAnswer = (nums: number[], ops: string[], maxDecimalPlaces: number
             let result: number;
             if (operators[i] === '×') {
                 result = left * right;
-                console.log(`[calculateAnswer] Mul: ${left} * ${right} = ${result}`);
+                logger.debug(`[calculateAnswer] Mul: ${left} * ${right} = ${result}`);
             } else { // '÷'
                 if (right === 0) return undefined; // Should be caught above, but double check
                 result = left / right;
-                console.log(`[calculateAnswer] Div: ${left} / ${right} = ${result}`);
+                logger.debug(`[calculateAnswer] Div: ${left} / ${right} = ${result}`);
             }
             if (!Number.isFinite(result)) {
-                 console.warn(`[calculateAnswer] Infinite result after Mul/Div: ${result}`);
+                 logger.warn(`[calculateAnswer] Infinite result after Mul/Div: ${result}`);
                  return undefined;
             }
             numbers.splice(i, 2, result);
@@ -96,11 +97,11 @@ const calculateAnswer = (nums: number[], ops: string[], maxDecimalPlaces: number
             i++;
         }
     }
-    console.log(`[calculateAnswer] After Mul/Div: numbers=${JSON.stringify(numbers)}, operators=${JSON.stringify(operators)}`);
+    logger.debug(`[calculateAnswer] After Mul/Div: numbers=${JSON.stringify(numbers)}, operators=${JSON.stringify(operators)}`);
 
     // 2. 加算と減算
     let finalResult = numbers[0];
-    console.log(`[calculateAnswer] Before Add/Sub: finalResult=${finalResult}, numbers=${JSON.stringify(numbers)}, operators=${JSON.stringify(operators)}`);
+    logger.debug(`[calculateAnswer] Before Add/Sub: finalResult=${finalResult}, numbers=${JSON.stringify(numbers)}, operators=${JSON.stringify(operators)}`);
     for (let i = 0; i < operators.length; i++) {
         const right = numbers[i + 1];
         const op = operators[i];
@@ -110,22 +111,22 @@ const calculateAnswer = (nums: number[], ops: string[], maxDecimalPlaces: number
         } else { // '-'
             finalResult -= right;
         }
-        console.log(`[calculateAnswer] Add/Sub step ${i}: ${prevResult} ${op} ${right} = ${finalResult}`);
+        logger.debug(`[calculateAnswer] Add/Sub step ${i}: ${prevResult} ${op} ${right} = ${finalResult}`);
     }
 
     // 最終チェック (無限大とマイナス)
         if (!Number.isFinite(finalResult)) {
-        console.error("[calculateAnswer] Final result is Infinity or NaN", finalResult);
+        logger.error("[calculateAnswer] Final result is Infinity or NaN", finalResult);
           return undefined;
         }
 
     // マイナスの結果もそのまま返す（問題生成時のみマイナスをundefinedに）
     if (finalResult < 0 && ops[0] !== '-') {
-        console.warn(`[calculateAnswer] Final result is negative: ${finalResult}`);
+        logger.warn(`[calculateAnswer] Final result is negative: ${finalResult}`);
         return undefined; // 問題生成時にはマイナスは生成しない
     }
 
-    console.log(`[calculateAnswer] End: finalResult=${finalResult}`);
+    logger.debug(`[calculateAnswer] End: finalResult=${finalResult}`);
     return finalResult;
 };
 
@@ -134,7 +135,7 @@ const calculateAnswer = (nums: number[], ops: string[], maxDecimalPlaces: number
 // 既存の generateOptions 関数 (answer が undefined の可能性に対応)
 const generateOptions = (answer: number | undefined, difficulty: DifficultyRank, seed: number): number[] => {
     if (answer === undefined) {
-        console.error("[generateOptions] Answer is undefined, cannot generate options.");
+        logger.error("[generateOptions] Answer is undefined, cannot generate options.");
         // フォールバック: ダミーの選択肢を返す
         return [1, 2, 3, 4];
     }
@@ -176,7 +177,7 @@ const generateOptions = (answer: number | undefined, difficulty: DifficultyRank,
         }
 
         if (attempts >= maxAttempts * 4 && options.length < 4) {
-             console.error(`[generateOptions] Max attempts reached. Options: ${options}`);
+             logger.error(`[generateOptions] Max attempts reached. Options: ${options}`);
              // 強制的に選択肢を追加
              let fallbackOptionBase = roundedAnswer > 10 ? roundedAnswer : 10;
              while(options.length < 4) {
@@ -291,7 +292,7 @@ const getSettings = (): ProblemSettings => {
       return JSON.parse(savedSettings);
     }
   } catch (error) {
-    console.error("Failed to load problem settings:", error);
+    logger.error("Failed to load problem settings:", error);
   }
   return defaultSettings;
 };
@@ -342,7 +343,7 @@ const allowedOpKeys: (keyof DifficultySettings)[] = ['addition', 'subtraction', 
 
 // 単一の問題生成 (再リファクタリング)
 const generateSingleProblemInternal = (difficulty: DifficultyRank, seed: number): { question: string; answer: number; } | null => {
-  console.log(`[GenProbInt] Start: difficulty=${difficulty}, seed=${seed}`);
+  logger.debug(`[GenProbInt] Start: difficulty=${difficulty}, seed=${seed}`);
   try {
     const settings = getSettings();
     const difficultySettings = settings[difficulty] || defaultSettings[difficulty];
@@ -362,13 +363,13 @@ const generateSingleProblemInternal = (difficulty: DifficultyRank, seed: number)
 
 
     if (enabledOperations.length === 0) {
-        console.warn(`[GenProbInt] No operations enabled for difficulty ${difficulty}. Defaulting to addition.`);
+        logger.warn(`[GenProbInt] No operations enabled for difficulty ${difficulty}. Defaulting to addition.`);
         // デフォルトで加算を有効にするなどのフォールバック処理
         // difficultySettings.addition が OperationSettings 型であることを確認
         if(typeof difficultySettings.addition === 'object' && difficultySettings.addition !== null && difficultySettings.addition.enabled) {
              enabledOperations.push('addition');
         } else {
-             console.error(`[GenProbInt] Addition is also disabled. Cannot generate problem.`);
+             logger.error(`[GenProbInt] Addition is also disabled. Cannot generate problem.`);
              return null; // 問題生成不可
         }
     }
@@ -447,7 +448,7 @@ const generateSingleProblemInternal = (difficulty: DifficultyRank, seed: number)
                      // -> 今回は簡単化のため、割り切れるかだけチェックし、ダメなら再試行
                       if (calculationNums[i] % currentDivisorProduct !== 0) {
                          // ★ 中間チェック: ここで割り切れない組み合わせは棄却
-                         console.log(`[GenProbInt] Attempt ${attempts}: Retrying - intermediate division ${calculationNums[i]} / ${currentDivisorProduct} not integer.`);
+                         logger.debug(`[GenProbInt] Attempt ${attempts}: Retrying - intermediate division ${calculationNums[i]} / ${currentDivisorProduct} not integer.`);
                          possible = false;
                          break; // このループを抜けて次の while ループへ
                      }
@@ -476,13 +477,13 @@ const generateSingleProblemInternal = (difficulty: DifficultyRank, seed: number)
 
         // 6. 答えを検証
         if (answer === undefined || answer < 0) {
-             console.log(`[GenProbInt] Attempt ${attempts}: Invalid answer (undefined or negative): ${answer}`);
+             logger.debug(`[GenProbInt] Attempt ${attempts}: Invalid answer (undefined or negative): ${answer}`);
              continue;
         }
         // ★ isCleanNumber で検証 (割り算なら整数、それ以外は許容桁数)
         const requiredDecimalPlaces = involvesDivision ? 0 : allowedDecimalPlaces;
         if (!isCleanNumber(answer, requiredDecimalPlaces)) {
-             console.log(`[GenProbInt] Attempt ${attempts}: Answer ${answer} is not clean (req dec: ${requiredDecimalPlaces}). Retrying.`);
+             logger.debug(`[GenProbInt] Attempt ${attempts}: Answer ${answer} is not clean (req dec: ${requiredDecimalPlaces}). Retrying.`);
              continue;
         }
 
@@ -502,7 +503,7 @@ const generateSingleProblemInternal = (difficulty: DifficultyRank, seed: number)
         }
 
 
-        console.log(`[GenProbInt] Attempt ${attempts}: Valid problem: Q='${questionText}', A=${answer}`);
+        logger.debug(`[GenProbInt] Attempt ${attempts}: Valid problem: Q='${questionText}', A=${answer}`);
         return {
           question: `${questionText} = ?`,
           answer
@@ -510,21 +511,21 @@ const generateSingleProblemInternal = (difficulty: DifficultyRank, seed: number)
 
     } // end while attempts
 
-    console.error(`[GenProbInt] Failed after ${maxAttempts} attempts for difficulty ${difficulty}.`);
+    logger.error(`[GenProbInt] Failed after ${maxAttempts} attempts for difficulty ${difficulty}.`);
     return null;
 
   } catch (error) {
-    console.error(`[GenProbInt] Error generating problem:`, error);
+    logger.error(`[GenProbInt] Error generating problem:`, error);
     return null;
   }
 };
 
 // generateProblemsByDifficulty は generateSingleProblemInternal を呼び出し、options を追加する
 const generateProblemsByDifficulty = (difficulty: DifficultyRank, count: number = 10): Problem[] => {
-    console.log(`[generateProblemsByDifficulty] Generating ${count} problems for difficulty: ${difficulty}`);
+    logger.info(`[generateProblemsByDifficulty] Generating ${count} problems for difficulty: ${difficulty}`);
     const problems: Problem[] = [];
     const baseSeed = getDateSeed();
-    console.log(`[generateProblemsByDifficulty] Base seed: ${baseSeed}`);
+    logger.debug(`[generateProblemsByDifficulty] Base seed: ${baseSeed}`);
 
     let generatedCount = 0;
     let generationAttempts = 0;
@@ -550,7 +551,7 @@ const generateProblemsByDifficulty = (difficulty: DifficultyRank, count: number 
                usedQuestions.add(problemData.question);
                generatedCount++;
             } else {
-                console.warn(`[generateProblemsByDifficulty] Failed to generate options for question: ${problemData.question}`);
+                logger.warn(`[generateProblemsByDifficulty] Failed to generate options for question: ${problemData.question}`);
             }
         } else if (!problemData) {
              // console.warn(`[generateProblemsByDifficulty] generateSingleProblemInternal failed. Retrying (Attempt ${generationAttempts})`);
@@ -558,9 +559,9 @@ const generateProblemsByDifficulty = (difficulty: DifficultyRank, count: number 
     }
 
     if (generatedCount < count) {
-         console.warn(`[generateProblemsByDifficulty] Could only generate ${generatedCount} valid unique problems out of ${count} requested after ${maxGenerationAttempts} attempts for difficulty ${difficulty}.`);
+         logger.warn(`[generateProblemsByDifficulty] Could only generate ${generatedCount} valid unique problems out of ${count} requested after ${maxGenerationAttempts} attempts for difficulty ${difficulty}.`);
     } else {
-        console.log(`[generateProblemsByDifficulty] Final generated ${problems.length} problems successfully for difficulty ${difficulty}.`);
+        logger.info(`[generateProblemsByDifficulty] Final generated ${problems.length} problems successfully for difficulty ${difficulty}.`);
     }
 
     return problems;
@@ -575,7 +576,7 @@ export const generateProblems = (difficulty: DifficultyRank, count: number = 10)
         id: String(index),
     }));
   } catch (error) {
-    console.error("Error in generateProblems wrapper:", error);
+    logger.error("Error in generateProblems wrapper:", error);
     return [];
   }
 };
