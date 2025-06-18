@@ -19,6 +19,18 @@ if (dotenvResult.error) {
   logger.info('[dotenv] .env file loaded successfully.');
 }
 
+// 🔥 緊急修正: モック機能を強制有効化
+if (!process.env.MONGODB_MOCK) {
+  console.log('🔧 [EMERGENCY FIX] MONGODB_MOCK環境変数が設定されていません。強制的に有効化します...');
+  process.env.MONGODB_MOCK = 'true';
+  process.env.DISABLE_TIME_CHECK = 'true';
+  process.env.JWT_SECRET = 'morning-challenge-super-secret-key';
+}
+
+console.log('🎯 [CURRENT ENV] MONGODB_MOCK:', process.env.MONGODB_MOCK);
+console.log('🎯 [CURRENT ENV] DISABLE_TIME_CHECK:', process.env.DISABLE_TIME_CHECK);
+console.log('🎯 [CURRENT ENV] JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'NOT SET');
+
 // 環境設定を表示
 environmentConfig.displayConfig();
 
@@ -385,30 +397,27 @@ const startServer = async () => {
         if (useMockDB) {
           logger.warn('⚠️ モックモードで実行中 - インメモリデータベースを使用します');
           try {
+            // 🔥 緊急修正: connectDB関数を使用してモックデータを初期化
+            const { connectDB } = await import('./config/database.js');
+            await connectDB();
+            logger.info('✅ モックデータベース初期化完了');
+            
+            // MongoMemoryServerも併用
             const { MongoMemoryServer } = await import('mongodb-memory-server');
             const mongoServer = await MongoMemoryServer.create();
             const mockMongoUri = mongoServer.getUri();
             logger.info('[Init] InMemory DB URI:', mockMongoUri);
             
-            mongoose.connect(mockMongoUri, {
-              // useNewUrlParser: true, // mongoose 6+ では不要
-              // useUnifiedTopology: true, // mongoose 6+ では不要
-              serverSelectionTimeoutMS: 30000, // ★ タイムアウトを30秒に延長
-              connectTimeoutMS: 30000,         // ★ 接続タイムアウトも設定
-              socketTimeoutMS: 45000,          // ★ ソケットタイムアウトも設定
-              family: 4 // Optionally force IPv4
-            })
-            .then(() => logger.info('✅ MongoDB インメモリサーバーに接続成功'))
-            .catch(err => {
-              logger.error('💥 MongoDB インメモリ接続エラー:', err);
-              // ここで終了せず、通常のDB接続を試みるかもしれないが、一旦エラー表示のみ
+            await mongoose.connect(mockMongoUri, {
+              serverSelectionTimeoutMS: 30000,
+              connectTimeoutMS: 30000,         
+              socketTimeoutMS: 45000,          
+              family: 4 
             });
+            logger.info('✅ MongoDB インメモリサーバーに接続成功');
           } catch (error) {
             logger.error('💥 インメモリDBの初期化に失敗しました:', error);
-            // 通常のMongoDB接続へのフォールバックは一旦コメントアウト
-            // console.log('通常のMongoDBに接続を試みます...');
-            // mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
-            process.exit(1); // インメモリ初期化失敗は致命的エラーとする
+            process.exit(1);
           }
       } else {
           // 通常のMongoDBに接続

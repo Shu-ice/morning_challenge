@@ -84,7 +84,9 @@ const loginUser = async (req, res, next) => {
 
   try {
     console.log(`[${new Date().toISOString()}] [authController] Searching for user by email: ${email}`);
-    const user = await User.findOne({ email }).select('+password');
+    // 🔥 緊急修正: モック環境でのfindOne処理
+    const userQuery = User.findOne({ email });
+    const user = await (userQuery.select ? userQuery.select('+password') : userQuery);
     const userSearchTime = Date.now();
     console.log(`[${new Date(userSearchTime).toISOString()}] [authController] User search completed. Duration: ${userSearchTime - startTime}ms. User found: ${user ? user.username : 'null'}`);
     console.log(`[Login user found] User: ${user ? user.username : 'null'}, Password in DB: ${user && user.password ? 'Exists' : 'Missing or null'}`);
@@ -109,12 +111,17 @@ const loginUser = async (req, res, next) => {
         });
 
         res.json({
-          _id: user._id,
-          username: user.username,
-          email: user.email,
-          grade: user.grade,
-          avatar: user.avatar,
-          isAdmin: user.isAdmin,
+          success: true,
+          message: 'ログインしました。',
+          user: {
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            grade: user.grade,
+            avatar: user.avatar,
+            isAdmin: user.isAdmin,
+            isLoggedIn: true
+          },
           token: token,
         });
         const endTime = Date.now();
