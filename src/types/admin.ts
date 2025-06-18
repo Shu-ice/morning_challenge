@@ -1,0 +1,111 @@
+// 管理者機能用の型定義
+
+export interface SystemOverview {
+  totalUsers: number;
+  activeUsersToday: number;
+  totalChallenges: number;
+  challengesToday: number;
+  problemSetsCount: number;
+  weeklyStats: WeeklyStats[];
+  recentActivity: RecentActivity[];
+}
+
+export interface WeeklyStats {
+  date: string;
+  totalChallenges: number;
+  averageScore: number;
+  uniqueUsers: number;
+}
+
+export interface RecentActivity {
+  id: string;
+  username: string;
+  grade: number | string;
+  difficulty: string;
+  score: number;
+  date: string;
+  createdAt: string;
+}
+
+export interface AdminUser {
+  _id: string;
+  username: string;
+  email: string;
+  grade: number;
+  avatar: string;
+  isAdmin: boolean;
+  streak: number;
+  points: number;
+  createdAt: string;
+  totalChallenges: number;
+  averageScore: number;
+  bestScore: number;
+  lastActivity: string;
+}
+
+export interface UserListResponse {
+  users: AdminUser[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+    limit: number;
+  };
+}
+
+export interface DifficultyStats {
+  difficulty: string;
+  totalChallenges: number;
+  averageScore: number;
+  averageTime: number;
+  averageCorrectAnswers: number;
+  uniqueUsers: number;
+}
+
+export interface GradeStats {
+  grade: number;
+  totalChallenges: number;
+  averageScore: number;
+  averageTime: number;
+  uniqueUsers: number;
+  difficultyDistribution: Record<string, number>;
+}
+
+export interface HourlyStats {
+  hour: number;
+  totalChallenges: number;
+  averageScore: number;
+  averageTime: number;
+  difficultyDistribution: Record<string, number>;
+}
+
+export interface ProblemSetStats {
+  difficultyBreakdown: DifficultyProblemSetStats[];
+  usage: {
+    totalProblemSets: number;
+    usedProblemSets: number;
+    unusedProblemSets: number;
+  };
+}
+
+export interface DifficultyProblemSetStats {
+  difficulty: string;
+  totalSets: number;
+  averageProblems: number;
+  oldestDate: string;
+  newestDate: string;
+}
+
+export interface StatsFilter {
+  period?: 'today' | 'week' | 'month';
+  days?: number;
+}
+
+export interface UserFilter {
+  page?: number;
+  limit?: number;
+  search?: string;
+  grade?: number;
+  sortBy?: 'username' | 'createdAt' | 'totalChallenges' | 'averageScore';
+  order?: 'asc' | 'desc';
+} 

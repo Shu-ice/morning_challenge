@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import environmentConfig from './config/environment.js';
 import { logger } from './utils/logger.js';
+import { performanceMonitor, startPerformanceMonitoring } from './middleware/performanceMiddleware.js';
 
 // ESM環境で __dirname を再現
 const __filename = fileURLToPath(import.meta.url);
@@ -43,6 +44,8 @@ import authRoutes from './routes/authRoutes.js';
 import problemRoutes from './routes/problemRoutes.js';
 import { generateProblems as generateProblemsUtil } from './utils/problemGenerator.js';
 import rankingRoutes from './routes/rankingRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+import monitoringRoutes from './routes/monitoringRoutes.js';
 import { getHistory } from './controllers/problemController.js';
 
 // --- dayjs プラグインの適用 (トップレベルで実行) ---
@@ -182,8 +185,12 @@ const targetHour = 12;
 
 const createDefaultAdminUser = async () => {
     try {
-        const adminEmail = 'admin@example.com';
-        const adminPassword = 'admin123'; // 平文パスワード
+        const { getOrGeneratePassword, maskSensitive } = await import('./utils/securityUtils.js');
+        
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+        
+        // 🔒 セキュリティ強化: 環境変数または安全な自動生成パスワードを使用
+        const passwordInfo = getOrGeneratePassword('ADMIN_DEFAULT_PASSWORD', 16);
 
         // Mongoose の User モデルが正しくインポート・初期化されているか確認
         if (!User || typeof User.findOne !== 'function') {
@@ -202,31 +209,20 @@ const createDefaultAdminUser = async () => {
 
             // パスワードを強制的にリセット
             // pre('save') フックが正しく動作するため、ここで直接ハッシュ化せず、平文をセットする
-            existingAdmin.password = adminPassword; 
+            existingAdmin.password = passwordInfo.password; 
             
             try {
                 await existingAdmin.save(); // ここで pre-save フックが実行されハッシュ化される
                 logger.info(`[Init] Admin user '${adminEmail}' password reset and saved.`);
 
-                // --- ★ デバッグ: 保存直後に再取得してパスワード検証 ---
-                const reloadedAdmin = await User.findOne({ email: adminEmail }).select('+password');
-                if (reloadedAdmin && reloadedAdmin.password) {
-                    logger.debug(`[Init Debug] Reloaded admin. Stored hash length: ${reloadedAdmin.password.length}. Hash starts with: ${reloadedAdmin.password.substring(0,10)}...`);
-                    const isMatchAfterSave = await reloadedAdmin.matchPassword(adminPassword); // 平文 'admin123' と比較
-                    logger.debug(`[Init Debug] Password match test immediately after save for '${adminEmail}': ${isMatchAfterSave}`);
-                    if (!isMatchAfterSave) {
-                        logger.error(`[Init Debug] CRITICAL: Password mismatch immediately after saving for default admin! Entered: '${adminPassword}'`);
-                        // 念のため、再取得したユーザーのハッシュともう一度比較してみる (pre-saveが機能したか確認)
-                        if (typeof bcrypt !== 'undefined' && typeof bcrypt.compareSync === 'function') {
-                           // 注意: bcrypt.compareSync は利用可能なら。bcryptjsなら常にasync
-                           // const directCompare = bcrypt.compareSync(adminPassword, reloadedAdmin.password);
-                           // console.log(`[Init Debug] Direct bcrypt.compareSync with reloaded hash: ${directCompare}`);
-                        }
-                    }
+                // セキュリティ情報のログ出力
+                if (passwordInfo.isGenerated) {
+                    logger.warn(`🔑 管理者パスワードを自動生成しました: ${maskSensitive(passwordInfo.password, 6)}`);
+                    logger.warn(`📝 完全なパスワード: ${passwordInfo.password}`);
+                    logger.warn(`⚠️ セキュリティのため、初回ログイン後に必ずパスワードを変更してください！`);
                 } else {
-                    logger.error(`[Init Debug] CRITICAL: Could not reload admin or password after save for '${adminEmail}'. Reloaded admin:`, reloadedAdmin);
+                    logger.info(`✅ 環境変数から管理者パスワードを取得 (強度: ${passwordInfo.strength})`);
                 }
-                // --- ★ デバッグここまで ---
             } catch (saveError) {
                 logger.error(`[Init] Error saving admin user '${adminEmail}' during password reset:`, saveError);
                 // saveError には ValidationError などが含まれる可能性がある
@@ -245,26 +241,21 @@ const createDefaultAdminUser = async () => {
             const newUser = await User.create({
                 username: '管理者', // username も設定
                 email: adminEmail,
-                password: adminPassword, // ここでも平文。pre-saveでハッシュ化
+                password: passwordInfo.password, // セキュリティ強化されたパスワード
                 grade: 6, // 例: 最高学年
                 isAdmin: true,
                 avatar: '👑' 
             });
             logger.info(`[Init] New admin user '${adminEmail}' created successfully. ID: ${newUser._id}`);
 
-            // --- ★ デバッグ: 新規作成直後も検証 ---
-            const reloadedNewAdmin = await User.findOne({ email: adminEmail }).select('+password');
-            if (reloadedNewAdmin && reloadedNewAdmin.password) {
-                logger.debug(`[Init Debug] Reloaded new admin. Stored hash length: ${reloadedNewAdmin.password.length}. Hash starts with: ${reloadedNewAdmin.password.substring(0,10)}...`);
-                const isMatchAfterCreate = await reloadedNewAdmin.matchPassword(adminPassword);
-                logger.debug(`[Init Debug] Password match test immediately after create for '${adminEmail}': ${isMatchAfterCreate}`);
-                if (!isMatchAfterCreate) {
-                    logger.error(`[Init Debug] CRITICAL: Password mismatch immediately after creating default admin! Entered: '${adminPassword}'`);
-                }
+            // セキュリティ情報のログ出力
+            if (passwordInfo.isGenerated) {
+                logger.warn(`🔑 管理者パスワードを自動生成しました: ${maskSensitive(passwordInfo.password, 6)}`);
+                logger.warn(`📝 完全なパスワード: ${passwordInfo.password}`);
+                logger.warn(`⚠️ セキュリティのため、初回ログイン後に必ずパスワードを変更してください！`);
             } else {
-                logger.error(`[Init Debug] CRITICAL: Could not reload new admin or password after create for '${adminEmail}'.`);
+                logger.info(`✅ 環境変数から管理者パスワードを取得 (強度: ${passwordInfo.strength})`);
             }
-            // --- ★ デバッグここまで ---
 
         } catch (createError) {
             logger.error(`[Init] Error creating new admin user '${adminEmail}':`, createError);
@@ -449,8 +440,15 @@ const startServer = async () => {
         
         const app = express();
         
-        // ★ 一時的にすべてのオリジンからのリクエストを許可 (確実にこちらを有効化)
-        app.use(cors()); 
+        // ✅ セキュリティ強化: 厳格なCORS設定
+        app.use(cors({
+          origin: environmentConfig.getCorsOrigin(),
+          credentials: true,
+          methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+          allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+          optionsSuccessStatus: 200,
+          maxAge: 86400 // 24時間
+        })); 
 
         // ★ グローバルリクエストロガーをCORSの直後、ボディパーサーの前に移動
         app.use((req, res, next) => {
@@ -477,6 +475,9 @@ const startServer = async () => {
         //     maxAge: 86400 
         // }));
 
+        // パフォーマンス監視ミドルウェア（最初に設定）
+        app.use(performanceMonitor);
+        
         app.use(express.json()); // JSON形式のリクエストボディをパース
         app.use(express.urlencoded({ extended: true })); // URLエンコードされたリクエストボディをパース
         app.use(cookieParser());
@@ -516,6 +517,8 @@ const startServer = async () => {
         app.use('/api/rankings', rankingRoutes);
 
         app.use('/api/problems', problemRoutes);
+        app.use('/api/admin', adminRoutes);
+        app.use('/api/monitoring', monitoringRoutes);
 
         app.post('/api/problems/submit', protect, async (req, res) => { // コメントアウトを解除
           // ...(元の処理)... 現状は省略
@@ -555,6 +558,11 @@ const startServer = async () => {
             logger.info(`⏰ チャレンジ時間制限 ${process.env.DISABLE_TIME_CHECK === 'true' ? '無効' : '有効'}`);
             logger.info(`💾 DBモード: ${process.env.MONGODB_MOCK === 'true' ? 'モック (InMemory)' : 'MongoDB'}`);
             logger.info('✨ Expressサーバーはリクエストの受付を開始しました。ここまでは正常です。✨');
+            
+            // パフォーマンス監視を開始
+            startPerformanceMonitoring();
+            logger.info('📊 パフォーマンス監視システムが開始されました');
+        
 
             // MongoDB接続後に初期化処理を呼び出すが、完了を待たない
             mongoose.connection.once('open', async () => {

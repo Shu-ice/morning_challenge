@@ -23,7 +23,8 @@ function Login({ onLogin, onRegister }: LoginProps) {
   const loginApiWithRetry = useApiWithRetry(
     async () => {
       const loginData = { email, password };
-      console.log('[Login] 送信データ:', { email: loginData.email, password: '***' });
+      // 🔐 セキュリティ修正: パスワードは完全にログから除外
+      console.log('[Login] 送信データ:', { email: loginData.email });
       
       const response = await authAPI.login(loginData);
       console.log('[Login] ログインAPIレスポンス:', response);
@@ -62,7 +63,8 @@ function Login({ onLogin, onRegister }: LoginProps) {
     setIsLoading(true);
     
     try {
-      console.log('[Login] ログイン試行開始:', { email, password: '***' });
+      // 🔐 セキュリティ修正: パスワードは完全にログから除外
+      console.log('[Login] ログイン試行開始:', { email });
       
       const response = await loginApiWithRetry.execute();
       

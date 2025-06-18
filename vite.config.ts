@@ -28,25 +28,18 @@ export default defineConfig(({ mode }) => {
           secure: false,
           // rewrite: (path) => path.replace(/^\/api/, ''), // 通常は不要なことが多い
           configure: (proxy, options) => {
-            proxy.on('proxyReq', (proxyReq, req, res) => {
-              console.log(`Sending Request to the Target: ${req.method} ${req.url}`);
-              console.log('  Headers:', JSON.stringify(proxyReq.getHeaders(), null, 2));
-            });
-            proxy.on('proxyRes', (proxyRes, req, res) => {
-              console.log(`Received Response from the Target: ${proxyRes.statusCode} ${req.url}`);
-            });
+            // 🔧 本番対応: プロキシログを削除し、エラーのみ記録
             proxy.on('error', (err, req, res) => {
-              console.error('Proxy Error:', err);
+              if (process.env.NODE_ENV !== 'production') {
+                console.error('[Proxy Error]:', err.message);
+              }
               if (res && typeof res.writeHead === 'function') {
                 res.writeHead(500, {
                   'Content-Type': 'text/plain',
                 });
-                res.end('Something went wrong with the proxy. ' + err.message);
+                res.end('Proxy error occurred');
               } else if (res && typeof res.end === 'function') {
-                // If res.writeHead is not a function, try to send a minimal response.
-                res.end('Proxy error: ' + err.message);
-              } else {
-                console.error('Response object is not available or writeHead/end is not a function.');
+                res.end('Proxy error occurred');
               }
             });
           }

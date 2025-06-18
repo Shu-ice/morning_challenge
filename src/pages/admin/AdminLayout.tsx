@@ -45,6 +45,7 @@ const AdminLayout: React.FC = () => {
         <h1>管理者ページ</h1>
         <nav className="admin-nav">
           <Link to="/admin/dashboard">ダッシュボード</Link>
+          <Link to="/admin/users">ユーザー管理</Link>
           <Link to="/admin/generate">問題生成</Link>
           <Link to="/admin/edit">問題閲覧・編集</Link>
           <Link to="/">通常ページへ</Link> {/* 通常ページへ戻るリンク */}

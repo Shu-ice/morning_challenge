@@ -81,28 +81,21 @@ UserSchema.pre('save', async function(next) {
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
-    // エラー発生時のログを強化
-    console.error(`Error hashing password for user ${this._id || '(new user)'}:`, error);
-    console.error(`Password length before hash attempt: ${this.password ? this.password.length : 'undefined'}`);
+    // 🔐 セキュリティ修正: パスワード長もログから除外
     next(error); // エラーがあれば Express のエラーハンドラに渡す
   }
 });
 
 // ★ パスワード比較メソッド
 UserSchema.methods.matchPassword = async function(enteredPassword) {
-  // enteredPassword が undefined や null の場合、bcrypt.compare がエラーを出す可能性がある
+  // 🔐 セキュリティ修正: パスワードを一切ログに出力しない
   if (typeof enteredPassword !== 'string' || enteredPassword.length === 0 || typeof this.password !== 'string' || this.password.length === 0) {
-      console.error('[matchPassword] Error: enteredPassword or this.password is missing or invalid.');
-      console.log(`[matchPassword] enteredPassword: "${enteredPassword}" (type: ${typeof enteredPassword}), this.password exists: ${!!this.password} (type: ${typeof this.password}, length: ${this.password ? this.password.length : 'N/A'})`);
       return false; 
   }
   try {
-    console.log(`[matchPassword] Comparing entered password (type: ${typeof enteredPassword}, length: ${enteredPassword.length}) with stored hash (type: ${typeof this.password}, length: ${this.password.length})`);
     const result = await bcrypt.compare(enteredPassword, this.password);
-    console.log(`[matchPassword] bcrypt.compare result: ${result}`);
     return result;
   } catch (error) {
-    console.error('[matchPassword] Error during bcrypt.compare:', error);
     return false; // エラー時は false を返す
   }
 };

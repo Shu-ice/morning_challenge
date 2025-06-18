@@ -53,10 +53,21 @@ const ResultSchema = new mongoose.Schema({
   },
 });
 
-// ユーザーID、日付での複合ユニークインデックス (難易度に関わらず1日1回)
-ResultSchema.index({ userId: 1, date: 1 }, { unique: true }); // ← こちらを有効化
+// === パフォーマンス最適化インデックス ===
 
-// 新しい複合ユニークインデックス: ユーザーID、日付、難易度でユニーク
-// ResultSchema.index({ userId: 1, date: 1, difficulty: 1 }, { unique: true }); // ← こちらをコメントアウト
+// 1. ユニーク制約: ユーザーID、日付、難易度でユニーク（1日1難易度1回）
+ResultSchema.index({ userId: 1, date: 1, difficulty: 1 }, { unique: true });
+
+// 2. ランキング表示用（最重要）- 難易度・日付別でスコア順ソート
+ResultSchema.index({ difficulty: 1, date: 1, score: -1 });
+
+// 3. ユーザー履歴表示用 - 特定ユーザーの履歴を日付順で取得
+ResultSchema.index({ userId: 1, date: -1 });
+
+// 4. 統計分析用 - 時間ベースのパフォーマンス分析
+ResultSchema.index({ timeSpent: 1, score: -1 });
+
+// 5. 管理者分析用 - 日付期間での集計
+ResultSchema.index({ date: 1, createdAt: 1 });
 
 export default mongoose.model('Result', ResultSchema); 

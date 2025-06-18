@@ -5,13 +5,15 @@ const notFound = (req, res, next) => {
 };
 
 const errorHandler = (err, req, res, next) => {
-  console.error('--- Error Handler Caught ---');
-  console.error('Error Name:', err.name);
-  console.error('Error Message:', err.message);
+  const { logger } = require('../utils/logger.js');
+  
+  logger.error('--- Error Handler Caught ---');
+  logger.error('Error Name:', err.name);
+  logger.error('Error Message:', err.message);
   if (process.env.NODE_ENV !== 'production' && err.stack) {
-    console.error('Error Stack:', err.stack);
+    logger.error('Error Stack:', err.stack);
   }
-  console.error('---------------------------');
+  logger.error('---------------------------');
 
   let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   let message = err.message;

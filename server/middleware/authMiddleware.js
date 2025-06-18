@@ -1,66 +1,48 @@
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv'; // dotenv をインポート
-import path from 'path';
-import { fileURLToPath } from 'url';
 import User from '../models/User.js';
+// 🔧 統一: 環境設定はenvironment.jsで一元管理
+import environmentConfig from '../config/environment.js';
+const { logger } = await import('../utils/logger.js');
 
-// ESM環境で __dirname を再現
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// サーバーディレクトリの .env ファイルを読み込む
-const envPath = path.resolve(__dirname, '../.env');
-console.log(`[Auth Middleware] Loading .env from: ${envPath}`);
-const dotenvResult = dotenv.config({ path: envPath });
-if (dotenvResult.error) {
-    console.error('[Auth Middleware] dotenv.config error:', dotenvResult.error);
-} else {
-    console.log('[Auth Middleware] dotenv.config successful');
-}
-
-// 環境変数からJWTシークレットを取得
-console.log(`[Auth Middleware] All process.env keys: ${Object.keys(process.env).filter(key => key.includes('JWT') || key.includes('SECRET')).join(', ')}`);
-console.log(`[Auth Middleware] process.env.JWT_SECRET value: "${process.env.JWT_SECRET}"`);
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = environmentConfig.jwtSecret;
 if (!JWT_SECRET) {
-    console.error('[Auth Middleware] エラー: JWT_SECRET 環境変数が設定されていません。');
-    // ミドルウェア読み込み時点では process.exit(1) できないため、エラーを投げるか、起動時にチェックする
+    logger.error('[Auth Middleware] エラー: JWT_SECRET 環境変数が設定されていません。');
     throw new Error('JWT_SECRET is not defined in environment variables'); 
 }
-console.log(`[Auth Middleware] JWT_SECRET successfully loaded: ${JWT_SECRET.substring(0, 10)}...`);
+// 🔐 セキュリティ修正: JWT_SECRETをログに出力しない
+logger.info('[Auth Middleware] JWT_SECRET successfully loaded');
 
 // 認証保護ミドルウェア
 const protect = async (req, res, next) => {
     let token;
-    console.log('[Protect Middleware] Attempting authentication...');
+    logger.debug('[Protect Middleware] Attempting authentication...');
 
     // Cookie から jwt トークンを読み取る
     if (req.cookies && req.cookies.jwt) {
         token = req.cookies.jwt;
-        console.log(`[Protect Middleware] JWT Cookie found: ${token.substring(0, 20)}...`);
+        logger.debug('[Protect Middleware] JWT Cookie found');
     }
 
     // Authorizationヘッダーからもトークンを読み取る (Bearer token)
     if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         token = req.headers.authorization.split(' ')[1];
-        console.log(`[Protect Middleware] Using Authorization header token: ${token.substring(0, 20)}...`);
+        logger.debug('[Protect Middleware] Using Authorization header token');
     }
 
     if (token) {
         try {
-            console.log('[Protect Middleware] Verifying token with JWT_SECRET...');
+            logger.debug('[Protect Middleware] Verifying token...');
             
             // トークンを検証
             const decoded = jwt.verify(token, JWT_SECRET);
-            console.log('[Protect Middleware] Token decoded successfully. User ID:', decoded.userId);
+            logger.debug('[Protect Middleware] Token decoded successfully. User ID:', decoded.userId);
 
             // トークンからユーザーIDを取得し、ユーザー情報をDBから取得 (-password でパスワードを除く)
             const user = await User.findById(decoded.userId).select('-password');
 
             if (!user) {
                 // ユーザーが存在しない場合 (トークンは有効だがユーザーが削除されたなど)
-                console.log('[Auth Middleware] User not found for token ID:', decoded.userId);
-                // メッセージを少し具体的に
+                logger.warn('[Auth Middleware] User not found for token ID:', decoded.userId);
                 return res.status(401).json({ success: false, message: '認証情報が無効です。再度ログインしてください。' });
             }
             
@@ -68,17 +50,17 @@ const protect = async (req, res, next) => {
             req.user = user;
             
             // ユーザー情報が取得できたら次のミドルウェアへ
-            console.log(`[Auth Middleware] User authenticated: ${req.user.username}, isAdmin: ${req.user.isAdmin}`);
+            logger.debug(`[Auth Middleware] User authenticated: ${req.user.username}, isAdmin: ${req.user.isAdmin}`);
             next();
         } catch (error) {
-            console.error('[Auth Middleware] Token verification failed:', error.message);
+            logger.warn('[Auth Middleware] Token verification failed:', error.message);
             // トークンが無効な場合 (期限切れ、改ざんなど)
-            res.status(401).json({ success: false, message: 'セッションが無効か期限切れです。再度ログインしてください。' }); // メッセージを修正
+            res.status(401).json({ success: false, message: 'セッションが無効か期限切れです。再度ログインしてください。' });
         }
     } else {
         // トークンが存在しない場合
-        console.log('[Auth Middleware] No token provided');
-        res.status(401).json({ success: false, message: '認証が必要です。ログインしてください。' }); // メッセージを修正
+        logger.debug('[Auth Middleware] No token provided');
+        res.status(401).json({ success: false, message: '認証が必要です。ログインしてください。' });
     }
 };
 
@@ -97,16 +79,26 @@ const admin = (req, res, next) => {
 // 時間制限チェックミドルウェア
 const timeRestriction = (req, res, next) => {
   try {
-    // 開発モードでのスキップ設定
+    // 🔐 セキュリティ強化: 管理者または開発環境のみskipTimeCheckを許可
     const skipTimeCheck = req.query.skipTimeCheck === 'true';
     
     if (skipTimeCheck) {
-      return next();
+      // 管理者または開発環境のみ許可
+      if (req.user?.isAdmin || process.env.NODE_ENV === 'development') {
+        logger.warn(`🔑 時間制限をスキップします: 管理者=${req.user?.isAdmin}, 開発環境=${process.env.NODE_ENV === 'development'}`);
+        return next();
+      } else {
+        logger.warn(`⚠️ 一般ユーザーによる不正なskipTimeCheckアクセスを拒否: ${req.user?.username}`);
+        return res.status(403).json({
+          success: false,
+          message: '時間制限のスキップは管理者のみ許可されています。'
+        });
+      }
     }
     
     // 管理者ユーザーの場合は時間制限をスキップ
     if (req.user && req.user.isAdmin) {
-      console.log('[TimeRestriction] 管理者ユーザーのため時間制限をスキップします:', req.user.username);
+      logger.info('[TimeRestriction] 管理者ユーザーのため時間制限をスキップします:', req.user.username);
       return next();
     }
     
@@ -126,7 +118,7 @@ const timeRestriction = (req, res, next) => {
     
     next();
   } catch (error) {
-    console.error('時間制限チェックエラー:', error);
+    logger.error('時間制限チェックエラー:', error);
     res.status(500).json({
       success: false,
       message: 'サーバーエラーが発生しました。'

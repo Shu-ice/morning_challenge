@@ -119,7 +119,12 @@ setTimeout(() => {
 const authAPI = {
   register: async (userData: RegisterData) => {
     try {
-      logger.info('[API] Register request:', userData);
+      // 🔐 セキュリティ修正: パスワードを除外したログ出力
+      logger.info('[API] Register request:', { 
+        email: userData.email, 
+        username: userData.username, 
+        grade: userData.grade 
+      });
       
       // email/username の両方のフィールドを送信してバックエンドの柔軟性を確保
       const processedData = {
@@ -146,7 +151,8 @@ const authAPI = {
   
   login: async (credentials: LoginCredentials) => {
     try {
-      logger.info('[API] Login request:', credentials);
+      // 🔐 セキュリティ修正: パスワードを除外したログ出力
+      logger.info('[API] Login request:', { email: credentials.email });
       
       // バックエンドはemail/passwordを期待しているので、直接送信
       const loginData = {
@@ -459,10 +465,35 @@ const rankingAPI = {
   }
 };
 
-// 管理者API (例)
+// 管理者API
 const adminAPI = {
+  // システム統計
+  getOverview: () => API.get('/admin/stats/overview'),
+  getDifficultyStats: (period = 'week') => API.get(`/admin/stats/difficulty?period=${period}`),
+  getGradeStats: (period = 'week') => API.get(`/admin/stats/grade?period=${period}`),
+  getHourlyStats: (days = 7) => API.get(`/admin/stats/hourly?days=${days}`),
+  getProblemSetStats: () => API.get('/admin/stats/problemsets'),
+  
+  // ユーザー管理
+  getUsers: (params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    grade?: number;
+    sortBy?: string;
+    order?: string;
+  } = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') {
+        queryParams.append(key, value.toString());
+      }
+    });
+    return API.get(`/admin/users?${queryParams.toString()}`);
+  },
+  
+  // 従来の問題生成
   generateProblems: (date: string) => API.post(`/admin/generate-problems/${date}`),
-  // 必要に応じて他の管理者用APIエンドポイントを追加
 };
 
 // --- 履歴関連 API ---

@@ -3,7 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProblemProvider, useProblem } from './contexts/ProblemContext';
 import { MainLayout } from './layouts/MainLayout';
+import ErrorBoundary from './components/ErrorBoundary';
 import type { ApiResult } from './types/index';
+import { logger } from './utils/logger';
 
 // ページコンポーネント
 import Home from './pages/Home';
@@ -17,6 +19,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ProblemGenerator from './pages/admin/ProblemGenerator';
 import ProblemEditor from './pages/admin/ProblemEditor';
+import UserManagement from './pages/admin/UserManagement';
 
 // --- 保護されたルートのラッパー --- 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -47,15 +50,55 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 // --- アプリケーション本体 --- 
 const App: React.FC = () => {
+  const handleError = (error: Error, errorInfo: React.ErrorInfo) => {
+    // エラーログをサーバーに送信
+    logger.error('[App] Global error boundary triggered', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      url: window.location.href,
+      timestamp: new Date().toISOString()
+    });
+  };
+
   return (
-    <Router>
-      <AuthProvider>
-        <ProblemProvider>
-          {/* MainLayout と Routes をレンダリングするコンポーネント */}
-          <AppRoutes />
-        </ProblemProvider>
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary onError={handleError}>
+      <Router>
+        <ErrorBoundary
+          onError={handleError}
+          fallback={
+            <div className="router-error">
+              <h2>ルーティングエラーが発生しました</h2>
+              <p>ページの読み込み中にエラーが発生しました。</p>
+              <button onClick={() => window.location.reload()}>
+                ページを再読み込み
+              </button>
+            </div>
+          }
+        >
+          <AuthProvider>
+            <ErrorBoundary
+              onError={handleError}
+              fallback={
+                <div className="auth-error">
+                  <h2>認証システムエラー</h2>
+                  <p>ログイン状態の管理でエラーが発生しました。</p>
+                  <button onClick={() => window.location.href = '/login'}>
+                    ログインページへ
+                  </button>
+                </div>
+              }
+            >
+              <ProblemProvider>
+                <ErrorBoundary onError={handleError}>
+                  <AppRoutes />
+                </ErrorBoundary>
+              </ProblemProvider>
+            </ErrorBoundary>
+          </AuthProvider>
+        </ErrorBoundary>
+      </Router>
+    </ErrorBoundary>
   );
 };
 
@@ -192,6 +235,14 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/admin"
           element={<AdminRoute><AdminDashboard /></AdminRoute>}
+        />
+        <Route
+          path="/admin/dashboard"
+          element={<AdminRoute><AdminDashboard /></AdminRoute>}
+        />
+        <Route
+          path="/admin/users"
+          element={<AdminRoute><UserManagement /></AdminRoute>}
         />
         <Route
           path="/admin/generate"
