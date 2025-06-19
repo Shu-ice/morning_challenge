@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { adminAPI, monitoringAPI } from '../../api/index';
 import { logger } from '../../utils/logger';
+import { getGradeLabel } from '../../utils/gradeUtils';
+import { formatTime } from '../../utils/dateUtils';
 import type { 
   SystemOverview, 
   DifficultyStats, 
@@ -20,6 +22,7 @@ interface StatsCard {
 }
 
 const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [overview, setOverview] = useState<SystemOverview | null>(null);
   const [difficultyStats, setDifficultyStats] = useState<DifficultyStats[]>([]);
   const [gradeStats, setGradeStats] = useState<GradeStats[]>([]);
@@ -29,6 +32,7 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('week');
+  const [activitySearchTerm, setActivitySearchTerm] = useState<string>('');
 
   useEffect(() => {
     loadDashboardData();
@@ -47,7 +51,8 @@ const AdminDashboard: React.FC = () => {
       try {
         healthRes = await monitoringAPI.getSystemHealth();
       } catch (healthError) {
-        logger.warn('[AdminDashboard] Health API エラー:', healthError);
+        const errorMessage = healthError instanceof Error ? healthError.message : String(healthError);
+        logger.warn(`[AdminDashboard] Health API エラー: ${errorMessage}`);
         // 503エラーの場合は unhealthy として扱う
         healthRes = {
           data: {
@@ -67,7 +72,8 @@ const AdminDashboard: React.FC = () => {
       try {
         performanceRes = await monitoringAPI.getPerformanceStats();
       } catch (performanceError) {
-        logger.warn('[AdminDashboard] Performance API エラー:', performanceError);
+        const errorMessage = performanceError instanceof Error ? performanceError.message : String(performanceError);
+        logger.warn(`[AdminDashboard] Performance API エラー: ${errorMessage}`);
         performanceRes = { data: { success: false } };
       }
 
@@ -78,49 +84,49 @@ const AdminDashboard: React.FC = () => {
         adminAPI.getHourlyStats(7)
       ]);
 
-      logger.info('[AdminDashboard] API レスポンス:', { overviewRes, difficultyRes, gradeRes });
+      logger.info('[AdminDashboard] API レスポンス取得完了');
 
       if (overviewRes.data.success) {
-        logger.info('[AdminDashboard] Overview データ設定:', overviewRes.data.data);
+        logger.info('[AdminDashboard] Overview データ設定完了');
         setOverview(overviewRes.data.data);
       } else {
-        logger.warn('[AdminDashboard] Overview データ取得失敗:', overviewRes.data);
+        logger.warn('[AdminDashboard] Overview データ取得失敗');
       }
       
       if (difficultyRes.data.success) {
         setDifficultyStats(difficultyRes.data.data.stats || []);
       } else {
-        logger.warn('[AdminDashboard] Difficulty データ取得失敗:', difficultyRes.data);
+        logger.warn('[AdminDashboard] Difficulty データ取得失敗');
       }
       
       if (gradeRes.data.success) {
         setGradeStats(gradeRes.data.data.stats || []);
       } else {
-        logger.warn('[AdminDashboard] Grade データ取得失敗:', gradeRes.data);
+        logger.warn('[AdminDashboard] Grade データ取得失敗');
       }
       
       if (hourlyRes.data.success) {
         setHourlyStats(hourlyRes.data.data.stats || []);
       } else {
-        logger.warn('[AdminDashboard] Hourly データ取得失敗:', hourlyRes.data);
+        logger.warn('[AdminDashboard] Hourly データ取得失敗');
       }
       
       if (healthRes.data.success) {
         setSystemHealth(healthRes.data.data);
       } else {
-        logger.warn('[AdminDashboard] Health データ取得失敗:', healthRes.data);
+        logger.warn('[AdminDashboard] Health データ取得失敗');
       }
       
       if (performanceRes.data.success) {
         setPerformanceStats(performanceRes.data.data);
       } else {
-        logger.warn('[AdminDashboard] Performance データ取得失敗:', performanceRes.data);
+        logger.warn('[AdminDashboard] Performance データ取得失敗');
       }
 
     } catch (err) {
-      logger.error('[AdminDashboard] データ取得エラー:', err instanceof Error ? err.message : String(err));
-      logger.error('[AdminDashboard] エラー詳細:', err);
-      setError(`データの取得に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.error(`[AdminDashboard] データ取得エラー: ${errorMessage}`);
+      setError(`データの取得に失敗しました: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -128,12 +134,6 @@ const AdminDashboard: React.FC = () => {
 
   const formatNumber = (num: number): string => {
     return new Intl.NumberFormat('ja-JP').format(num);
-  };
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}分${secs}秒`;
   };
 
   const difficultyColors: Record<string, string> = {
@@ -182,6 +182,19 @@ const AdminDashboard: React.FC = () => {
     } else {
       return `${minutes}分`;
     }
+  };
+
+  // アクティビティをフィルタリングする関数を追加
+  const getFilteredActivity = () => {
+    if (!overview?.recentActivity) return [];
+    
+    if (!activitySearchTerm.trim()) {
+      return overview.recentActivity;
+    }
+    
+    return overview.recentActivity.filter(activity =>
+      activity.username.toLowerCase().includes(activitySearchTerm.toLowerCase())
+    );
   };
 
   if (loading) {
@@ -269,8 +282,8 @@ const AdminDashboard: React.FC = () => {
             本日: {overview?.challengesToday || 0}回
           </div>
         </div>
-
-        <div style={{
+      
+      <div style={{ 
           background: 'linear-gradient(135deg, #FF9500 0%, #FF6B00 100%)',
           borderRadius: '16px',
           padding: '1.5rem',
@@ -343,7 +356,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
                 <div>
                   <div style={{ color: '#666' }}>平均時間</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>{formatTime(stat.averageTime)}</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>{formatTime(stat.averageTime * 1000)}</div>
                 </div>
                 <div>
                   <div style={{ color: '#666' }}>平均正解数</div>
@@ -358,28 +371,86 @@ const AdminDashboard: React.FC = () => {
       {/* 学年別統計 */}
       <div style={{ marginBottom: '3rem' }}>
         <h2 style={{ fontSize: '1.8rem', fontWeight: '600', marginBottom: '1.5rem', color: '#1D1D1F' }}>
-          🎓 学年別統計
+          🎓 学年別統計 ({selectedPeriod === 'today' ? '今日' : selectedPeriod === 'week' ? '過去7日間' : '過去30日間'})
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-          {gradeStats.map((stat) => (
-            <div key={stat.grade} style={{
-              background: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '12px',
-              padding: '1rem',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#007AFF' }}>
-                {stat.grade}年生
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+          {gradeStats.map((stat) => {
+            // 学年表示名の決定
+            const gradeDisplay = stat.grade === 7 ? 'その他' : 
+                               stat.grade === 999 ? 'ひみつ' : 
+                               `${stat.grade}年生`;
+            
+            // 学年別カラー設定
+            const gradeColors = {
+              1: '#FF6B6B', 2: '#4ECDC4', 3: '#45B7D1', 4: '#96CEB4',
+              5: '#FECA57', 6: '#FF9FF3', 7: '#BDC3C7', 999: '#6C5CE7'
+            };
+            const gradeColor = gradeColors[stat.grade as keyof typeof gradeColors] || '#95A5A6';
+            
+            return (
+              <div key={stat.grade} style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                border: `3px solid ${gradeColor}`
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ fontSize: '1.3rem', fontWeight: '600', color: gradeColor }}>
+                    {gradeDisplay}
+                  </h3>
+                  <div style={{ 
+                    background: gradeColor,
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '0.9rem'
+                  }}>
+                    {stat.uniqueUsers}人
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.9rem' }}>
+                  <div>
+                    <div style={{ color: '#666' }}>総チャレンジ数</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>{formatNumber(stat.totalChallenges)}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#666' }}>平均正解率</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>{stat.averageCorrectRate || 0}%</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#666' }}>平均時間</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>{formatTime(stat.averageTime * 1000)}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#666' }}>平均正解数</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>{(stat.averageCorrectRate / 10).toFixed(1)}</div>
+                  </div>
+                </div>
+                
+                {/* 難易度分布 */}
+                {stat.difficultyDistribution && Object.keys(stat.difficultyDistribution).length > 0 && (
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f0f0f0' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>難易度分布</div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {Object.entries(stat.difficultyDistribution).map(([difficulty, count]) => (
+                        <span key={difficulty} style={{
+                          background: `${difficultyColors[difficulty as keyof typeof difficultyColors] || '#gray'}20`,
+                          color: difficultyColors[difficulty as keyof typeof difficultyColors] || '#gray',
+                          padding: '2px 8px',
+                          borderRadius: '8px',
+                          fontSize: '0.75rem',
+                          fontWeight: '500'
+                        }}>
+                          {difficultyLabels[difficulty as keyof typeof difficultyLabels] || difficulty}: {count}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                {stat.uniqueUsers}人が参加
-              </div>
-              <div style={{ fontSize: '0.9rem', color: '#666' }}>
-                {formatTime(stat.averageTime)}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -590,15 +661,83 @@ const AdminDashboard: React.FC = () => {
               問題編集ツール
             </div>
           </Link>
+
+          {/* 🕒 時間帯設定 */}
+          <Link 
+            to="/admin/settings"
+            style={{
+              display: 'block',
+              background: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '16px',
+              padding: '2rem',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              textDecoration: 'none',
+              color: 'inherit',
+              transition: 'transform 0.2s ease'
+            }}
+            className="hover:scale-105"
+          >
+            <h3 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1rem', color: '#007AFF' }}>
+              🕒 時間帯設定
+            </h3>
+            <p style={{ color: '#666', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+              チャレンジ可能な開始 / 終了時刻を変更します。
+            </p>
+            <div style={{
+              display: 'inline-block',
+              background: 'linear-gradient(135deg, #007AFF 0%, #5856D6 100%)',
+              color: 'white',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontWeight: '600'
+            }}>
+              設定ページへ
+            </div>
+          </Link>
         </div>
       </div>
 
       {/* 最近のアクティビティ */}
       {overview?.recentActivity && overview.recentActivity.length > 0 && (
         <div style={{ marginBottom: '3rem' }}>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: '600', marginBottom: '1.5rem', color: '#1D1D1F' }}>
-            🔔 最近のアクティビティ（過去24時間）
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: '600', color: '#1D1D1F' }}>
+              🔔 最近のアクティビティ（過去24時間）
+            </h2>
+            
+            {/* ユーザー検索ボックス */}
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <input
+                type="text"
+                placeholder="ユーザー名で検索..."
+                value={activitySearchTerm}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '0.9rem',
+                  width: '200px'
+                }}
+                onChange={(e) => setActivitySearchTerm(e.target.value)}
+              />
+              <button
+                onClick={() => navigate('/admin/users')}
+                style={{
+                  background: 'linear-gradient(135deg, #007AFF 0%, #5856D6 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                👥 ユーザー管理
+              </button>
+            </div>
+          </div>
+          
           <div style={{
             background: 'rgba(255, 255, 255, 0.9)',
             borderRadius: '16px',
@@ -607,33 +746,50 @@ const AdminDashboard: React.FC = () => {
             maxHeight: '400px',
             overflowY: 'auto'
           }}>
-            {overview.recentActivity.map((activity, index) => (
-              <div key={activity.id} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '1rem 0',
-                borderBottom: index < overview.recentActivity.length - 1 ? '1px solid #eee' : 'none'
+            {getFilteredActivity().length > 0 ? (
+              getFilteredActivity().map((activity, index) => (
+                <div key={activity.id} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '1rem 0',
+                  borderBottom: index < getFilteredActivity().length - 1 ? '1px solid #eee' : 'none'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', color: '#1D1D1F' }}>
+                      {activity.username} ({getGradeLabel(activity.grade)})
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.25rem' }}>
+                      {activity.difficulty} - {activity.correctAnswers}/{activity.totalProblems}問正解
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.25rem' }}>
+                      📊 {activity.timeSpent > 0 ? formatTime(activity.timeSpent * 1000) : '時間情報なし'} で完了
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#999', textAlign: 'right', minWidth: '120px' }}>
+                    <div>{activity.date}</div>
+                    <div>
+                      {new Date(activity.createdAt).toLocaleTimeString('ja-JP', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ 
+                textAlign: 'center', 
+                color: '#999', 
+                padding: '2rem',
+                fontSize: '0.9rem'
               }}>
-                <div>
-                  <div style={{ fontWeight: '600', color: '#1D1D1F' }}>
-                    {activity.username} ({activity.grade}年生)
-                  </div>
-                  <div style={{ fontSize: '0.9rem', color: '#666' }}>
-                    {difficultyLabels[activity.difficulty] || activity.difficulty} - {activity.score}点
-                  </div>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: '#999', textAlign: 'right' }}>
-                  <div>{activity.date}</div>
-                  <div>
-                    {new Date(activity.createdAt).toLocaleTimeString('ja-JP', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </div>
-                </div>
+                {activitySearchTerm ? 
+                  `「${activitySearchTerm}」に該当するアクティビティが見つかりません` : 
+                  'アクティビティがありません'
+                }
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}

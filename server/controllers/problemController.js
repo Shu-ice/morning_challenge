@@ -4,10 +4,13 @@ import { logger } from '../utils/logger.js';
 import User from '../models/User.js';
 import dayjs from 'dayjs';
 import { v4 as uuidv4 } from 'uuid';
-import { getMockResults, getMockDailyProblemSets } from '../config/database.js';
+import { getMockResults, getMockDailyProblemSets, addMockResult, findMockUser, getMockUsers } from '../config/database.js';
 import { DifficultyRank } from '../constants/difficultyRank.js';
 import { getRankForResult } from '../utils/ranking.js';
 import { generateProblems } from '../utils/problemGenerator.js';
+
+// モック環境判定
+const isMongoMock = () => process.env.MONGODB_MOCK === 'true';
 
 // @desc    問題の生成
 // @route   GET /api/problems
@@ -378,6 +381,12 @@ export const getGenerationStatus = async (req, res) => {
 export const submitAnswers = async (req, res) => {
   let { difficulty, date, answers, timeSpentMs, userId, problemIds } = req.body;
   
+  // 日付が未指定の場合、今日の日付を設定
+  if (!date) {
+    date = dayjs().format('YYYY-MM-DD');
+    logger.debug(`[Submit] 日付が未指定のため今日の日付を設定: ${date}`);
+  }
+  
   // ★ 重要修正: 認証済みユーザーのIDを必ず使用（優先順位を明確化）
   if (req.user && req.user._id) {
     userId = req.user._id.toString(); // ObjectIdを文字列に変換
@@ -407,7 +416,17 @@ export const submitAnswers = async (req, res) => {
     // データベースから問題セット取得
     logger.debug(`[Submit] 問題セット取得: date=${date}, difficulty=${difficulty}`);
     
-    const problemSet = await DailyProblemSet.findOne({ date, difficulty });
+    let problemSet = null;
+    if (isMongoMock()) {
+      // モック環境での問題セット取得
+      const mockProblemSets = getMockDailyProblemSets();
+      problemSet = mockProblemSets.find(ps => ps.date === date && ps.difficulty === difficulty);
+      logger.debug(`[Submit] モック問題セット検索: ${problemSet ? '見つかりました' : '見つかりません'}`);
+    } else {
+      // 通常のMongoose処理
+      problemSet = await DailyProblemSet.findOne({ date, difficulty });
+      logger.debug(`[Submit] 問題セット検索: ${problemSet ? '見つかりました' : '見つかりません'}`);
+    }
     
     if (!problemSet || !problemSet.problems || problemSet.problems.length === 0) {
       return res.status(404).json({ 
@@ -509,11 +528,17 @@ export const submitAnswers = async (req, res) => {
     if (typeof reqTimeSpentMs === 'number' && reqTimeSpentMs >= 0) {
         finalTimeSpentMs = reqTimeSpentMs;
         calculatedStartTime = submissionTime - reqTimeSpentMs;
+    } else if (typeof timeSpentMs === 'number' && timeSpentMs >= 0) {
+        // 代替: timeSpentMsフィールドをチェック
+        finalTimeSpentMs = timeSpentMs;
+        calculatedStartTime = submissionTime - timeSpentMs;
     } else {
-        // timeSpentMs が不正な場合は0とする (またはエラー処理)
+        // timeSpentMs が不正な場合は0とする
         finalTimeSpentMs = 0;
         calculatedStartTime = submissionTime;
     }
+    
+    logger.debug(`[Submit] 時間計算: reqTimeSpentMs=${reqTimeSpentMs}, timeSpentMs=${timeSpentMs}, finalTimeSpentMs=${finalTimeSpentMs}`);
     
     // 保存するための結果データを構築
     const resultsData = {
@@ -522,7 +547,7 @@ export const submitAnswers = async (req, res) => {
       incorrectAnswers: incorrectCount,
       unanswered: unansweredCount,
       totalTime: finalTimeSpentMs, // ミリ秒
-      timeSpent: finalTimeSpentMs, // ミリ秒に統一 (フロントエンドでの混乱を防ぐため)
+      timeSpent: Math.round((finalTimeSpentMs / 1000) * 100) / 100, // 秒に変換（小数点以下2桁まで保持）
       problems: problemResults,
       difficulty: difficulty,
       date: date,
@@ -533,53 +558,117 @@ export const submitAnswers = async (req, res) => {
     // ユーザー情報の取得
     let user = null;
     if (userId) {
-      user = await User.findById(userId).lean();
-      logger.debug(`[Submit] ユーザー検索 (ID): ${user ? '見つかりました' : '見つかりません'}`);
+      if (isMongoMock()) {
+        // モック環境でのユーザー検索
+        user = findMockUser({ _id: userId });
+        logger.debug(`[Submit] モックユーザー検索 (ID): ${user ? '見つかりました' : '見つかりません'}`);
+      } else {
+        // 通常のMongoose処理
+        user = await User.findById(userId).lean();
+        logger.debug(`[Submit] ユーザー検索 (ID): ${user ? '見つかりました' : '見つかりません'}`);
+      }
     } else if (req.user && req.user._id) {
-      user = await User.findById(req.user._id).lean();
-      logger.debug(`[Submit] ユーザー検索 (req.user): ${user ? '見つかりました' : '見つかりません'}`);
+      if (isMongoMock()) {
+        // モック環境でのユーザー検索
+        user = findMockUser({ _id: req.user._id.toString() });
+        logger.debug(`[Submit] モックユーザー検索 (req.user): ${user ? '見つかりました' : '見つかりません'}`);
+      } else {
+        // 通常のMongoose処理
+        user = await User.findById(req.user._id).lean();
+        logger.debug(`[Submit] ユーザー検索 (req.user): ${user ? '見つかりました' : '見つかりません'}`);
+      }
     }
     
     // 結果の保存
     let savedResult = null;
     if (user) {
-      const query = {
-        userId: user._id,
-        date: date, // resultsData.date と同じはず
-      };
-
-      logger.debug(`[Submit] 結果保存開始: query=${JSON.stringify(query)}`);
-      logger.debug(`[Submit] 保存データ概要: correct=${correctCount}/${problems.length}`);
-      logger.debug(`[Submit] 保存するresultsData:`, resultsData);
-
-      // ユーザーID、日付で検索し、該当があれば更新、なければ新規作成 (upsert)
-      savedResult = await Result.findOneAndUpdate(
-        query, 
-        { 
-          $set: { 
-            username: user.username,
-            grade: user.grade, // ユーザー学年も保存
-            difficulty: difficulty, // ★ 最後に挑戦した難易度を保存
-            ...resultsData
-          }
-        }, 
-        { 
-          upsert: true, 
-          new: true,    
-          setDefaultsOnInsert: true 
+      if (isMongoMock()) {
+        // モック環境での保存処理
+        const mockResultData = {
+          _id: `result_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId: user._id.toString(),
+          username: user.username,
+          grade: user.grade,
+          difficulty: difficulty,
+          date: date,
+          correctAnswers: correctCount,
+          incorrectAnswers: incorrectCount,
+          unanswered: unansweredCount,
+          totalProblems: problems.length,
+          totalTime: finalTimeSpentMs,
+          timeSpent: Math.round((finalTimeSpentMs / 1000) * 100) / 100, // 秒に変換（小数点以下2桁まで保持）
+          problems: problemResults,
+          startTime: calculatedStartTime,
+          endTime: calculatedEndTime,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        // 既存の結果を更新または新規追加
+        const mockResults = getMockResults();
+        const existingIndex = mockResults.findIndex(r => 
+          r.userId === user._id.toString() && r.date === date && r.difficulty === difficulty
+        );
+        
+        if (existingIndex !== -1) {
+          // 既存を更新 - 直接更新ではなく要素を置換
+          Object.assign(mockResults[existingIndex], mockResultData);
+          savedResult = mockResults[existingIndex];
+          logger.info(`[Submit] モック結果を更新: userId=${user._id}, date=${date}`);
+        } else {
+          // 新規追加
+          savedResult = addMockResult(mockResultData);
+          logger.info(`[Submit] モック結果を新規追加: userId=${user._id}, date=${date}`);
         }
-      );
-      
-      logger.info(`[Submit] 結果を保存/更新しました: ID=${savedResult._id}, Date=${savedResult.date}`);
-      logger.debug(`[Submit] 保存された結果詳細:`, {
-        id: savedResult._id,
-        userId: savedResult.userId,
-        username: savedResult.username,
-        date: savedResult.date,
-        difficulty: savedResult.difficulty,
-        correctAnswers: savedResult.correctAnswers,
-        totalProblems: savedResult.totalProblems
-      });
+        
+        logger.debug(`[Submit] モック保存完了:`, {
+          id: savedResult._id,
+          userId: savedResult.userId,
+          difficulty: savedResult.difficulty,
+          correctAnswers: savedResult.correctAnswers,
+          totalProblems: savedResult.totalProblems
+        });
+      } else {
+        // 通常のMongoose処理
+        const query = {
+          userId: user._id,
+          date: date,
+          difficulty: difficulty,
+        };
+
+        logger.debug(`[Submit] 結果保存開始: query=${JSON.stringify(query)}`);
+        logger.debug(`[Submit] 保存データ概要: correct=${correctCount}/${problems.length}`);
+        logger.debug(`[Submit] 保存するresultsData:`, resultsData);
+
+        // ユーザーID、日付で検索し、該当があれば更新、なければ新規作成 (upsert)
+        savedResult = await Result.findOneAndUpdate(
+          query, 
+          { 
+            $set: { 
+              username: user.username,
+              grade: user.grade, // ユーザー学年も保存
+              difficulty: difficulty, // ★ 最後に挑戦した難易度を保存
+              ...resultsData
+            }
+          }, 
+          { 
+            upsert: true, 
+            new: true,    
+            setDefaultsOnInsert: true 
+          }
+        );
+        
+        logger.info(`[Submit] 結果を保存/更新しました: ID=${savedResult._id}, Date=${savedResult.date}`);
+        logger.debug(`[Submit] 保存された結果詳細:`, {
+          id: savedResult._id,
+          userId: savedResult.userId,
+          username: savedResult.username,
+          date: savedResult.date,
+          difficulty: savedResult.difficulty,
+          correctAnswers: savedResult.correctAnswers,
+          totalProblems: savedResult.totalProblems
+        });
+      }
       
       // ランキング情報の取得を試みる
       try {
@@ -646,19 +735,35 @@ export const getHistory = async (req, res) => {
     
     // 履歴データの取得（日付順で新しいものから）
     let historyResults;
-    try {
+    if (isMongoMock()) {
+      // モック環境での履歴取得
+      const mockResults = getMockResults();
+      historyResults = mockResults
+        .filter(result => result.userId === targetUserId)
+        .sort((a, b) => {
+          // 日付順（新しいものから）
+          if (a.date !== b.date) {
+            return new Date(b.date) - new Date(a.date);
+          }
+          // 作成日時順（新しいものから）
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+      logger.debug(`[getHistory] モック履歴検索完了: ${historyResults.length}件`);
+    } else {
       // 通常のMongoose環境での取得を試行
-      historyResults = await Result.find({ userId: targetUserId })
-        .sort({ date: -1, createdAt: -1 })
-        .populate('userId', 'username grade')
-        .lean();
-    } catch (populateError) {
-      // モック環境またはpopulateが使えない場合の代替処理
-      logger.warn('[getHistory] populateエラー、代替処理に切り替え:', populateError.message);
-      
-      historyResults = await Result.find({ userId: targetUserId })
-        .sort({ date: -1, createdAt: -1 })
-        .lean();
+      try {
+        historyResults = await Result.find({ userId: targetUserId })
+          .sort({ date: -1, createdAt: -1 })
+          .populate('userId', 'username grade')
+          .lean();
+      } catch (populateError) {
+        // populateが使えない場合の代替処理
+        logger.warn('[getHistory] populateエラー、代替処理に切り替え:', populateError.message);
+        
+        historyResults = await Result.find({ userId: targetUserId })
+          .sort({ date: -1, createdAt: -1 })
+          .lean();
+      }
     }
 
     logger.info(`[getHistory] 取得された履歴件数: ${historyResults.length}件`);
@@ -680,12 +785,12 @@ export const getHistory = async (req, res) => {
       difficulty: result.difficulty,
       username: result.userId?.username || result.username || req.user.username || '不明',
       grade: result.userId?.grade || result.grade || req.user.grade,
-      totalProblems: result.totalProblems,
-      correctAnswers: result.correctAnswers,
-      incorrectAnswers: result.incorrectAnswers,
-      unanswered: result.unanswered,
-      timeSpent: result.timeSpent,
-      totalTime: result.totalTime,
+      totalProblems: result.totalProblems || 10,
+      correctAnswers: result.correctAnswers || 0,
+      incorrectAnswers: result.incorrectAnswers || 0,
+      unanswered: result.unanswered || 0,
+      timeSpent: result.timeSpent || 0,
+      totalTime: result.totalTime || (result.timeSpent ? result.timeSpent * 1000 : 0),
       timestamp: result.createdAt || result.timestamp,
       rank: result.rank || null,
       problems: result.problems || []

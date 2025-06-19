@@ -22,6 +22,7 @@ import ProblemEditor from './pages/admin/ProblemEditor';
 import UserManagement from './pages/admin/UserManagement';
 import SystemMonitoring from './pages/admin/SystemMonitoring';
 import StatsDashboard from './pages/admin/StatsDashboard';
+import TimeWindowSettings from './pages/admin/TimeWindowSettings';
 
 // --- 保護されたルートのラッパー --- 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -234,10 +235,8 @@ const AppRoutes: React.FC = () => {
         />
 
         {/* --- 管理者専用ルート --- */}
-        <Route
-          path="/admin"
-          element={<AdminRoute><AdminDashboard /></AdminRoute>}
-        />
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/settings" element={<AdminRoute><TimeWindowSettings /></AdminRoute>} />
         <Route
           path="/admin/dashboard"
           element={<AdminRoute><AdminDashboard /></AdminRoute>}

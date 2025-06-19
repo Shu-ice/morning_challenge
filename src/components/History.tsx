@@ -4,6 +4,7 @@ import { ja } from 'date-fns/locale';
 import { problemsAPI } from '../api';
 import '../styles/UserHistory.css';
 import { logger } from '../utils/logger';
+import { formatTime } from '../utils/dateUtils';
 import type { ProblemResult } from '../types/index';
 
 interface HistoryItem {
@@ -11,6 +12,7 @@ interface HistoryItem {
   date: string;
   difficulty: string;
   timeSpent: number;
+  totalTime?: number;
   score: number;
   correctAnswers: number;
   totalProblems: number;
@@ -93,10 +95,6 @@ export const History: React.FC = () => {
 
     fetchHistory();
   }, []);
-
-  const formatTime = (seconds: number) => {
-    return seconds.toFixed(2);
-  };
 
   const getDifficultyName = (difficulty: string) => {
     switch (difficulty) {
@@ -201,7 +199,7 @@ export const History: React.FC = () => {
                 </span>
               </div>
               <div className="time-column">
-                {formatTime(item.timeSpent)}秒
+                {formatTime(item.totalTime || item.timeSpent * 1000)}
               </div>
             </div>
           ))

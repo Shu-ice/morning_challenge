@@ -8,6 +8,7 @@ import {
   getProblemSetStats
 } from '../controllers/adminController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
+import { getTimeWindowConfig, updateTimeWindowConfig } from '../controllers/timeWindowController.js';
 
 const router = express.Router();
 
@@ -20,6 +21,10 @@ router.get('/stats/difficulty', getDifficultyStats);
 router.get('/stats/grade', getGradeStats);
 router.get('/stats/hourly', getHourlyStats);
 router.get('/stats/problemsets', getProblemSetStats);
+
+// 時間帯設定 API
+router.get('/time-window', getTimeWindowConfig);
+router.put('/time-window', updateTimeWindowConfig);
 
 // ユーザー管理API
 router.get('/users', getUsers);

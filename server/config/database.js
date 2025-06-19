@@ -119,20 +119,73 @@ const initializeMockData = async () => {
     }
   ];
 
-  // デフォルトのチャレンジ結果の作成（ユーザーtest用）
+  // デフォルトのチャレンジ結果の作成（より現実的なデータ）
   const today = dayjs().format('YYYY-MM-DD');
+  const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
   mockResults = [
     {
       _id: '1',
-      userId: '3', // testユーザー
+      userId: '3', // testユーザー (3年生)
       date: today,
       difficulty: 'beginner',
-      correctAnswers: 0,
-      totalQuestions: 10,
-      timeSpent: 600,
-      grade: 1, // プロフィール更新後の学年
+      correctAnswers: 7,
+      incorrectAnswers: 2,
+      unanswered: 1,
+      totalProblems: 10,
+      score: 70,
+      timeSpent: 480, // 秒単位
+      totalTime: 480000, // ミリ秒単位
+      grade: 3,
       createdAt: new Date(),
       updatedAt: new Date()
+    },
+    {
+      _id: '2',
+      userId: '1', // adminユーザー (6年生)
+      date: today,
+      difficulty: 'expert',
+      correctAnswers: 8,
+      incorrectAnswers: 2,
+      unanswered: 0,
+      totalProblems: 10,
+      score: 80,
+      timeSpent: 420, // 秒単位
+      totalTime: 420000, // ミリ秒単位
+      grade: 6,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      _id: '3',
+      userId: '2', // kanriユーザー (6年生)
+      date: yesterday,
+      difficulty: 'advanced',
+      correctAnswers: 9,
+      incorrectAnswers: 1,
+      unanswered: 0,
+      totalProblems: 10,
+      score: 90,
+      timeSpent: 360, // 秒単位
+      totalTime: 360000, // ミリ秒単位
+      grade: 6,
+      createdAt: dayjs().subtract(1, 'day').toDate(),
+      updatedAt: dayjs().subtract(1, 'day').toDate()
+    },
+    {
+      _id: '4',
+      userId: '3', // testユーザー (3年生)
+      date: yesterday,
+      difficulty: 'intermediate',
+      correctAnswers: 6,
+      incorrectAnswers: 3,
+      unanswered: 1,
+      totalProblems: 10,
+      score: 60,
+      timeSpent: 520, // 秒単位
+      totalTime: 520000, // ミリ秒単位
+      grade: 3,
+      createdAt: dayjs().subtract(1, 'day').toDate(),
+      updatedAt: dayjs().subtract(1, 'day').toDate()
     }
   ];
   

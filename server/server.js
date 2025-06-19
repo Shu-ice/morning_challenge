@@ -4,37 +4,8 @@ import { fileURLToPath } from 'url';
 import environmentConfig from './config/environment.js';
 import { logger } from './utils/logger.js';
 import { performanceMonitor, startPerformanceMonitoring } from './middleware/performanceMiddleware.js';
-
-// ESM環境で __dirname を再現
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// サーバーディレクトリの .env ファイルを読み込む
-const envPath = path.resolve(__dirname, './.env');
-logger.info(`[dotenv] Attempting to load .env file from: ${envPath}`);
-const dotenvResult = dotenv.config({ path: envPath });
-if (dotenvResult.error) {
-  logger.error('[dotenv] Error loading .env file:', dotenvResult.error);
-} else {
-  logger.info('[dotenv] .env file loaded successfully.');
-}
-
-// 🔥 緊急修正: モック機能を強制有効化
-if (!process.env.MONGODB_MOCK) {
-  logger.info('🔧 [EMERGENCY FIX] MONGODB_MOCK環境変数が設定されていません。強制的に有効化します...');
-  process.env.MONGODB_MOCK = 'true';
-  process.env.DISABLE_TIME_CHECK = 'true';
-  process.env.JWT_SECRET = 'morning-challenge-super-secret-key';
-}
-
-logger.info('🎯 [CURRENT ENV] MONGODB_MOCK:', process.env.MONGODB_MOCK);
-logger.info('🎯 [CURRENT ENV] DISABLE_TIME_CHECK:', process.env.DISABLE_TIME_CHECK);
-logger.info('🎯 [CURRENT ENV] JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'NOT SET');
-
-// 環境設定を表示
-environmentConfig.displayConfig();
-
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import dayjs from 'dayjs';
@@ -388,6 +359,33 @@ process.on('uncaughtException', (error) => {
 });
 // --- グローバルエラーハンドラーここまで ---
 
+// --- __dirname & dotenv 初期化を復元 ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// サーバーディレクトリ直下の .env を読み込む
+const envPath = path.resolve(__dirname, './.env');
+logger.info(`[dotenv] Attempting to load .env file from: ${envPath}`);
+const dotenvResult = dotenv.config({ path: envPath });
+if (dotenvResult.error) {
+  logger.error('[dotenv] Error loading .env file:', dotenvResult.error);
+} else {
+  logger.info('[dotenv] .env file loaded successfully.');
+}
+
+// *** 緊急フォールバック：必須ENV未設定時のデフォルト値 ***
+if (!process.env.JWT_SECRET) {
+  logger.warn('🔒 JWT_SECRET が未設定です。デフォルトキーを設定しました。必ず本番環境で上書きしてください！');
+  process.env.JWT_SECRET = 'morning-challenge-super-secret-key';
+}
+
+if (!process.env.MONGODB_MOCK) {
+  logger.info('🧪 MONGODB_MOCK が未設定のため false をセット');
+  process.env.MONGODB_MOCK = 'false';
+}
+
+logger.info(`✅ ENV SUMMARY → NODE_ENV=${process.env.NODE_ENV}, MONGODB_MOCK=${process.env.MONGODB_MOCK}`);
+
 // MongoDBサーバーに接続 & サーバー起動
 const startServer = async () => {
     try {
@@ -438,7 +436,10 @@ const startServer = async () => {
         
         const app = express();
         
-        // ✅ セキュリティヘッダー追加（最優先）
+        // ✅ Helmet で主要ヘッダーを一括付与
+        app.use(helmet());
+
+        // ✅ カスタムセキュリティヘッダー追加（Helmetの後に上書き・追加）
         app.use(securityHeaders);
         
         // ✅ Rate Limiting追加

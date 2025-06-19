@@ -50,15 +50,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onLogout, onViewHistory
 
     setError('');
     
+    // grade は空文字なら未設定、それ以外に数値形式であればそのまま整数化。
     let finalGrade: number | undefined;
     if (grade === '') {
       finalGrade = undefined;
-    } else if (/^[1-6]$/.test(grade)) {
-      finalGrade = parseInt(grade, 10);
-    } else if (grade === '8' || grade === '999') {
+    } else if (/^\d+$/.test(grade)) {
       finalGrade = parseInt(grade, 10);
     } else {
-      finalGrade = undefined; // 無効な値は undefined に
+      finalGrade = undefined;
     }
 
     const profileData = {

@@ -18,7 +18,7 @@ const UserManagement: React.FC = () => {
   // フィルター・検索状態
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState<number | ''>('');
-  const [sortBy, setSortBy] = useState<'username' | 'createdAt' | 'totalChallenges' | 'averageScore'>('createdAt');
+  const [sortBy, setSortBy] = useState<'username' | 'createdAt' | 'totalChallenges' | 'averageCorrectRate'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
@@ -181,7 +181,7 @@ const UserManagement: React.FC = () => {
                 <option key={grade} value={grade}>{grade}年生</option>
               ))}
               <option value={7}>その他</option>
-              <option value={8}>ひみつ</option>
+              <option value={999}>ひみつ</option>
             </select>
           </div>
 
@@ -203,7 +203,7 @@ const UserManagement: React.FC = () => {
               <option value="createdAt">登録日</option>
               <option value="username">ユーザー名</option>
               <option value="totalChallenges">チャレンジ数</option>
-              <option value="averageScore">平均スコア</option>
+              <option value="averageCorrectRate">平均スコア</option>
             </select>
           </div>
 
@@ -281,7 +281,7 @@ const UserManagement: React.FC = () => {
           textAlign: 'center'
         }}>
           <div style={{ fontSize: '2rem', fontWeight: '700' }}>
-            {Math.round(users.reduce((sum, u) => sum + u.averageScore, 0) / users.length) || 0}
+            {Math.round(users.reduce((sum, u) => sum + u.averageCorrectRate, 0) / users.length) || 0}
           </div>
           <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>全体平均スコア</div>
         </div>
@@ -312,6 +312,9 @@ const UserManagement: React.FC = () => {
                 </th>
                 <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', borderBottom: '1px solid #dee2e6' }}>
                   最高スコア
+                </th>
+                <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', borderBottom: '1px solid #dee2e6' }}>
+                  連続日数
                 </th>
                 <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', borderBottom: '1px solid #dee2e6' }}>
                   登録日
@@ -368,13 +371,18 @@ const UserManagement: React.FC = () => {
                     </div>
                   </td>
                   <td style={{ padding: '1rem' }}>
-                    <div style={{ fontWeight: '600', fontSize: '1.1rem', color: user.averageScore >= 80 ? '#34C759' : user.averageScore >= 60 ? '#FF9500' : '#FF3B30' }}>
-                      {user.averageScore}点
+                    <div style={{ fontWeight: '600', fontSize: '1.1rem', color: user.averageCorrectRate >= 80 ? '#34C759' : user.averageCorrectRate >= 60 ? '#FF9500' : '#FF3B30' }}>
+                      {user.averageCorrectRate}点
                     </div>
                   </td>
                   <td style={{ padding: '1rem' }}>
                     <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>
-                      {user.bestScore}点
+                      {user.bestCorrectRate}点
+                    </div>
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ fontWeight: '600', fontSize: '1.1rem' }}>
+                      {user.streak ?? 0}日
                     </div>
                   </td>
                   <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#666' }}>

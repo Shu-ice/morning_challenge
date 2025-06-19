@@ -204,7 +204,7 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
                   </div>
                   <div className="flex items-center space-x-4 text-sm">
                     <span>{item.correctAnswers}/{item.totalProblems}</span>
-                    <span className="text-gray-600">{formatTime(item.timeSpent)}</span>
+                    <span className="text-gray-600">{formatTime(item.timeSpent * 1000)}</span>
                     {item.rank && <span className="text-blue-600">{item.rank}位</span>}
                   </div>
                 </div>

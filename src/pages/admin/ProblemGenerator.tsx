@@ -4,6 +4,8 @@ import '@/styles/admin/ProblemGenerator.css';
 import type { AxiosError } from 'axios';
 import { logger } from '@/utils/logger';
 import { problemsAPI, API } from '@/api/index';
+import axios, { isAxiosError } from 'axios';  // axiosのインポートをコメントアウト
+import { formatTime } from '../../utils/dateUtils';
 
 // スタイル用のCSSファイルも後で作成想定
 // import '@/styles/ProblemGenerator.css'; 
@@ -51,13 +53,6 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
       }
     };
   }, [isActive, statusCheckInterval]);
-
-  const formatTime = (ms: number | undefined) => {
-    if (ms === undefined) return 'N/A';
-    const seconds = Math.floor((ms / 1000) % 60);
-    const minutes = Math.floor((ms / (1000 * 60)) % 60);
-    return `${minutes}分 ${seconds}秒`;
-  };
 
   const checkGenerationStatus = useCallback(async (currentRequestId: string) => {
     if (!currentRequestId) return;

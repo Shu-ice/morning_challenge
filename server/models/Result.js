@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
+import { getMockResults, addMockResult } from '../config/database.js';
 
-// モック用のインメモリストレージ
-let mockResults = [];
+// モック用のカウンター（新規作成時のID生成用）
 let mockResultIdCounter = 1;
 
 const ProblemResultSchema = new mongoose.Schema({
@@ -71,6 +71,9 @@ ResultSchema.index({ userId: 1, date: 1, difficulty: 1 }, { unique: true });
 // 2. ランキング表示用（最重要）- 難易度・日付別でスコア順ソート
 ResultSchema.index({ difficulty: 1, date: 1, score: -1 });
 
+// 2-2. ランキング高速化用複合インデックス（score 同点時に timeSpent, createdAt でソート）
+ResultSchema.index({ date: 1, difficulty: 1, score: -1, timeSpent: 1, createdAt: 1 });
+
 // 3. ユーザー履歴表示用 - 特定ユーザーの履歴を日付順で取得
 ResultSchema.index({ userId: 1, date: -1 });
 
@@ -95,7 +98,8 @@ class ResultModel {
   find(query = {}) {
     if (this.isUsingMock) {
       console.log(`[ResultModel] モック環境でfind検索: ${JSON.stringify(query)}`);
-      let results = [...mockResults];
+      // database.jsの統一されたモックデータを使用
+      let results = [...getMockResults()];
       
       // 基本的なクエリフィルタリング
       if (query.userId) {
@@ -179,6 +183,7 @@ class ResultModel {
   findOne(query) {
     if (this.isUsingMock) {
       console.log(`[ResultModel] モック環境でfindOne検索: ${JSON.stringify(query)}`);
+      const mockResults = getMockResults();
       const result = mockResults.find(result => {
         return Object.keys(query).every(key => {
           if (key === 'userId') {
@@ -198,6 +203,7 @@ class ResultModel {
     if (this.isUsingMock) {
       console.log(`[ResultModel] モック環境でfindOneAndUpdate: ${JSON.stringify(query)}`);
       
+      const mockResults = getMockResults();
       // 既存の結果を検索
       const existingIndex = mockResults.findIndex(result => {
         return Object.keys(query).every(key => {
@@ -228,7 +234,7 @@ class ResultModel {
           createdAt: new Date(),
           updatedAt: new Date()
         };
-        mockResults.push(newResult);
+        addMockResult(newResult);
         return Promise.resolve(newResult);
       } else {
         return Promise.resolve(null);
@@ -241,6 +247,7 @@ class ResultModel {
   countDocuments(query = {}) {
     if (this.isUsingMock) {
       console.log(`[ResultModel] モック環境でcountDocuments: ${JSON.stringify(query)}`);
+      const mockResults = getMockResults();
       let results = mockResults;
       
       // 基本的なクエリフィルタリング
@@ -263,7 +270,7 @@ class ResultModel {
   distinct(field, query = {}) {
     if (this.isUsingMock) {
       console.log(`[ResultModel] モック環境でdistinct: ${field}, ${JSON.stringify(query)}`);
-      let results = mockResults;
+      let results = getMockResults();
       
       // 基本的なクエリフィルタリング
       if (query.date) {

@@ -5,14 +5,18 @@ export const getGradeLabel = (grade: number | string): string => {
   return gradeOption ? gradeOption.label : `${grade}年生`;
 };
 
-export const getGradeDisplayName = (grade: number | string): string => {
-  switch (Number(grade)) {
+export const getGradeDisplayName = (grade: number | string | undefined | null): string => {
+  const num = grade === undefined || grade === null ? undefined : Number(grade);
+  if (num === undefined || isNaN(num)) {
+    return '未設定';
+  }
+  switch (num) {
     case 7:
       return 'その他';
-    case 8:
+    case 999:
       return 'ひみつ';
     default:
-      return `${grade}年生`;
+      return `${num}年生`;
   }
 };
 
@@ -29,7 +33,7 @@ export const getGradeColor = (grade: number | string): string => {
       return '#45B7D1'; // 高学年 - 青系
     case 7:
       return '#96CEB4'; // その他 - 緑系
-    case 8:
+    case 999:
       return '#FFEAA7'; // ひみつ - 黄系
     default:
       return '#007AFF'; // デフォルト

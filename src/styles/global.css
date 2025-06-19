@@ -118,7 +118,7 @@ p {
 
 .button {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
   padding: var(--spacing-sm) var(--spacing-lg);
   border-radius: var(--radius-full);

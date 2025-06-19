@@ -23,7 +23,8 @@ export interface RecentActivity {
   grade: number | string;
   difficulty: string;
   correctAnswers: number;
-  totalQuestions: number;
+  totalProblems: number;
+  timeSpent: number;
   date: string;
   createdAt: string;
 }

@@ -37,16 +37,20 @@ export const getSystemOverview = async (req, res) => {
           { date: dayjs().subtract(1, 'day').format('YYYY-MM-DD'), totalChallenges: 3, averageCorrectRate: 78.2, uniqueUsers: 2 },
           { date: dayjs().subtract(2, 'day').format('YYYY-MM-DD'), totalChallenges: 7, averageCorrectRate: 82.1, uniqueUsers: 3 }
         ],
-        recentActivity: mockResults.slice(-5).map((result, index) => ({
-          id: `activity_${index}`,
-          username: mockUsers.find(u => u._id === result.userId)?.username || 'Unknown',
-          grade: mockUsers.find(u => u._id === result.userId)?.grade || 'N/A',
-          difficulty: result.difficulty || 'beginner',
-          correctAnswers: result.correctAnswers || 0,
-          totalQuestions: result.totalQuestions || 10,
-          date: result.date || today,
-          createdAt: result.createdAt || new Date().toISOString()
-        }))
+        recentActivity: mockResults
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .slice(0, 10)
+          .map((result, index) => ({
+            id: `activity_${index}`,
+            username: mockUsers.find(u => u._id === result.userId)?.username || 'Unknown',
+            grade: mockUsers.find(u => u._id === result.userId)?.grade || 'N/A',
+            difficulty: result.difficulty || 'beginner',
+            correctAnswers: result.correctAnswers || 0,
+            totalProblems: result.totalProblems || 10,
+            timeSpent: result.timeSpent || 0,
+            date: result.date || today,
+            createdAt: result.createdAt || new Date().toISOString()
+          }))
       };
 
       logger.info('[Admin] モック統計データを返却');
@@ -137,7 +141,8 @@ export const getSystemOverview = async (req, res) => {
         grade: activity.userId?.grade || 'N/A',
         difficulty: activity.difficulty,
         correctAnswers: activity.correctAnswers || 0,
-        totalQuestions: activity.totalQuestions || 10,
+        totalProblems: activity.totalProblems || 10,
+        timeSpent: activity.timeSpent || 0,
         date: activity.date,
         createdAt: activity.createdAt
       }))
@@ -202,6 +207,20 @@ export const getUsers = async (req, res) => {
           bestCorrectRate: userResults.length > 0 
             ? Math.max(...userResults.map(r => r.correctAnswers || 0))
             : 0,
+          streak: (() => {
+            const uniqueDates = [...new Set(userResults.map(r => r.date))].sort((a, b) => new Date(b) - new Date(a));
+            let streak = 0;
+            let currentDate = dayjs();
+            for (const dateStr of uniqueDates) {
+              if (dayjs(dateStr).isSame(currentDate, 'day')) {
+                streak += 1;
+                currentDate = currentDate.subtract(1, 'day');
+              } else {
+                break;
+              }
+            }
+            return streak;
+          })(),
           lastActivity: userResults.length > 0 
             ? userResults.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0].createdAt
             : user.createdAt
@@ -272,6 +291,34 @@ export const getUsers = async (req, res) => {
       }
     ]);
 
+    // 追加: 連続日数（streak）を計算
+    const resultsForStreak = await Result.find({ userId: { $in: userIds } })
+      .select('userId date')
+      .lean();
+
+    const streakMap = {};
+    // グループ化
+    resultsForStreak.forEach(res => {
+      const id = res.userId.toString();
+      if (!streakMap[id]) streakMap[id] = [];
+      streakMap[id].push(res.date);
+    });
+    // streak 計算
+    Object.keys(streakMap).forEach(id => {
+      const dateList = [...new Set(streakMap[id])].sort((a, b) => new Date(b) - new Date(a));
+      let streak = 0;
+      let current = dayjs();
+      for (const d of dateList) {
+        if (dayjs(d).isSame(current, 'day')) {
+          streak += 1;
+          current = current.subtract(1, 'day');
+        } else {
+          break;
+        }
+      }
+      streakMap[id] = streak;
+    });
+
     // 統計データをマップ化
     const statsMap = userStats.reduce((map, stat) => {
       map[stat._id.toString()] = stat;
@@ -284,7 +331,8 @@ export const getUsers = async (req, res) => {
       totalChallenges: statsMap[user._id.toString()]?.totalChallenges || 0,
       averageCorrectRate: Math.round(statsMap[user._id.toString()]?.averageCorrectRate || 0),
       bestCorrectRate: statsMap[user._id.toString()]?.bestCorrectRate || 0,
-      lastActivity: statsMap[user._id.toString()]?.lastActivity || user.createdAt
+      lastActivity: statsMap[user._id.toString()]?.lastActivity || user.createdAt,
+      streak: streakMap[user._id.toString()] || 0
     }));
 
     res.json({
@@ -318,48 +366,81 @@ export const getDifficultyStats = async (req, res) => {
     const { period = 'week' } = req.query;
     
     if (isMongoMock()) {
-      // モック環境用の難易度別統計
-      const mockStats = [
-        {
-          difficulty: 'beginner',
-          totalChallenges: 15,
-          averageCorrectRate: 87.3,
-          averageTime: 180.5,
-          averageCorrectAnswers: 8.7,
-          uniqueUsers: 2
-        },
-        {
-          difficulty: 'intermediate',
-          totalChallenges: 8,
-          averageCorrectRate: 78.2,
-          averageTime: 240.3,
-          averageCorrectAnswers: 7.8,
-          uniqueUsers: 2
-        },
-        {
-          difficulty: 'advanced',
-          totalChallenges: 3,
-          averageCorrectRate: 65.7,
-          averageTime: 320.1,
-          averageCorrectAnswers: 6.6,
-          uniqueUsers: 1
-        },
-        {
-          difficulty: 'expert',
-          totalChallenges: 1,
-          averageCorrectRate: 45.0,
-          averageTime: 420.0,
-          averageCorrectAnswers: 4.5,
-          uniqueUsers: 1
+      // モック環境用の難易度別統計 - 実際のmockResults配列から計算
+      const mockResults = getMockResults();
+      const mockUsers = getMockUsers();
+      
+      // 期間フィルタリング
+      let startDate;
+      switch (period) {
+        case 'today':
+          startDate = dayjs().format('YYYY-MM-DD');
+          break;
+        case 'week':
+          startDate = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
+          break;
+        case 'month':
+          startDate = dayjs().subtract(30, 'day').format('YYYY-MM-DD');
+          break;
+        default:
+          startDate = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
+      }
+      
+      // 期間でフィルタリング
+      const filteredResults = mockResults.filter(result => {
+        if (period === 'today') {
+          return result.date === startDate;
+        } else {
+          return result.date >= startDate;
         }
-      ];
+      });
+      
+      // 難易度別に集計
+      const difficultyGroups = filteredResults.reduce((groups, result) => {
+        const difficulty = result.difficulty || 'beginner';
+        if (!groups[difficulty]) {
+          groups[difficulty] = [];
+        }
+        groups[difficulty].push(result);
+        return groups;
+      }, {});
+      
+      // 統計計算
+      const mockStats = Object.entries(difficultyGroups).map(([difficulty, results]) => {
+        const uniqueUsers = [...new Set(results.map(r => r.userId))].length;
+        const totalChallenges = results.length;
+        const averageCorrectAnswers = results.length > 0 
+          ? Math.round(results.reduce((sum, r) => sum + (r.correctAnswers || 0), 0) / results.length * 10) / 10
+          : 0;
+        const averageCorrectRate = results.length > 0 
+          ? Math.round((averageCorrectAnswers / (results[0].totalProblems || 10)) * 100 * 10) / 10
+          : 0;
+        const averageTime = results.length > 0 
+          ? Math.round(results.reduce((sum, r) => sum + (r.timeSpent || 300), 0) / results.length * 10) / 10
+          : 0;
+        
+        return {
+          difficulty,
+          totalChallenges,
+          averageCorrectRate,
+          averageTime,
+          averageCorrectAnswers,
+          uniqueUsers
+        };
+      });
+      
+      // 難易度順にソート
+      const difficultyOrder = ['beginner', 'intermediate', 'advanced', 'expert'];
+      const sortedStats = mockStats.sort((a, b) => 
+        difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty)
+      );
 
-      logger.info('[Admin] モック難易度別統計を返却');
+      logger.info(`[Admin] モック難易度別統計を返却 (${period}, ${filteredResults.length}件のデータから計算)`);
       return res.json({
         success: true,
         data: {
           period,
-          stats: mockStats
+          stats: sortedStats
         }
       });
     }
@@ -436,80 +517,98 @@ export const getGradeStats = async (req, res) => {
     const { period = 'week' } = req.query;
     
     if (isMongoMock()) {
-      // モック環境用の学年別統計（全8学年分）
-      const mockStats = [
-        {
-          grade: 1,
-          totalChallenges: 5,
-          averageCorrectRate: 85.2,
-          averageTime: 200.3,
-          uniqueUsers: 1,
-          difficultyDistribution: { beginner: 4, intermediate: 1 }
-        },
-        {
-          grade: 2,
-          totalChallenges: 8,
-          averageCorrectRate: 78.5,
-          averageTime: 180.7,
-          uniqueUsers: 1,
-          difficultyDistribution: { beginner: 6, intermediate: 2 }
-        },
-        {
-          grade: 3,
-          totalChallenges: 12,
-          averageCorrectRate: 82.1,
-          averageTime: 220.5,
-          uniqueUsers: 1,
-          difficultyDistribution: { beginner: 5, intermediate: 4, advanced: 3 }
-        },
-        {
-          grade: 4,
-          totalChallenges: 6,
-          averageCorrectRate: 76.8,
-          averageTime: 195.2,
-          uniqueUsers: 1,
-          difficultyDistribution: { beginner: 3, intermediate: 2, advanced: 1 }
-        },
-        {
-          grade: 5,
-          totalChallenges: 4,
-          averageCorrectRate: 88.5,
-          averageTime: 175.1,
-          uniqueUsers: 1,
-          difficultyDistribution: { beginner: 2, intermediate: 1, advanced: 1 }
-        },
-        {
-          grade: 6,
-          totalChallenges: 3,
-          averageCorrectRate: 91.2,
-          averageTime: 165.8,
-          uniqueUsers: 1,
-          difficultyDistribution: { beginner: 1, intermediate: 1, advanced: 1 }
-        },
-        {
-          grade: 7,
-          totalChallenges: 2,
-          averageCorrectRate: 72.5,
-          averageTime: 210.3,
-          uniqueUsers: 1,
-          difficultyDistribution: { beginner: 2 }
-        },
-        {
-          grade: 999,
-          totalChallenges: 1,
-          averageCorrectRate: 0,
-          averageTime: 600,
-          uniqueUsers: 1,
-          difficultyDistribution: { beginner: 1 }
+      // モック環境用の学年別統計 - 実際のmockResults配列から計算
+      const mockResults = getMockResults();
+      const mockUsers = getMockUsers();
+      
+      // 期間フィルタリング
+      let startDate;
+      switch (period) {
+        case 'today':
+          startDate = dayjs().format('YYYY-MM-DD');
+          break;
+        case 'week':
+          startDate = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
+          break;
+        case 'month':
+          startDate = dayjs().subtract(30, 'day').format('YYYY-MM-DD');
+          break;
+        default:
+          startDate = dayjs().subtract(7, 'day').format('YYYY-MM-DD');
+      }
+      
+      // 期間でフィルタリング
+      const filteredResults = mockResults.filter(result => {
+        if (period === 'today') {
+          return result.date === startDate;
+        } else {
+          return result.date >= startDate;
         }
-      ];
+      });
+      
+      // ユーザー情報を結合
+      const resultsWithUser = filteredResults.map(result => {
+        const user = mockUsers.find(u => u._id === result.userId);
+        return {
+          ...result,
+          userGrade: user ? user.grade : 999 // 不明な場合は999（ひみつ）
+        };
+      });
+      
+      // 学年別に集計
+      const gradeGroups = resultsWithUser.reduce((groups, result) => {
+        const grade = result.userGrade;
+        if (!groups[grade]) {
+          groups[grade] = [];
+        }
+        groups[grade].push(result);
+        return groups;
+      }, {});
+      
+      // 統計計算
+      const mockStats = Object.entries(gradeGroups).map(([grade, results]) => {
+        const uniqueUsers = [...new Set(results.map(r => r.userId))].length;
+        const totalChallenges = results.length;
+        const averageCorrectAnswers = results.length > 0 
+          ? Math.round(results.reduce((sum, r) => sum + (r.correctAnswers || 0), 0) / results.length * 10) / 10
+          : 0;
+        const averageCorrectRate = results.length > 0 
+          ? Math.round((averageCorrectAnswers / (results[0].totalProblems || 10)) * 100 * 10) / 10
+          : 0;
+        const averageTime = results.length > 0 
+          ? Math.round(results.reduce((sum, r) => sum + (r.timeSpent || 300), 0) / results.length * 10) / 10
+          : 0;
+        
+        // 難易度分布
+        const difficultyDistribution = results.reduce((dist, r) => {
+          const difficulty = r.difficulty || 'beginner';
+          dist[difficulty] = (dist[difficulty] || 0) + 1;
+          return dist;
+        }, {});
+        
+        return {
+          grade: parseInt(grade),
+          totalChallenges,
+          averageCorrectRate,
+          averageTime,
+          uniqueUsers,
+          difficultyDistribution
+        };
+      });
+      
+      // 学年順にソート（数値順、999は最後）
+      const sortedStats = mockStats.sort((a, b) => {
+        if (a.grade === 999) return 1;
+        if (b.grade === 999) return -1;
+        return a.grade - b.grade;
+      });
 
-      logger.info('[Admin] モック学年別統計を返却');
+      logger.info(`[Admin] モック学年別統計を返却 (${period}, ${filteredResults.length}件のデータから計算)`);
       return res.json({
         success: true,
         data: {
           period,
-          stats: mockStats
+          stats: sortedStats
         }
       });
     }
