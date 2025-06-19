@@ -23,11 +23,14 @@ export const getSystemOverview = async (req, res) => {
       const mockProblemSets = getMockDailyProblemSets();
       const today = dayjs().format('YYYY-MM-DD');
       
+      const todayResults = mockResults.filter(r => r.date === today);
+      const uniqueUsersToday = [...new Set(todayResults.map(r => r.userId))].length;
+      
       const overview = {
         totalUsers: mockUsers.length,
-        activeUsersToday: mockResults.filter(r => r.date === today).length,
+        activeUsersToday: uniqueUsersToday,
         totalChallenges: mockResults.length,
-        challengesToday: mockResults.filter(r => r.date === today).length,
+        challengesToday: todayResults.length,
         problemSetsCount: mockProblemSets.length,
         weeklyStats: [
           { date: today, totalChallenges: 5, averageCorrectRate: 85.5, uniqueUsers: 2 },
@@ -433,7 +436,7 @@ export const getGradeStats = async (req, res) => {
     const { period = 'week' } = req.query;
     
     if (isMongoMock()) {
-      // モック環境用の学年別統計
+      // モック環境用の学年別統計（全8学年分）
       const mockStats = [
         {
           grade: 1,
@@ -458,6 +461,46 @@ export const getGradeStats = async (req, res) => {
           averageTime: 220.5,
           uniqueUsers: 1,
           difficultyDistribution: { beginner: 5, intermediate: 4, advanced: 3 }
+        },
+        {
+          grade: 4,
+          totalChallenges: 6,
+          averageCorrectRate: 76.8,
+          averageTime: 195.2,
+          uniqueUsers: 1,
+          difficultyDistribution: { beginner: 3, intermediate: 2, advanced: 1 }
+        },
+        {
+          grade: 5,
+          totalChallenges: 4,
+          averageCorrectRate: 88.5,
+          averageTime: 175.1,
+          uniqueUsers: 1,
+          difficultyDistribution: { beginner: 2, intermediate: 1, advanced: 1 }
+        },
+        {
+          grade: 6,
+          totalChallenges: 3,
+          averageCorrectRate: 91.2,
+          averageTime: 165.8,
+          uniqueUsers: 1,
+          difficultyDistribution: { beginner: 1, intermediate: 1, advanced: 1 }
+        },
+        {
+          grade: 7,
+          totalChallenges: 2,
+          averageCorrectRate: 72.5,
+          averageTime: 210.3,
+          uniqueUsers: 1,
+          difficultyDistribution: { beginner: 2 }
+        },
+        {
+          grade: 999,
+          totalChallenges: 1,
+          averageCorrectRate: 0,
+          averageTime: 600,
+          uniqueUsers: 1,
+          difficultyDistribution: { beginner: 1 }
         }
       ];
 

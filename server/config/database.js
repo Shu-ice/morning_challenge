@@ -118,6 +118,23 @@ const initializeMockData = async () => {
       updatedAt: new Date()
     }
   ];
+
+  // デフォルトのチャレンジ結果の作成（ユーザーtest用）
+  const today = dayjs().format('YYYY-MM-DD');
+  mockResults = [
+    {
+      _id: '1',
+      userId: '3', // testユーザー
+      date: today,
+      difficulty: 'beginner',
+      correctAnswers: 0,
+      totalQuestions: 10,
+      timeSpent: 600,
+      grade: 1, // プロフィール更新後の学年
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  ];
   
   // ================================
   // 🔄 モック問題セット拡張ロジック
@@ -128,7 +145,6 @@ const initializeMockData = async () => {
   //  404 とならないようにするのが目的です。
   // ================================
 
-  const today = dayjs().format('YYYY-MM-DD');
   const DAYS_AHEAD = parseInt(process.env.MOCK_DAYS_AHEAD ?? '7', 10); // 任意で環境変数で調整可能
 
   mockDailyProblemSets = [];
