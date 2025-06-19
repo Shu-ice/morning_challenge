@@ -3,6 +3,7 @@ import '../styles/Login.css';
 import type { UserData } from '../types/index';
 import { authAPI } from '../api/index';
 import { GRADE_OPTIONS } from '../types/grades';
+import { ErrorHandler } from '../utils/errorHandler';
 
 interface RegisterProps {
   onRegister: (userData: UserData, token: string) => void;
@@ -32,7 +33,7 @@ function Register({ onRegister, onLogin }: RegisterProps) {
       return;
     }
     const gradeNum = parseInt(grade, 10);
-    if (isNaN(gradeNum) || gradeNum < 1 || gradeNum > 6) {
+    if (isNaN(gradeNum) || gradeNum < 1 || gradeNum > 8) {
       setError('有効な学年を選択してください');
       return;
     }
@@ -76,23 +77,8 @@ function Register({ onRegister, onLogin }: RegisterProps) {
         throw new Error(errorMessage);
       }
     } catch (err: unknown) {
-      console.error('[Register] API登録エラー:', err);
-      
-      if (err && typeof err === 'object' && 'code' in err && err.code === 'ERR_NETWORK') {
-        setError('サーバーに接続できません。サーバーが起動しているか確認してください。');
-      } else if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { errors?: Array<{ msg: string }>; error?: string; message?: string } }; message?: string };
-        const backendErrors = axiosError.response?.data?.errors;
-        if (backendErrors && Array.isArray(backendErrors)) {
-          setError(backendErrors.map((e: { msg: string }) => e.msg).join(', '));
-        } else {
-          const message = axiosError.response?.data?.error || axiosError.response?.data?.message || axiosError.message || '登録処理中にエラーが発生しました。';
-          setError(message);
-        }
-      } else {
-        const errorMessage = err instanceof Error ? err.message : '登録処理中に不明なエラーが発生しました';
-        setError('ネットワークエラー: ' + errorMessage);
-      }
+      const handledError = ErrorHandler.handleApiError(err, 'Register');
+      setError(ErrorHandler.getUserFriendlyMessage(handledError));
     } finally {
       setIsLoading(false);
     }

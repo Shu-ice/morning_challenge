@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import '../styles/ProfilePage.css';
 import { UserData } from '../types/index';
 import { GRADE_OPTIONS } from '../types/grades';
-import { authAPI } from '../api/index';
+import { authAPI, userAPI } from '../api/index';
+import { ErrorHandler } from '../utils/errorHandler';
 
 interface ProfilePageProps {
   user: UserData;
@@ -36,7 +37,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onLogout, onViewHistory
     setGrade(String(user.grade ?? ''));
   }, [user]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!username.trim()) {
       setError('ユーザー名は必須です');
       return;
@@ -49,29 +50,50 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onLogout, onViewHistory
 
     setError('');
     
-    let finalGrade: number | string | undefined;
+    let finalGrade: number | undefined;
     if (grade === '') {
       finalGrade = undefined;
     } else if (/^[1-6]$/.test(grade)) {
       finalGrade = parseInt(grade, 10);
+    } else if (grade === '8' || grade === '999') {
+      finalGrade = parseInt(grade, 10);
     } else {
-      finalGrade = grade;
+      finalGrade = undefined; // 無効な値は undefined に
     }
 
-    const updatedUser = {
-      ...user,
+    const profileData = {
       username,
       email: email || undefined,
       grade: finalGrade
-    } as UserData;
+    };
 
-    onSaveProfile(updatedUser);
-    setSuccessMessage('プロフィールを更新しました');
-    setEditMode(false);
-    
-    setTimeout(() => {
-      setSuccessMessage('');
-    }, 3000);
+    try {
+      // サーバーにAPIコールして実際にプロフィールを更新
+      const response = await userAPI.updateProfile(profileData);
+      
+      if (response.data?.success) {
+        // サーバー更新成功後にローカルStateを更新
+        const updatedUser = {
+          ...user,
+          username,
+          email: email || undefined,
+          grade: finalGrade
+        } as UserData;
+
+        onSaveProfile(updatedUser);
+        setSuccessMessage('プロフィールを更新しました');
+        setEditMode(false);
+        
+        setTimeout(() => {
+          setSuccessMessage('');
+        }, 3000);
+      } else {
+        setError(response.data?.message || 'プロフィールの更新に失敗しました');
+      }
+    } catch (err: unknown) {
+      const handledError = ErrorHandler.handleApiError(err, 'プロフィール更新');
+      setError(ErrorHandler.getUserFriendlyMessage(handledError));
+    }
   };
 
   const handlePasswordChange = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -95,25 +117,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onLogout, onViewHistory
     setIsPasswordLoading(true);
     try {
       const response = await authAPI.updatePassword({ currentPassword, newPassword });
-      if (response.data?.success) {
+      if (response.success) {
         setPasswordSuccess('パスワードが正常に変更されました。');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmNewPassword('');
         setTimeout(() => setPasswordSuccess(''), 4000);
       } else {
-        setPasswordError(response.data?.message || 'パスワードの変更に失敗しました。');
+        setPasswordError(response.message || 'パスワードの変更に失敗しました。');
       }
     } catch (err: unknown) {
-      console.error('Password update API error:', err);
-      let message = 'パスワード変更中にエラーが発生しました。';
-      if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { message?: string } }; message?: string };
-        message = axiosError.response?.data?.message || axiosError.message || message;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
-      setPasswordError(message);
+      const handledError = ErrorHandler.handleApiError(err, 'ProfilePage');
+      setPasswordError(ErrorHandler.getUserFriendlyMessage(handledError));
     } finally {
       setIsPasswordLoading(false);
     }

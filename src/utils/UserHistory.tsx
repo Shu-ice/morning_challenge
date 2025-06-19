@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import '../styles/UserHistory.css';
 import { Results } from '@/types';
 import { difficultyToJapanese } from '@/types/difficulty';
+import { ErrorHandler } from './errorHandler';
 
 interface UserHistoryProps {
   username: string;
@@ -30,7 +31,8 @@ const UserHistory: React.FC<UserHistoryProps> = ({ username }) => {
           setHistory(parsedHistory);
         }
       } catch (error) {
-        console.error('履歴の読み込みに失敗しました:', error);
+        const handledError = ErrorHandler.handleApiError(error, '履歴読み込み');
+        console.warn(ErrorHandler.getUserFriendlyMessage(handledError));
       } finally {
         setLoading(false);
       }

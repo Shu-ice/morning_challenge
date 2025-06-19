@@ -1,13 +1,18 @@
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import environmentConfig from '../config/environment.js';
+import { logger } from '../utils/logger.js';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
+const JWT_SECRET = environmentConfig.jwtSecret;
+const JWT_EXPIRES_IN = environmentConfig.jwtExpiresIn;
 
 // JWT トークン生成ヘルパー関数
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, {
+const generateToken = (userId, userInfo = {}) => {
+  return jwt.sign({ 
+    userId,
+    ...userInfo
+  }, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
   });
 };
@@ -16,19 +21,19 @@ const generateToken = (userId) => {
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = async (req, res, next) => {
-  console.log('[authController] registerUser function started');
+  logger.debug('registerUser function started');
   const { username, email, password, grade, avatar } = req.body;
 
   try {
-    // メールアドレスが既に存在するか確認
-    const userExists = await User.findOne({ email });
+    // メールアドレスが既に存在するか確認（モック環境対応）
+    const userExists = await User.findOneSimple({ email });
     if (userExists) {
       res.status(400); // Bad Request
       throw new Error('このメールアドレスは既に使用されています');
     }
 
-    // ユーザー名が既に存在するか確認
-    const usernameExists = await User.findOne({ username });
+    // ユーザー名が既に存在するか確認（モック環境対応）
+    const usernameExists = await User.findOneSimple({ username });
     if (usernameExists) {
       res.status(400);
       throw new Error('このユーザー名は既に使用されています');
@@ -44,7 +49,14 @@ const registerUser = async (req, res, next) => {
     });
 
     if (user) {
-      const token = generateToken(user._id);
+      const userInfo = {
+        username: user.username,
+        email: user.email,
+        grade: user.grade,
+        avatar: user.avatar,
+        isAdmin: user.isAdmin
+      };
+      const token = generateToken(user._id, userInfo);
 
       // クッキーにトークンを設定 (HttpOnlyでセキュリティ向上)
       res.cookie('jwt', token, {
@@ -78,29 +90,34 @@ const registerUser = async (req, res, next) => {
 // @access  Public
 const loginUser = async (req, res, next) => {
   const startTime = Date.now();
-  console.log(`[${new Date(startTime).toISOString()}] [authController] loginUser function started`);
+  logger.debug('loginUser function started');
   const { email, password } = req.body;
-  console.log(`[Login attempt] Email: ${email}, Password provided: ${password ? 'Yes' : 'No'}`);
+  logger.info(`Login attempt for email: ${email}`);
 
   try {
-    console.log(`[${new Date().toISOString()}] [authController] Searching for user by email: ${email}`);
+    logger.debug(`Searching for user by email: ${email}`);
     // 🔥 緊急修正: モック環境でのfindOne処理
     const userQuery = User.findOne({ email });
     const user = await (userQuery.select ? userQuery.select('+password') : userQuery);
     const userSearchTime = Date.now();
-    console.log(`[${new Date(userSearchTime).toISOString()}] [authController] User search completed. Duration: ${userSearchTime - startTime}ms. User found: ${user ? user.username : 'null'}`);
-    console.log(`[Login user found] User: ${user ? user.username : 'null'}, Password in DB: ${user && user.password ? 'Exists' : 'Missing or null'}`);
+    logger.debug(`User search completed. Duration: ${userSearchTime - startTime}ms. User found: ${!!user}`);
 
     if (user) {
-      console.log(`[${new Date().toISOString()}] [authController] Comparing password for user: ${user.username}`);
-      console.log(`[Login user.password type] ${typeof user.password}, length: ${user.password ? user.password.length : 'N/A'}`);
+      logger.debug(`Comparing password for user: ${user.username}`);
       const isMatch = await user.matchPassword(password);
       const passwordMatchTime = Date.now();
-      console.log(`[${new Date(passwordMatchTime).toISOString()}] [authController] Password comparison completed. Duration: ${passwordMatchTime - userSearchTime}ms. Is match: ${isMatch}`);
-      console.log(`[Login password match result] Is match: ${isMatch}`);
+      logger.debug(`Password comparison completed. Duration: ${passwordMatchTime - userSearchTime}ms. Is match: ${isMatch}`);
 
       if (isMatch) {
-        const token = generateToken(user._id);
+        // 最新のユーザー情報をトークンに含める
+        const userInfo = {
+          username: user.username,
+          email: user.email,
+          grade: user.grade,
+          avatar: user.avatar,
+          isAdmin: user.isAdmin
+        };
+        const token = generateToken(user._id, userInfo);
 
         // クッキーにトークンを設定
         res.cookie('jwt', token, {
@@ -125,31 +142,91 @@ const loginUser = async (req, res, next) => {
           token: token,
         });
         const endTime = Date.now();
-        console.log(`[${new Date(endTime).toISOString()}] [authController] loginUser successful for ${email}. Total duration: ${endTime - startTime}ms`);
+        logger.info(`Login successful for ${email}. Duration: ${endTime - startTime}ms`);
       } else {
         const endTime = Date.now();
-        console.log(`[${new Date(endTime).toISOString()}] [authController] Login attempt failed for ${email}: Password mismatch. Total duration: ${endTime - startTime}ms`);
-        console.log('[Login attempt failed] User not found or password mismatch.');
+        logger.warn(`Login failed for ${email}: Invalid credentials. Duration: ${endTime - startTime}ms`);
         res.status(401); // Unauthorized
         throw new Error('メールアドレスまたはパスワードが無効です');
       }
     } else {
       const endTime = Date.now();
-      console.log(`[${new Date(endTime).toISOString()}] [authController] Login attempt failed for ${email}: User not found. Total duration: ${endTime - startTime}ms`);
-      console.log('[Login attempt failed] User not found or password mismatch.');
+      logger.warn(`Login failed for ${email}: Invalid credentials. Duration: ${endTime - startTime}ms`);
       res.status(401); // Unauthorized
       throw new Error('メールアドレスまたはパスワードが無効です');
     }
   } catch (error) {
     const endTime = Date.now();
-    console.error(`[${new Date(endTime).toISOString()}] [authController] loginUser error for ${email}. Total duration: ${endTime - startTime}ms. Error: ${error.message}`);
+    logger.error(`Login error for ${email}. Duration: ${endTime - startTime}ms. Error: ${error.message}`);
     next(error);
   }
 };
 
 // TODO: Add logoutUser controller
 
+// @desc    Update user password
+// @route   PUT /api/auth/update-password
+// @access  Private
+const updatePassword = async (req, res, next) => {
+  logger.debug('updatePassword function started');
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user._id; // authMiddleware から取得
+
+  try {
+    // 現在のパスワードと新しいパスワードが提供されているか確認
+    if (!currentPassword || !newPassword) {
+      res.status(400);
+      throw new Error('現在のパスワードと新しいパスワードの両方が必要です');
+    }
+
+    // 新しいパスワードの長さチェック
+    if (newPassword.length < 6) {
+      res.status(400);
+      throw new Error('新しいパスワードは6文字以上である必要があります');
+    }
+
+    // ユーザーをIDで検索し、パスワードフィールドも含める
+    const userQuery = User.findById(userId);
+    const user = await (userQuery.select ? userQuery.select('+password') : userQuery);
+
+    if (!user) {
+      res.status(404);
+      throw new Error('ユーザーが見つかりません');
+    }
+
+    // 現在のパスワードが正しいか確認
+    const isCurrentPasswordValid = await user.matchPassword(currentPassword);
+    if (!isCurrentPasswordValid) {
+      res.status(401);
+      throw new Error('現在のパスワードが間違っています');
+    }
+
+    // 新しいパスワードと現在のパスワードが同じでないか確認
+    const isSamePassword = await user.matchPassword(newPassword);
+    if (isSamePassword) {
+      res.status(400);
+      throw new Error('新しいパスワードは現在のパスワードと異なる必要があります');
+    }
+
+    // 新しいパスワードを設定（pre-saveフックでハッシュ化される）
+    user.password = newPassword;
+    await user.save();
+
+    logger.info(`Password updated successfully for user: ${user.username}`);
+
+    res.json({
+      success: true,
+      message: 'パスワードが正常に更新されました'
+    });
+
+  } catch (error) {
+    logger.error(`updatePassword error for user ${userId}: ${error.message}`);
+    next(error);
+  }
+};
+
 export {
   registerUser,
-  loginUser
+  loginUser,
+  updatePassword
 }; 

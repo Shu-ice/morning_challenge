@@ -79,6 +79,12 @@ const admin = (req, res, next) => {
 // 時間制限チェックミドルウェア
 const timeRestriction = (req, res, next) => {
   try {
+    // 🚀 環境変数によるグローバル時間制限無効化
+    if (process.env.DISABLE_TIME_CHECK === 'true') {
+      logger.debug('[TimeRestriction] DISABLE_TIME_CHECK=true により時間制限をスキップします');
+      return next();
+    }
+    
     // 🔐 セキュリティ強化: 管理者または開発環境のみskipTimeCheckを許可
     const skipTimeCheck = req.query.skipTimeCheck === 'true';
     
@@ -112,7 +118,8 @@ const timeRestriction = (req, res, next) => {
     if (currentTime < 6.5 || currentTime > 8.0) {
       return res.status(403).json({
         success: false,
-        message: '計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！'
+        message: '朝の計算チャレンジは、朝6:30から8:00の間のみ挑戦できます。またの挑戦をお待ちしています！',
+        isTimeRestricted: true
       });
     }
     

@@ -1,3 +1,5 @@
+import { ErrorHandler } from '../utils/errorHandler';
+
 /**
  * APIリクエストを管理する基本クラス
  */
@@ -40,8 +42,7 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
-      console.error(`[ApiService] GET error for ${endpoint}:`, error);
-      throw error;
+      ErrorHandler.handlePromiseRejection(error, 'ApiService GET');
     }
   }
 
@@ -62,8 +63,7 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
-      console.error(`[ApiService] POST error for ${endpoint}:`, error);
-      throw error;
+      ErrorHandler.handlePromiseRejection(error, 'ApiService POST');
     }
   }
 

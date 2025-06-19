@@ -25,7 +25,6 @@ export const ProblemProvider: React.FC<{ children: ReactNode }> = ({ children })
       startTime: new Date().toISOString(),
       difficulty,
       results: [],
-      score: 0,
       endTime: undefined,
     };
     setCurrentSession(newSession);
@@ -34,8 +33,6 @@ export const ProblemProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const finalizeSession = (detailedResults: ProblemResult[], apiResult: ApiResult) => {
     if (currentSession) {
-      const scoreFromServer = apiResult.score;
-      
       // APIレスポンスからサーバー基準の startTime と endTime (数値タイムスタンプ) を取得
       const serverStartTimeMs = apiResult.startTime;
       const serverEndTimeMs = apiResult.endTime;
@@ -46,7 +43,6 @@ export const ProblemProvider: React.FC<{ children: ReactNode }> = ({ children })
         startTime: serverStartTimeMs ? new Date(serverStartTimeMs).toISOString() : new Date().toISOString(), // サーバーの開始時刻 (ISO文字列に変換)
         endTime: serverEndTimeMs ? new Date(serverEndTimeMs).toISOString() : new Date().toISOString(),   // サーバーの終了時刻 (ISO文字列に変換)
         results: detailedResults, // これは引数で渡ってくるのでそのまま使用
-        score: scoreFromServer,
         totalTime: serverTotalTimeMs, // ★ totalTime を設定
       };
       setCurrentSession(finalSession);
@@ -61,25 +57,7 @@ export const ProblemProvider: React.FC<{ children: ReactNode }> = ({ children })
     setResults([]);
   };
 
-  const calculateScore = (problemResults: ProblemResult[], difficulty: DifficultyRank): number => {
-    if (!problemResults || problemResults.length === 0) return 0;
 
-    const correctAnswers = problemResults.filter(r => r.isCorrect).length;
-    const totalProblems = problemResults.length;
-
-    let basePointsPerCorrect = 10;
-    switch (difficulty) {
-      case 'intermediate': basePointsPerCorrect = 15; break;
-      case 'advanced': basePointsPerCorrect = 20; break;
-      case 'expert': basePointsPerCorrect = 25; break;
-    }
-    let score = correctAnswers * basePointsPerCorrect;
-
-    if (correctAnswers === totalProblems) {
-      score += 20;
-    }
-    return score;
-  };
 
   return (
     <ProblemContext.Provider

@@ -195,26 +195,26 @@ const getParamsForDifficulty = (difficulty) => {
             return {
                 problemTypes: [
                     'add_subtract_2digit',      // 2けた同士のたしざん・ひきざん
-                    'add_subtract_3digit_2digit', // 3けたと2けたのたしざん・ひきざん
-                    'multiplication_table'       // 九九
+                    'add_subtract_3digit_2digit', // 3けたと2けたのたしざん・ひきざん  
+                    'multiplication_table'       // 九九（1けたのかけざん）
                 ],
                 problemComposition: {
-                    'add_subtract_2digit': 3,      // 3問
-                    'add_subtract_3digit_2digit': 3, // 3問
-                    'multiplication_table': 4       // 4問
+                    'add_subtract_2digit': 4,      // 4問（2〜3けたのたし算・ひきざん）
+                    'add_subtract_3digit_2digit': 3, // 3問（3けたと2けたのたし算・ひきざん）
+                    'multiplication_table': 3       // 3問（1けたのかけ算：九九）
                 },
                 digitRanges: { 
                     add_subtract_2digit: {
-                        num1: [10, 99],    // 2けた
-                        num2: [10, 99]     // 2けた
+                        num1: [10, 99],    // 2けた（10〜99）
+                        num2: [10, 99]     // 2けた（10〜99）
                     },
                     add_subtract_3digit_2digit: {
-                        num1: [100, 999],  // 3けた
-                        num2: [10, 99]     // 2けた
+                        num1: [100, 999],  // 3けた（100〜999）
+                        num2: [10, 99]     // 2けた（10〜99）
                     },
                     multiplication_table: {
-                        num1: [1, 9],      // 1けた
-                        num2: [1, 9]       // 1けた
+                        num1: [1, 9],      // 1けた（1〜9）
+                        num2: [1, 9]       // 1けた（1〜9）
                     }
                 },
                 ops: ['+', '-', '×'], 

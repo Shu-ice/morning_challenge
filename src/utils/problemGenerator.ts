@@ -1,6 +1,7 @@
 import { Problem } from '@/types';
 import { DifficultyRank, difficultyToJapanese, japaneseToDifficulty } from '@/types/difficulty';
 import { logger } from './logger';
+import { ErrorHandler } from './errorHandler';
 
 // シード付き乱数生成関数
 const seededRandom = (seed: number): number => {
@@ -292,7 +293,8 @@ const getSettings = (): ProblemSettings => {
       return JSON.parse(savedSettings);
     }
   } catch (error) {
-    logger.error("Failed to load problem settings:", error instanceof Error ? error : String(error));
+    const handledError = ErrorHandler.handleApiError(error, '設定読み込み');
+    logger.error("Failed to load problem settings:", ErrorHandler.getUserFriendlyMessage(handledError));
   }
   return defaultSettings;
 };
@@ -576,7 +578,8 @@ export const generateProblems = (difficulty: DifficultyRank, count: number = 10)
         id: String(index),
     }));
   } catch (error) {
-    logger.error("Error in generateProblems wrapper:", error instanceof Error ? error : String(error));
+    const handledError = ErrorHandler.handleApiError(error, '問題生成');
+    logger.error("Error in generateProblems wrapper:", ErrorHandler.getUserFriendlyMessage(handledError));
     return [];
   }
 };

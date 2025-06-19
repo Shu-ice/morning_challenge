@@ -28,14 +28,13 @@ export interface PracticeSession {
   endTime?: string;
   difficulty: DifficultyRank;
   results: ProblemResult[];
-  score: number;
   totalTime?: number; // ミリ秒単位の合計解答時間
 }
 
 export interface UserProfile extends UserData {
   totalSessions: number;
-  averageScore: number;
-  bestScore: number;
+  averageCorrectRate: number;
+  bestCorrectRate: number;
   lastPracticeDate?: string;
 }
 
@@ -68,7 +67,6 @@ export interface Results {
   totalTime: number; // ミリ秒
   timeSpent: number; // 秒
   problems: ProblemResult[]; // 各問題の結果
-  score: number;
   grade?: number | string; // ユーザーの学年
   rank?: number; // ランキング (あれば)
   date?: string; // YYYY-MM-DD 形式の日付
@@ -88,7 +86,6 @@ export interface ApiResult {
   totalTime: number;    // ミリ秒単位の合計解答時間 (サーバーレスポンスの totalTime)
   timeSpent: number;    // 秒単位の合計解答時間 (totalTime / 1000) (サーバーレスポンスの timeSpent)
   results: ProblemResult[]; // 詳細な問題ごとの結果 (サーバーレスポンスの problems) - Note: renamed from 'problems' to 'results' for consistency
-  score: number;
   difficulty: DifficultyRank; 
   date: string;
   startTime?: number; // サーバーで計算された開始時刻 (ミリ秒タイムスタンプ)
@@ -143,7 +140,6 @@ export interface RankingUser {
   avatar?: string;
   grade?: number;
   points?: number;
-  totalScore?: number;
 }
 
 // プロフィール更新APIレスポンス型
@@ -199,7 +195,6 @@ export interface HistoryItem {
   difficulty: DifficultyRank;
   timeSpent: number;
   totalTime?: number;
-  score: number;
   correctAnswers: number;
   totalProblems: number;
   incorrectAnswers?: number;

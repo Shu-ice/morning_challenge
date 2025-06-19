@@ -1,13 +1,13 @@
-import { logger } from '../utils/logger.js';
-import User from '../models/User.js';
 import Result from '../models/Result.js';
 import DailyProblemSet from '../models/DailyProblemSet.js';
-import { DifficultyRank } from '../constants/difficultyRank.js';
-import { calculateScore } from '../utils/problemScoring.js';
-import { getRankForResult } from '../utils/ranking.js';
-import { generateProblems } from '../utils/problemGenerator.js';
+import { logger } from '../utils/logger.js';
+import User from '../models/User.js';
 import dayjs from 'dayjs';
 import { v4 as uuidv4 } from 'uuid';
+import { getMockResults, getMockDailyProblemSets } from '../config/database.js';
+import { DifficultyRank } from '../constants/difficultyRank.js';
+import { getRankForResult } from '../utils/ranking.js';
+import { generateProblems } from '../utils/problemGenerator.js';
 
 // @desc    問題の生成
 // @route   GET /api/problems
@@ -22,21 +22,57 @@ export const getProblems = async (req, res) => {
       difficulty = DifficultyRank.BEGINNER;
     }
     
-    // 時間制限チェックをスキップするオプション（開発モード用）
-    const shouldSkipTimeCheck = skipTimeCheck === 'true' || (req.user && req.user.isAdmin);
-    
-    // 現在時刻をチェック（日本時間）
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTime = hours + minutes/60;
-    
-    // 時間制限チェック: 朝6:30-8:00のみ利用可能
-    if (!shouldSkipTimeCheck && (currentTime < 6.5 || currentTime > 8.0)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: '計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！' 
-      });
+    // 時間制限チェックを実行 - 🚀 テストユーザーの場合は通常の時間制限を適用
+    try {
+      // 🔥 テストユーザーには必ず時間制限チェックを適用（メッセージ確認のため）
+      const isTestUser = req.user && req.user.username === 'testuser';
+      
+      if (process.env.DISABLE_TIME_CHECK === 'true' && !isTestUser) {
+        logger.debug('[TimeCheck] DISABLE_TIME_CHECK=true により時間制限チェックをスキップします（テストユーザー以外）');
+        logger.info(`[TimeCheck] ✅ 時間制限チェックスキップ（環境変数により無効化）`);
+      } else {
+        // 時間制限チェックを実行（テストユーザーまたは通常環境）
+        const shouldSkipTimeCheck = (skipTimeCheck === 'true' || 
+                                   (req.user && req.user.isAdmin)) && !isTestUser;
+        
+        // 現在時刻をチェック（日本時間）
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        const currentTime = hours + minutes/60;
+        
+        logger.debug(`[TimeCheck] 現在時刻チェック: ${hours}:${String(minutes).padStart(2, '0')} (${currentTime.toFixed(2)}時)`);
+        
+        if (!shouldSkipTimeCheck) {
+          // 6:30-8:00の時間制限
+          const startTime = 6.5; // 6:30
+          const endTime = 8.0;   // 8:00
+          
+          if (currentTime < startTime || currentTime > endTime) {
+            const timeMessage = isTestUser 
+              ? '⏰ テストユーザーでも時間制限が適用されます。朝の計算チャレンジは朝6:30から8:00の間のみ挑戦できます。またの挑戦をお待ちしています！' 
+              : '⏰ 朝の計算チャレンジは、朝6:30から8:00の間のみ挑戦できます。またの挑戦をお待ちしています！';
+            
+            logger.warn(`[TimeCheck] ⚠️ 時間制限エラー発生: 現在時刻=${currentTime.toFixed(2)}時, 許可時間=6:30-8:00`);
+            logger.warn(`[TimeCheck] ユーザー: ${req.user.username}${isTestUser ? ' (テストユーザー)' : ''}`);
+            
+            return res.status(403).json({
+              success: false,
+              message: timeMessage,
+              currentTime: `${hours}:${String(minutes).padStart(2, '0')}`,
+              allowedTime: '6:30-8:00',
+              isTimeRestricted: true
+            });
+          } else {
+            logger.info(`[TimeCheck] ✅ 時間制限チェック通過: ${currentTime.toFixed(2)}時は許可時間内です`);
+          }
+        } else {
+          logger.info(`[TimeCheck] ✅ 管理者権限により時間制限をスキップ`);
+        }
+      }
+    } catch (timeCheckError) {
+      logger.error(`[TimeCheck] 時間制限チェックでエラー発生:`, timeCheckError);
+      // エラーが発生しても処理を続行
     }
     
     // userIdの検証
@@ -60,8 +96,9 @@ export const getProblems = async (req, res) => {
       logger.warn(`[getProblems] No problem set found for ${targetDate} (${difficulty}). Returning 404.`);
       return res.status(404).json({
         success: false,
-        message: `指定された日付・難易度の問題が見つかりません: ${targetDate} (${difficulty})`,
-        problems: []
+        message: `<ruby>選択<rt>せんたく</rt></ruby>された日付の問題が見つかりませんでした。`,
+        problems: [],
+        canGenerate: true
       });
     }
 
@@ -95,7 +132,7 @@ export const getProblems = async (req, res) => {
     logger.error('問題取得エラー:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'サーバーエラーが発生しました。' 
+      message: '<ruby>サーバー<rt>さーばー</rt></ruby>エラーが<ruby>発生<rt>はっせい</rt></ruby>しました。' 
     });
   }
 };
@@ -120,7 +157,7 @@ export const getProblemSetForEdit = async (req, res) => {
     if (!problemSet) {
       return res.status(404).json({
         success: false,
-        message: '指定された問題セットが見つかりません。'
+        message: '<ruby>指定<rt>してい</rt></ruby>された<ruby>問題<rt>もんだい</rt></ruby>セットが見つかりません。'
       });
     }
 
@@ -144,7 +181,7 @@ export const getProblemSetForEdit = async (req, res) => {
     logger.error('問題セット編集用取得エラー:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'サーバーエラーが発生しました。' 
+      message: '<ruby>サーバー<rt>さーばー</rt></ruby>エラーが<ruby>発生<rt>はっせい</rt></ruby>しました。' 
     });
   }
 };
@@ -158,7 +195,7 @@ export const generateProblemSet = async (req, res) => {
   if (!date || !difficulty) {
     return res.status(400).json({
       success: false,
-      message: '日付と難易度を指定してください。'
+      message: '日付と難易度は必須パラメータです。'
     });
   }
 
@@ -167,9 +204,16 @@ export const generateProblemSet = async (req, res) => {
     const existingProblemSet = await DailyProblemSet.findOne({ date, difficulty });
     
     if (existingProblemSet && !force) {
-      return res.status(409).json({
-        success: false,
-        message: '指定された日付・難易度の問題セットは既に存在します。上書きする場合は force オプションを使用してください。'
+      return res.status(200).json({
+        success: true,
+        alreadyExists: true,
+        message: '<ruby>指定<rt>してい</rt></ruby>された<ruby>日付<rt>ひづけ</rt></ruby>・<ruby>難易度<rt>なんいど</rt></ruby>の<ruby>問題<rt>もんだい</rt></ruby>セットは<ruby>既<rt>すで</rt></ruby>に<ruby>存在<rt>そんざい</rt></ruby>します。',
+        data: {
+          _id: existingProblemSet._id,
+          date: existingProblemSet.date,
+          difficulty: existingProblemSet.difficulty,
+          problemCount: existingProblemSet.problems.length
+        }
       });
     }
 
@@ -196,25 +240,32 @@ export const generateProblemSet = async (req, res) => {
 
     // データベースに保存
     if (existingProblemSet) {
-      // 既存のものを更新
-      existingProblemSet.problems = problemsForDB;
-      existingProblemSet.updatedAt = new Date();
-      await existingProblemSet.save();
+      // 既存のものを更新 - findOneAndUpdateを使用
+      const updatedSet = await DailyProblemSet.findOneAndUpdate(
+        { date, difficulty },
+        { 
+          problems: problemsForDB,
+          updatedAt: new Date(),
+          isEdited: true
+        },
+        { new: true, upsert: false }
+      );
+      logger.info(`[generateProblemSet] 既存問題セットを更新: ${date} (${difficulty}), ID=${updatedSet._id}`);
     } else {
-      // 新規作成
-      const newProblemSet = new DailyProblemSet({
+      // 新規作成（モック環境対応）
+      const newProblemSet = await DailyProblemSet.create({
         date,
         difficulty,
         problems: problemsForDB,
         createdAt: new Date(),
         updatedAt: new Date()
       });
-      await newProblemSet.save();
+      logger.info(`[generateProblemSet] 新規問題セット作成: ${date} (${difficulty}), ID=${newProblemSet._id}`);
     }
 
-    res.json({
+    res.status(201).json({
       success: true,
-      message: `${problemsForDB.length}問の問題を生成し、データベースに保存しました。`,
+      message: `${problemsForDB.length}問の<ruby>問題<rt>もんだい</rt></ruby>を<ruby>生成<rt>せいせい</rt></ruby>し、データベースに<ruby>保存<rt>ほぞん</rt></ruby>しました。`,
       data: {
         date,
         difficulty,
@@ -227,7 +278,7 @@ export const generateProblemSet = async (req, res) => {
     logger.error('問題生成エラー:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'サーバーエラーが発生しました。',
+      message: '<ruby>サーバー<rt>さーばー</rt></ruby>エラーが<ruby>発生<rt>はっせい</rt></ruby>しました。',
       error: error.message
     });
   }
@@ -252,7 +303,7 @@ export const saveEditedProblems = async (req, res) => {
     if (!problemSet) {
       return res.status(404).json({
         success: false,
-        message: '指定された問題セットが見つかりません。'
+        message: '<ruby>指定<rt>してい</rt></ruby>された<ruby>問題<rt>もんだい</rt></ruby>セットが見つかりません。'
       });
     }
 
@@ -275,7 +326,7 @@ export const saveEditedProblems = async (req, res) => {
     logger.error('問題編集保存エラー:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'サーバーエラーが発生しました。',
+      message: '<ruby>サーバー<rt>さーばー</rt></ruby>エラーが<ruby>発生<rt>はっせい</rt></ruby>しました。',
       error: error.message
     });
   }
@@ -315,7 +366,7 @@ export const getGenerationStatus = async (req, res) => {
     logger.error('進捗状況確認エラー:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'サーバーエラーが発生しました。',
+      message: '<ruby>サーバー<rt>さーばー</rt></ruby>エラーが<ruby>発生<rt>はっせい</rt></ruby>しました。',
       error: error.message
     });
   }
@@ -325,7 +376,25 @@ export const getGenerationStatus = async (req, res) => {
 // @route   POST /api/problems/submit
 // @access  Private
 export const submitAnswers = async (req, res) => {
-  const { difficulty, date, answers, timeSpentMs, userId, problemIds } = req.body;
+  let { difficulty, date, answers, timeSpentMs, userId, problemIds } = req.body;
+  
+  // ★ 重要修正: 認証済みユーザーのIDを必ず使用（優先順位を明確化）
+  if (req.user && req.user._id) {
+    userId = req.user._id.toString(); // ObjectIdを文字列に変換
+    logger.debug(`[Submit] userId をreq.userから設定: ${userId}`);
+  } else if (!userId && req.user && req.user._id) {
+    userId = req.user._id.toString(); // バックアップ
+    logger.debug(`[Submit] userId をreq.userから設定（バックアップ）: ${userId}`);
+  } else if (!userId) {
+    logger.error(`[Submit] userId が取得できません: req.user=${req.user ? 'exists' : 'null'}`);
+    return res.status(400).json({ 
+      success: false, 
+      message: 'ユーザー認証情報が不正です。再ログインしてください。' 
+    });
+  }
+  
+  logger.info(`[Submit] 処理開始: userId=${userId}, difficulty=${difficulty}, date=${date}`);
+  
   // 基本的なデータ検証
   if (!difficulty || !answers || !Array.isArray(answers)) {
       return res.status(400).json({ 
@@ -430,9 +499,6 @@ export const submitAnswers = async (req, res) => {
       });
     }
     
-    // スコア計算
-    const score = calculateScore(correctCount, problems.length, timeSpentMs, difficulty);
-    
     // 時間情報の取得と再構築
     const { timeSpentMs: reqTimeSpentMs } = req.body;
     const submissionTime = Date.now(); // 解答受付時刻 (サーバー)
@@ -452,13 +518,12 @@ export const submitAnswers = async (req, res) => {
     // 保存するための結果データを構築
     const resultsData = {
       totalProblems: problems.length,
-        correctAnswers: correctCount,
+      correctAnswers: correctCount,
       incorrectAnswers: incorrectCount,
       unanswered: unansweredCount,
       totalTime: finalTimeSpentMs, // ミリ秒
-      timeSpent: finalTimeSpentMs / 1000, // 秒
+      timeSpent: finalTimeSpentMs, // ミリ秒に統一 (フロントエンドでの混乱を防ぐため)
       problems: problemResults,
-      score: score,
       difficulty: difficulty,
       date: date,
       startTime: calculatedStartTime, // ★ サーバーで計算した開始時刻
@@ -476,20 +541,26 @@ export const submitAnswers = async (req, res) => {
     }
     
     // 結果の保存
+    let savedResult = null;
     if (user) {
       const query = {
         userId: user._id,
         date: date, // resultsData.date と同じはず
       };
 
+      logger.debug(`[Submit] 結果保存開始: query=${JSON.stringify(query)}`);
+      logger.debug(`[Submit] 保存データ概要: correct=${correctCount}/${problems.length}`);
+      logger.debug(`[Submit] 保存するresultsData:`, resultsData);
+
       // ユーザーID、日付で検索し、該当があれば更新、なければ新規作成 (upsert)
-      const savedResult = await Result.findOneAndUpdate(
+      savedResult = await Result.findOneAndUpdate(
         query, 
         { 
           $set: { 
-        username: user.username,
+            username: user.username,
+            grade: user.grade, // ユーザー学年も保存
             difficulty: difficulty, // ★ 最後に挑戦した難易度を保存
-        ...resultsData
+            ...resultsData
           }
         }, 
         { 
@@ -498,7 +569,17 @@ export const submitAnswers = async (req, res) => {
           setDefaultsOnInsert: true 
         }
       );
-      logger.info(`[Submit] 結果を保存/更新しました (1日1レコード): ID=${savedResult._id}, UpsertedId=${savedResult.upsertedId || 'N/A'}`);
+      
+      logger.info(`[Submit] 結果を保存/更新しました: ID=${savedResult._id}, Date=${savedResult.date}`);
+      logger.debug(`[Submit] 保存された結果詳細:`, {
+        id: savedResult._id,
+        userId: savedResult.userId,
+        username: savedResult.username,
+        date: savedResult.date,
+        difficulty: savedResult.difficulty,
+        correctAnswers: savedResult.correctAnswers,
+        totalProblems: savedResult.totalProblems
+      });
       
       // ランキング情報の取得を試みる
       try {
@@ -510,14 +591,21 @@ export const submitAnswers = async (req, res) => {
         // ランキング計算エラーは無視して処理を続行
       }
     } else {
-      logger.debug('[Submit] 有効なユーザーが見つからないため、結果を保存しません');
+      logger.error(`[Submit] ユーザー情報が見つかりません: userId=${userId}`);
     }
     
-    // クライアントに結果を返す
-    res.status(200).json({
+    logger.info(`[Submit] 処理完了: userId=${userId}, correct=${correctCount}/${problems.length}, time=${timeSpentMs}ms`);
+    
+    // 成功レスポンス - フロントエンドが期待する形式に合わせる
+    return res.json({
       success: true,
-      message: '回答を正常に送信し、結果を計算しました',
-      results: resultsData
+      message: '回答を送信しました！',
+      results: resultsData, // フロントエンドが期待するresultsフィールドを追加
+      correctAnswers: correctCount,
+      totalProblems: problems.length,
+      timeSpent: timeSpentMs,
+      resultId: savedResult?._id || null,
+      rank: resultsData.rank || null
     });
     
   } catch (error) {
@@ -531,7 +619,7 @@ export const submitAnswers = async (req, res) => {
 };
 
 // @desc    ユーザーの回答履歴を取得
-// @route   GET /api/problems/history
+// @route   GET /api/problems/history または GET /api/history
 // @access  Private (ユーザー自身または管理者)
 export const getHistory = async (req, res) => {
   // ユーザーIDの取得（クエリパラメータまたは認証済みユーザー）
@@ -540,29 +628,83 @@ export const getHistory = async (req, res) => {
     targetUserId = req.user._id.toString();
   }
 
+  logger.debug(`[getHistory] リクエスト開始: targetUserId=${targetUserId}, req.user.isAdmin=${req.user?.isAdmin}`);
+
   // 管理者でない場合、自分の履歴のみ取得可能
   if (!req.user.isAdmin && targetUserId !== req.user._id.toString()) {
+    logger.warn(`[getHistory] アクセス権限エラー: user=${req.user._id}, requested=${targetUserId}`);
     return res.status(403).json({ success: false, message: '他のユーザーの履歴へのアクセス権がありません。' });
   }
 
   if (!targetUserId) {
-    return res.status(400).json({ success: false, message: 'ユーザーIDが指定されていません。' });
+    logger.error('[getHistory] ユーザーIDが指定されていません');
+    return res.status(400).json({ success: false, message: 'ユーザーIDが必要です。' });
   }
 
   try {
-    const history = await Result.find({ userId: targetUserId })
-                              .sort({ date: -1, createdAt: -1 })
-                              .limit(parseInt(req.query.limit) || 50); // .select('-problems') を削除
-
-    if (!history || history.length === 0) {
-      res.set('Cache-Control', 'no-store');
-      return res.json({ success: true, message: '回答履歴がありません。', data: [] });
+    logger.debug(`[getHistory] 履歴データ検索開始: userId=${targetUserId}`);
+    
+    // 履歴データの取得（日付順で新しいものから）
+    let historyResults;
+    try {
+      // 通常のMongoose環境での取得を試行
+      historyResults = await Result.find({ userId: targetUserId })
+        .sort({ date: -1, createdAt: -1 })
+        .populate('userId', 'username grade')
+        .lean();
+    } catch (populateError) {
+      // モック環境またはpopulateが使えない場合の代替処理
+      logger.warn('[getHistory] populateエラー、代替処理に切り替え:', populateError.message);
+      
+      historyResults = await Result.find({ userId: targetUserId })
+        .sort({ date: -1, createdAt: -1 })
+        .lean();
     }
 
-    res.set('Cache-Control', 'no-store');
-    res.json({ success: true, count: history.length, data: history });
+    logger.info(`[getHistory] 取得された履歴件数: ${historyResults.length}件`);
+    
+    if (historyResults.length > 0) {
+      logger.debug(`[getHistory] 最初の履歴データ:`, {
+        id: historyResults[0]._id,
+        date: historyResults[0].date,
+        difficulty: historyResults[0].difficulty,
+        score: historyResults[0].score,
+        hasUserData: !!historyResults[0].userId
+      });
+    }
+
+    // フロントエンド用にデータを整形
+    const formattedHistory = historyResults.map((result, index) => ({
+      _id: result._id,
+      date: result.date,
+      difficulty: result.difficulty,
+      username: result.userId?.username || result.username || req.user.username || '不明',
+      grade: result.userId?.grade || result.grade || req.user.grade,
+      totalProblems: result.totalProblems,
+      correctAnswers: result.correctAnswers,
+      incorrectAnswers: result.incorrectAnswers,
+      unanswered: result.unanswered,
+      timeSpent: result.timeSpent,
+      totalTime: result.totalTime,
+      timestamp: result.createdAt || result.timestamp,
+      rank: result.rank || null,
+      problems: result.problems || []
+    }));
+
+    logger.debug(`[getHistory] 整形後の履歴データ例:`, formattedHistory[0] || 'なし');
+
+    res.json({
+      success: true,
+      count: formattedHistory.length,
+      data: formattedHistory
+    });
+
   } catch (error) {
-    logger.error('履歴取得エラー:', error);
-    res.status(500).json({ success: false, message: 'サーバーエラーが発生しました。' });
+    logger.error('[getHistory] 履歴取得エラー:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: '履歴の取得に失敗しました。',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };

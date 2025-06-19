@@ -1,6 +1,8 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger.js';
+import Result from '../models/Result.js';
+import { updateGradeForUserResults } from '../config/database.js';
 
 // トークン生成関数
 const generateToken = (id) => {
@@ -193,9 +195,85 @@ export const getUserProfile = async (req, res) => {
 // @access  Private
 export const updateUserProfile = async (req, res) => {
   try {
-    const { grade, avatar } = req.body;
+    const userId = req.user._id;
+    const { username, email, grade, avatar } = req.body;
     
-    const user = await User.findById(req.user._id);
+    logger.debug(`[updateUserProfile] 開始: userId=${userId}, grade=${grade}, avatar=${avatar}`);
+    
+    // モック環境での確実な更新処理
+    if (process.env.MONGODB_MOCK === 'true') {
+      const { updateMockUserUnified, getMockUserUnified } = await import('../config/database.js');
+      
+      // 更新前のデータ確認
+      const beforeUpdate = getMockUserUnified({ _id: userId });
+      if (!beforeUpdate) {
+        logger.error(`[updateUserProfile] ユーザーが見つかりません: ${userId}`);
+        return res.status(404).json({
+          success: false,
+          message: 'ユーザーが見つかりません'
+        });
+      }
+      
+      logger.debug(`[updateUserProfile] 更新前: username=${beforeUpdate.username}, grade=${beforeUpdate.grade}, avatar=${beforeUpdate.avatar}`);
+      
+      // 更新データの準備
+      const updateData = {};
+      if (username !== undefined) updateData.username = username;
+      if (email !== undefined) updateData.email = email;
+      if (grade !== undefined) updateData.grade = Number(grade);
+      if (avatar !== undefined) updateData.avatar = avatar;
+      
+      logger.debug(`[updateUserProfile] 更新データ:`, updateData);
+      
+      // 更新実行
+      const updatedUser = updateMockUserUnified(userId, updateData);
+      
+      if (!updatedUser) {
+        logger.error(`[updateUserProfile] 更新に失敗しました: ${userId}`);
+        return res.status(500).json({
+          success: false,
+          message: 'プロフィール更新に失敗しました'
+        });
+      }
+      
+      logger.debug(`[updateUserProfile] 更新後: username=${updatedUser.username}, grade=${updatedUser.grade}, avatar=${updatedUser.avatar}`);
+      
+      // 新しいトークンを生成
+      const userInfo = {
+        username: updatedUser.username,
+        email: updatedUser.email,
+        grade: updatedUser.grade,
+        avatar: updatedUser.avatar,
+        isAdmin: updatedUser.isAdmin
+      };
+      const newToken = generateToken(userId, userInfo);
+      
+      // クッキーも更新
+      res.cookie('token', newToken, {
+        httpOnly: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30日
+        sameSite: 'strict',
+        secure: process.env.NODE_ENV === 'production'
+      });
+      
+      return res.json({
+        success: true,
+        message: 'プロフィールが更新されました',
+        user: {
+          _id: updatedUser._id,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          grade: updatedUser.grade,
+          avatar: updatedUser.avatar,
+          points: updatedUser.points || 0,
+          streak: updatedUser.streak || 0
+        },
+        token: newToken
+      });
+    }
+    
+    // 通常のMongoose処理
+    const user = await User.findById(userId);
     
     if (!user) {
       return res.status(404).json({
@@ -205,21 +283,51 @@ export const updateUserProfile = async (req, res) => {
     }
     
     // 更新するフィールドをセット
+    if (username) user.username = username;
+    if (email) user.email = email;
     if (grade) user.grade = parseInt(grade);
     if (avatar) user.avatar = avatar;
     
     const updatedUser = await user.save();
+    
+    /** 結果テーブルに学年を同期 */
+    try {
+      await Result.updateMany({ userId: updatedUser._id }, { grade: updatedUser.grade });
+      logger.debug(`[UserProfile] Result.grade を一括更新: user=${updatedUser.username}, grade=${updatedUser.grade}`);
+    } catch(syncErr) {
+      logger.warn('[UserProfile] Result の grade 同期に失敗:', syncErr);
+    }
+    
+    // 新しいトークンを生成
+    const userInfo = {
+      username: updatedUser.username,
+      email: updatedUser.email,
+      grade: updatedUser.grade,
+      avatar: updatedUser.avatar,
+      isAdmin: updatedUser.isAdmin
+    };
+    const newToken = generateToken(updatedUser._id, userInfo);
+    
+    // クッキーも更新
+    res.cookie('token', newToken, {
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30日
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
+    });
     
     res.json({
       success: true,
       user: {
         _id: updatedUser._id,
         username: updatedUser.username,
+        email: updatedUser.email,
         grade: updatedUser.grade,
         avatar: updatedUser.avatar,
         points: updatedUser.points,
         streak: updatedUser.streak
-      }
+      },
+      token: newToken
     });
   } catch (error) {
     logger.error('プロファイル更新エラー:', error);

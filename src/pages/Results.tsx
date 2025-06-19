@@ -3,6 +3,9 @@ import '../styles/Results.css';
 import type { ApiResult } from '@/types/index';
 import { difficultyToJapanese } from '@/types/difficulty';
 import { formatTime } from '../utils/dateUtils';
+import { historyAPI } from '../api/index';
+import { logger } from '../utils/logger';
+import { ErrorHandler } from '../utils/errorHandler';
 
 interface ResultsProps {
   results: ApiResult | null;
@@ -10,17 +13,50 @@ interface ResultsProps {
   onBackToHome: () => void;
 }
 
+interface HistoryItem {
+  date: string;
+  difficulty: string;
+  correctAnswers: number;
+  totalProblems: number;
+  score: number;
+  timeSpent: number;
+  rank?: number;
+}
+
 const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome }) => {
   const [showConfetti, setShowConfetti] = useState(true);
+  const [recentHistory, setRecentHistory] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   
   useEffect(() => {
     if (!results) return;
     const timer = setTimeout(() => {
       setShowConfetti(false);
     }, 3000);
-    console.log('結果データ (ApiResultData):', results); // ★ 型名変更
+    logger.debug('結果データ (ApiResultData):', results);
     return () => clearTimeout(timer);
   }, [results]);
+
+  // 履歴データを取得
+  useEffect(() => {
+    const loadRecentHistory = async () => {
+      setHistoryLoading(true);
+      try {
+        const response = await historyAPI.getUserHistory(5); // 最新5件を取得
+        if (response.success && response.history) {
+          setRecentHistory(response.history);
+          logger.debug('Recent history loaded:', response.history);
+        }
+      } catch (error) {
+        const handledError = ErrorHandler.handleApiError(error, '履歴取得');
+        logger.error('Failed to load recent history:', ErrorHandler.getUserFriendlyMessage(handledError));
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    loadRecentHistory();
+  }, []);
   
   if (!results) {
     return (
@@ -151,6 +187,32 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
           )}
         </ul>
       </div>
+
+      {/* 最近の履歴表示 */}
+      {recentHistory.length > 0 && (
+        <div className="recent-history bg-white rounded-lg shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">📈 最近の成績</h2>
+          {historyLoading ? (
+            <div className="text-center text-gray-500">履歴を読み込み中...</div>
+          ) : (
+            <div className="grid gap-3">
+              {recentHistory.map((item, index) => (
+                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <span className="text-sm font-medium">{item.date}</span>
+                    <span className="text-sm text-gray-600">{difficultyToJapanese(item.difficulty as any)}</span>
+                  </div>
+                  <div className="flex items-center space-x-4 text-sm">
+                    <span>{item.correctAnswers}/{item.totalProblems}</span>
+                    <span className="text-gray-600">{formatTime(item.timeSpent)}</span>
+                    {item.rank && <span className="text-blue-600">{item.rank}位</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="results-actions text-center space-x-4">
         <button 

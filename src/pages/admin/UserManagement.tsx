@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/index';
 import { logger } from '../../utils/logger';
+import { getGradeDisplayName, getGradeColor } from '../../utils/gradeUtils';
 import type { AdminUser, UserListResponse } from '../../types/admin';
 
 const UserManagement: React.FC = () => {
@@ -179,6 +180,8 @@ const UserManagement: React.FC = () => {
               {[1, 2, 3, 4, 5, 6].map(grade => (
                 <option key={grade} value={grade}>{grade}年生</option>
               ))}
+              <option value={7}>その他</option>
+              <option value={8}>ひみつ</option>
             </select>
           </div>
 
@@ -349,13 +352,14 @@ const UserManagement: React.FC = () => {
                   </td>
                   <td style={{ padding: '1rem' }}>
                     <span style={{
-                      background: '#007AFF',
+                      background: getGradeColor(user.grade),
                       color: 'white',
                       padding: '4px 12px',
                       borderRadius: '16px',
-                      fontSize: '0.9rem'
+                      fontSize: '0.9rem',
+                      fontWeight: '600'
                     }}>
-                      {user.grade}年生
+                      {getGradeDisplayName(user.grade)}
                     </span>
                   </td>
                   <td style={{ padding: '1rem' }}>

@@ -13,7 +13,7 @@ export interface SystemOverview {
 export interface WeeklyStats {
   date: string;
   totalChallenges: number;
-  averageScore: number;
+  averageCorrectRate: number;
   uniqueUsers: number;
 }
 
@@ -22,7 +22,8 @@ export interface RecentActivity {
   username: string;
   grade: number | string;
   difficulty: string;
-  score: number;
+  correctAnswers: number;
+  totalQuestions: number;
   date: string;
   createdAt: string;
 }
@@ -38,8 +39,8 @@ export interface AdminUser {
   points: number;
   createdAt: string;
   totalChallenges: number;
-  averageScore: number;
-  bestScore: number;
+  averageCorrectRate: number;
+  bestCorrectRate: number;
   lastActivity: string;
 }
 
@@ -56,7 +57,7 @@ export interface UserListResponse {
 export interface DifficultyStats {
   difficulty: string;
   totalChallenges: number;
-  averageScore: number;
+  averageCorrectRate: number;
   averageTime: number;
   averageCorrectAnswers: number;
   uniqueUsers: number;
@@ -65,7 +66,7 @@ export interface DifficultyStats {
 export interface GradeStats {
   grade: number;
   totalChallenges: number;
-  averageScore: number;
+  averageCorrectRate: number;
   averageTime: number;
   uniqueUsers: number;
   difficultyDistribution: Record<string, number>;
@@ -74,7 +75,7 @@ export interface GradeStats {
 export interface HourlyStats {
   hour: number;
   totalChallenges: number;
-  averageScore: number;
+  averageCorrectRate: number;
   averageTime: number;
   difficultyDistribution: Record<string, number>;
 }
@@ -108,4 +109,79 @@ export interface UserFilter {
   grade?: number;
   sortBy?: 'username' | 'createdAt' | 'totalChallenges' | 'averageScore';
   order?: 'asc' | 'desc';
+}
+
+// システム監視関連の型定義
+export interface PerformanceStats {
+  timestamp: string;
+  global: {
+    totalRequests: number;
+    totalErrors: number;
+    averageResponseTime: number;
+    requestsPerMinute: number;
+  };
+  endpoints: EndpointStat[];
+  slowestEndpoints: EndpointStat[];
+  highErrorEndpoints: EndpointStat[];
+  slowQueries: SlowQuery[];
+  healthScore: number;
+}
+
+export interface EndpointStat {
+  endpoint: string;
+  count: number;
+  totalTime: number;
+  averageTime: number;
+  minTime: number;
+  maxTime: number;
+  errors: number;
+  errorRate: number;
+  lastRequest: string;
+}
+
+export interface SlowQuery {
+  requestId: string;
+  method: string;
+  path: string;
+  query?: Record<string, unknown>;
+  body?: Record<string, unknown>;
+  responseTime: number;
+  statusCode: number;
+  timestamp: string;
+  userAgent?: string;
+  ip?: string;
+}
+
+export interface SystemHealth {
+  timestamp: string;
+  status: 'healthy' | 'warning' | 'unhealthy' | 'degraded';
+  checks: {
+    database?: HealthCheck;
+    memory?: HealthCheck;
+    cpu?: HealthCheck;
+    disk?: HealthCheck;
+    environment?: HealthCheck;
+  };
+  system: {
+    uptime: number;
+    memory: NodeJS.MemoryUsage;
+    cpu: NodeJS.CpuUsage;
+    platform: string;
+    arch: string;
+    nodeVersion: string;
+  };
+}
+
+export interface HealthCheck {
+  status: 'healthy' | 'warning' | 'unhealthy' | 'unknown';
+  responseTime?: string;
+  lastPing?: string;
+  error?: string;
+  usage?: {
+    total?: number;
+    used?: number;
+    free?: number;
+    utilization?: number;
+  };
+  percentage?: string;
 } 

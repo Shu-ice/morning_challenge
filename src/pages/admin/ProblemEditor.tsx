@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { DifficultyRank, difficultyToJapanese } from '@/types/difficulty';
+import { ErrorHandler } from '../../utils/errorHandler';
 
 // 利用可能な難易度の配列
 const availableDifficulties: DifficultyRank[] = ['beginner', 'intermediate', 'advanced', 'expert'];
@@ -81,30 +82,8 @@ const ProblemEditor: React.FC = () => {
         setProblems([]);
       }
     } catch (err: unknown) {
-      console.error('Problem loading error:', err);
-      // デバッグログを追加
-      if (err && typeof err === 'object') {
-        if ('code' in err) console.error('Error code:', err.code);
-        if ('message' in err) console.error('Error message:', err.message);
-        if ('stack' in err) console.error('Error stack:', err.stack);
-      }
-      
-      if (axios.isAxiosError(err)) {
-        if (err.response) {
-          if (err.response.status === 404) {
-            setError(`この日付・難易度の問題は存在しません。先に問題生成ツールで作成してください。`);
-          } else {
-            setError(`サーバーエラー (${err.response.status}): ${err.response.data?.error || err.response.data?.message || err.message}`);
-          }
-        } else if (err.request) {
-          setError(`サーバーに接続できませんでした。タイムアウトまたはネットワーク問題の可能性があります。\nエラー: ${err.message || 'タイムアウト'}`);
-        } else {
-          setError(`リクエストエラー: ${err.message}`);
-        }
-      } else {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setError(`問題の取得中に予期せぬエラーが発生しました: ${errorMessage}`);
-      }
+      const handledError = ErrorHandler.handleApiError(err, '問題読み込み');
+      setError(ErrorHandler.getUserFriendlyMessage(handledError));
       setProblems([]);
     } finally {
       setIsLoading(false);
@@ -191,26 +170,8 @@ const ProblemEditor: React.FC = () => {
         setError(response.data.message || '問題の保存に失敗しました。');
       }
     } catch (err: unknown) {
-      console.error('Problem saving error:', err);
-      // デバッグログを追加
-      if (err && typeof err === 'object') {
-        if ('code' in err) console.error('Error code:', err.code);
-        if ('message' in err) console.error('Error message:', err.message);
-        if ('stack' in err) console.error('Error stack:', err.stack);
-      }
-      
-      if (axios.isAxiosError(err)) {
-        if (err.response) {
-          setError(`サーバーエラー (${err.response.status}): ${err.response.data?.error || err.response.data?.message || err.message}`);
-        } else if (err.request) {
-          setError(`サーバーに接続できませんでした。タイムアウトまたはネットワーク問題の可能性があります。\nエラー: ${err.message || 'タイムアウト'}`);
-        } else {
-          setError(`リクエストエラー: ${err.message}`);
-        }
-      } else {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setError(`問題の保存中に予期せぬエラーが発生しました: ${errorMessage}`);
-      }
+      const handledError = ErrorHandler.handleApiError(err, '問題保存');
+      setError(ErrorHandler.getUserFriendlyMessage(handledError));
     } finally {
       setIsSaving(false);
     }

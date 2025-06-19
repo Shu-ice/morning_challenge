@@ -20,6 +20,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ProblemGenerator from './pages/admin/ProblemGenerator';
 import ProblemEditor from './pages/admin/ProblemEditor';
 import UserManagement from './pages/admin/UserManagement';
+import SystemMonitoring from './pages/admin/SystemMonitoring';
+import StatsDashboard from './pages/admin/StatsDashboard';
 
 // --- 保護されたルートのラッパー --- 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -255,6 +257,14 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/admin/edit"
           element={<AdminRoute><ProblemEditor /></AdminRoute>}
+        />
+        <Route
+          path="/admin/monitoring"
+          element={<AdminRoute><SystemMonitoring /></AdminRoute>}
+        />
+        <Route
+          path="/admin/stats"
+          element={<AdminRoute><StatsDashboard /></AdminRoute>}
         />
 
         {/* --- Not Found --- */}

@@ -1,4 +1,5 @@
 import apiService from './apiService';
+import { ErrorHandler } from '../utils/errorHandler';
 
 // 型定義を追加
 interface UserData {
@@ -64,8 +65,8 @@ class AuthService {
         throw new Error(response.error || 'ログインに失敗しました');
       }
     } catch (error) {
-      console.error('ログインエラー:', error);
-      throw error;
+      const handledError = ErrorHandler.handleApiError(error, 'ログイン');
+      throw handledError;
     }
   }
   

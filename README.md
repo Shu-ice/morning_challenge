@@ -154,6 +154,43 @@ morning_challenge/
 - エラーハンドリング
 - パフォーマンス監視
 
+## 🔧 **メンテナンス・管理**
+
+### 学年データの一括更新（バックフィル）
+
+ユーザーの学年変更後、過去の結果レコードの学年を一括で更新する場合：
+
+```bash
+# モック環境での実行
+MONGODB_MOCK=true node server/scripts/backfillGrades.js
+
+# MongoDB環境での実行
+node server/scripts/backfillGrades.js
+```
+
+**実行内容：**
+- 全ユーザーの現在の学年を取得
+- 対応する結果レコード（Result）の学年フィールドを一括更新
+- 更新前後の統計情報を表示
+
+**使用ケース：**
+- プロフィール更新機能追加前の既存データの整合性確保
+- 学年システム変更時のデータマイグレーション
+- ランキング表示の学年情報を最新に統一
+
+### テスト実行
+
+```bash
+# 全テスト実行
+cd server && npm test
+
+# 学年同期機能の単体テスト
+cd server && npm test -- gradeSync.test.js
+
+# ランキングAPI関連テスト
+cd server && npm test -- ranking.test.js
+```
+
 ## 🤝 **開発に参加**
 
 1. Fork the repository

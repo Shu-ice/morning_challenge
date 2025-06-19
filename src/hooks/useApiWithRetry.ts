@@ -62,7 +62,28 @@ const useApiWithRetry = <T>(
       clearRetryTimeout();
       return result;
     } catch (error) {
-      const appError = error as ApplicationError;
+      // Axiosエラーの詳細なメッセージを取得
+      let appError: ApplicationError;
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        // Axiosエラーレスポンスからメッセージを取得
+        const axiosError = error as any;
+        const responseData = axiosError.response?.data;
+        
+        appError = {
+          message: responseData?.message || axiosError.message || 'API エラーが発生しました',
+          code: axiosError.code,
+          status: axiosError.response?.status,
+          response: {
+            status: axiosError.response?.status || 0,
+            data: responseData
+          }
+        };
+        
+        console.log(`[API Error] Status: ${axiosError.response?.status}, Message: ${responseData?.message || axiosError.message}`, responseData);
+      } else {
+        appError = error as ApplicationError;
+      }
       
       // リトライ条件をチェック
       const shouldRetry = currentRetry < maxRetries && retryCondition(appError);

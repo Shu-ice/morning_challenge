@@ -1,16 +1,17 @@
 import express from 'express';
 import { performanceStatsHandler } from '../middleware/performanceMiddleware.js';
-import { authenticateToken, requireAdmin } from '../middleware/authMiddleware.js';
+import { protect, admin } from '../middleware/authMiddleware.js';
 import { logger } from '../utils/logger.js';
 import mongoose from 'mongoose';
 import os from 'os';
+import { getMockUsers, getMockResults } from '../config/database.js';
 
 const router = express.Router();
 
 /**
  * パフォーマンス統計API
  */
-router.get('/performance', authenticateToken, requireAdmin, performanceStatsHandler);
+router.get('/performance', protect, admin, performanceStatsHandler);
 
 /**
  * システムヘルスチェックAPI
@@ -154,7 +155,7 @@ router.get('/health', async (req, res) => {
 /**
  * 詳細システム情報API（管理者のみ）
  */
-router.get('/system', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/system', protect, admin, async (req, res) => {
   try {
     const systemInfo = {
       timestamp: new Date().toISOString(),
@@ -238,7 +239,7 @@ router.get('/system', authenticateToken, requireAdmin, async (req, res) => {
 /**
  * ログレベル動的変更API（管理者のみ）
  */
-router.post('/log-level', authenticateToken, requireAdmin, (req, res) => {
+router.post('/log-level', protect, admin, (req, res) => {
   try {
     const { level } = req.body;
     const validLevels = ['error', 'warn', 'info', 'debug'];
@@ -281,7 +282,7 @@ router.post('/log-level', authenticateToken, requireAdmin, (req, res) => {
 /**
  * キャッシュクリアAPI（管理者のみ）
  */
-router.post('/clear-cache', authenticateToken, requireAdmin, (req, res) => {
+router.post('/clear-cache', protect, admin, (req, res) => {
   try {
     // Node.js のモジュールキャッシュをクリア（開発環境のみ）
     if (process.env.NODE_ENV === 'development') {
@@ -310,6 +311,39 @@ router.post('/clear-cache', authenticateToken, requireAdmin, (req, res) => {
     res.status(500).json({
       success: false,
       message: 'キャッシュクリアに失敗しました',
+      error: error.message
+    });
+  }
+});
+
+// データベース接続状態の確認
+router.get('/database', (req, res) => {
+  try {
+    if (process.env.MONGODB_MOCK === 'true') {
+      const users = getMockUsers();
+      const results = getMockResults();
+      
+      res.json({
+        success: true,
+        type: 'mock',
+        users: users.length,
+        results: results.length,
+        mockData: {
+          users: users.map(u => ({ id: u._id, username: u.username, grade: u.grade })),
+          results: results.map(r => ({ id: r._id, userId: r.userId, grade: r.grade, date: r.date }))
+        }
+      });
+    } else {
+      res.json({
+        success: true,
+        type: 'mongodb',
+        message: 'MongoDB connection status check needed'
+      });
+    }
+  } catch (error) {
+    logger.error('Database monitoring error:', error);
+    res.status(500).json({
+      success: false,
       error: error.message
     });
   }

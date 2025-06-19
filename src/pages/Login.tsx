@@ -29,7 +29,8 @@ function Login({ onLogin, onRegister }: LoginProps) {
       const response = await authAPI.login(loginData);
       console.log('[Login] ログインAPIレスポンス:', response);
       
-      if (!response.token || !response.username) {
+      // レスポンス構造に合わせて修正 - success:trueとtokenの存在を確認
+      if (!response.success || !response.token) {
         throw new Error(response.message || 'ログインに失敗しました。メールアドレスとパスワードを確認してください。');
       }
       
@@ -71,15 +72,17 @@ function Login({ onLogin, onRegister }: LoginProps) {
       if (response) {
         console.log('[Login] ログイン成功');
         const token = response.token;
+        // レスポンス構造に合わせて修正 - response.userからユーザー情報を取得
+        const user = response.user;
         const userDataFromResponse: UserData = {
-          _id: response._id,
-          username: response.username,
-          email: response.email,
-          grade: response.grade,
-          avatar: response.avatar,
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          grade: user.grade,
+          avatar: user.avatar,
           isLoggedIn: true,
           loginTime: new Date().toISOString(),
-          isAdmin: response.isAdmin || false,
+          isAdmin: user.isAdmin || false,
         };
         console.log('[Login] ユーザーデータ作成:', userDataFromResponse);
         onLogin(userDataFromResponse, token);

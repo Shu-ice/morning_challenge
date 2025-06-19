@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { adminAPI } from '../../api/index';
+import { adminAPI, monitoringAPI } from '../../api/index';
 import { logger } from '../../utils/logger';
 import type { 
   SystemOverview, 
   DifficultyStats, 
   GradeStats, 
-  HourlyStats 
+  HourlyStats,
+  SystemHealth,
+  PerformanceStats
 } from '../../types/admin';
 
 interface StatsCard {
@@ -22,6 +24,8 @@ const AdminDashboard: React.FC = () => {
   const [difficultyStats, setDifficultyStats] = useState<DifficultyStats[]>([]);
   const [gradeStats, setGradeStats] = useState<GradeStats[]>([]);
   const [hourlyStats, setHourlyStats] = useState<HourlyStats[]>([]);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [performanceStats, setPerformanceStats] = useState<PerformanceStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('week');
@@ -34,6 +38,38 @@ const AdminDashboard: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      logger.info('[AdminDashboard] データ取得開始');
+
+      // health APIは503エラーの可能性があるため個別に処理
+      let healthRes = null;
+      let performanceRes = null;
+      
+      try {
+        healthRes = await monitoringAPI.getSystemHealth();
+      } catch (healthError) {
+        logger.warn('[AdminDashboard] Health API エラー:', healthError);
+        // 503エラーの場合は unhealthy として扱う
+        healthRes = {
+          data: {
+            success: true,
+            data: {
+              status: 'unhealthy',
+              timestamp: new Date().toISOString(),
+              system: {
+                uptime: 0,
+                nodeVersion: 'N/A'
+              }
+            }
+          }
+        };
+      }
+
+      try {
+        performanceRes = await monitoringAPI.getPerformanceStats();
+      } catch (performanceError) {
+        logger.warn('[AdminDashboard] Performance API エラー:', performanceError);
+        performanceRes = { data: { success: false } };
+      }
 
       const [overviewRes, difficultyRes, gradeRes, hourlyRes] = await Promise.all([
         adminAPI.getOverview(),
@@ -42,22 +78,49 @@ const AdminDashboard: React.FC = () => {
         adminAPI.getHourlyStats(7)
       ]);
 
+      logger.info('[AdminDashboard] API レスポンス:', { overviewRes, difficultyRes, gradeRes });
+
       if (overviewRes.data.success) {
+        logger.info('[AdminDashboard] Overview データ設定:', overviewRes.data.data);
         setOverview(overviewRes.data.data);
+      } else {
+        logger.warn('[AdminDashboard] Overview データ取得失敗:', overviewRes.data);
       }
+      
       if (difficultyRes.data.success) {
-        setDifficultyStats(difficultyRes.data.data.stats);
+        setDifficultyStats(difficultyRes.data.data.stats || []);
+      } else {
+        logger.warn('[AdminDashboard] Difficulty データ取得失敗:', difficultyRes.data);
       }
+      
       if (gradeRes.data.success) {
-        setGradeStats(gradeRes.data.data.stats);
+        setGradeStats(gradeRes.data.data.stats || []);
+      } else {
+        logger.warn('[AdminDashboard] Grade データ取得失敗:', gradeRes.data);
       }
+      
       if (hourlyRes.data.success) {
-        setHourlyStats(hourlyRes.data.data.stats);
+        setHourlyStats(hourlyRes.data.data.stats || []);
+      } else {
+        logger.warn('[AdminDashboard] Hourly データ取得失敗:', hourlyRes.data);
+      }
+      
+      if (healthRes.data.success) {
+        setSystemHealth(healthRes.data.data);
+      } else {
+        logger.warn('[AdminDashboard] Health データ取得失敗:', healthRes.data);
+      }
+      
+      if (performanceRes.data.success) {
+        setPerformanceStats(performanceRes.data.data);
+      } else {
+        logger.warn('[AdminDashboard] Performance データ取得失敗:', performanceRes.data);
       }
 
     } catch (err) {
       logger.error('[AdminDashboard] データ取得エラー:', err instanceof Error ? err.message : String(err));
-      setError('データの取得に失敗しました');
+      logger.error('[AdminDashboard] エラー詳細:', err);
+      setError(`データの取得に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -85,6 +148,40 @@ const AdminDashboard: React.FC = () => {
     intermediate: '中級',
     advanced: '上級',
     expert: '超級'
+  };
+
+  const getHealthStatusColor = (status: string): string => {
+    switch (status) {
+      case 'healthy': return '#34C759';
+      case 'warning': return '#FF9500';
+      case 'unhealthy': return '#FF3B30';
+      case 'degraded': return '#AF52DE';
+      default: return '#8E8E93';
+    }
+  };
+
+  const getHealthStatusIcon = (status: string): string => {
+    switch (status) {
+      case 'healthy': return '✅';
+      case 'warning': return '⚠️';
+      case 'unhealthy': return '❌';
+      case 'degraded': return '🟡';
+      default: return '❓';
+    }
+  };
+
+  const formatUptime = (seconds: number): string => {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (days > 0) {
+      return `${days}日 ${hours}時間`;
+    } else if (hours > 0) {
+      return `${hours}時間 ${minutes}分`;
+    } else {
+      return `${minutes}分`;
+    }
   };
 
   if (loading) {
@@ -144,70 +241,68 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* システム概要カード */}
-      {overview && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #007AFF 0%, #5856D6 100%)',
-            borderRadius: '16px',
-            padding: '1.5rem',
-            color: 'white',
-            boxShadow: '0 8px 32px rgba(0, 122, 255, 0.3)'
-          }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>{formatNumber(overview.totalUsers)}</div>
-            <div style={{ fontSize: '1.1rem', opacity: 0.9 }}>👥 総ユーザー数</div>
-            <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.5rem' }}>
-              本日アクティブ: {overview.activeUsersToday}人
-            </div>
-          </div>
-
-          <div style={{
-            background: 'linear-gradient(135deg, #34C759 0%, #30D158 100%)',
-            borderRadius: '16px',
-            padding: '1.5rem',
-            color: 'white',
-            boxShadow: '0 8px 32px rgba(52, 199, 89, 0.3)'
-          }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>{formatNumber(overview.totalChallenges)}</div>
-            <div style={{ fontSize: '1.1rem', opacity: 0.9 }}>🎯 総チャレンジ数</div>
-            <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.5rem' }}>
-              本日: {overview.challengesToday}回
-            </div>
-          </div>
-
-          <div style={{
-            background: 'linear-gradient(135deg, #FF9500 0%, #FF6B00 100%)',
-            borderRadius: '16px',
-            padding: '1.5rem',
-            color: 'white',
-            boxShadow: '0 8px 32px rgba(255, 149, 0, 0.3)'
-          }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>{formatNumber(overview.problemSetsCount)}</div>
-            <div style={{ fontSize: '1.1rem', opacity: 0.9 }}>📚 問題セット数</div>
-            <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.5rem' }}>
-              システム全体
-            </div>
-          </div>
-
-          <div style={{
-            background: 'linear-gradient(135deg, #AF52DE 0%, #FF2D92 100%)',
-            borderRadius: '16px',
-            padding: '1.5rem',
-            color: 'white',
-            boxShadow: '0 8px 32px rgba(175, 82, 222, 0.3)'
-          }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>
-              {overview.weeklyStats.length > 0 
-                ? Math.round(overview.weeklyStats.reduce((sum, day) => sum + day.averageScore, 0) / overview.weeklyStats.length)
-                : 0
-              }
-            </div>
-            <div style={{ fontSize: '1.1rem', opacity: 0.9 }}>⭐ 週間平均スコア</div>
-            <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.5rem' }}>
-              過去7日間
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #007AFF 0%, #5856D6 100%)',
+          borderRadius: '16px',
+          padding: '1.5rem',
+          color: 'white',
+          boxShadow: '0 8px 32px rgba(0, 122, 255, 0.3)'
+        }}>
+          <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>{formatNumber(overview?.totalUsers || 0)}</div>
+          <div style={{ fontSize: '1.1rem', opacity: 0.9 }}>👥 総ユーザー数</div>
+          <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.5rem' }}>
+            本日アクティブ: {overview?.activeUsersToday || 0}人
           </div>
         </div>
-      )}
+
+        <div style={{
+          background: 'linear-gradient(135deg, #34C759 0%, #30D158 100%)',
+          borderRadius: '16px',
+          padding: '1.5rem',
+          color: 'white',
+          boxShadow: '0 8px 32px rgba(52, 199, 89, 0.3)'
+        }}>
+          <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>{formatNumber(overview?.totalChallenges || 0)}</div>
+          <div style={{ fontSize: '1.1rem', opacity: 0.9 }}>🎯 総チャレンジ数</div>
+          <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.5rem' }}>
+            本日: {overview?.challengesToday || 0}回
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #FF9500 0%, #FF6B00 100%)',
+          borderRadius: '16px',
+          padding: '1.5rem',
+          color: 'white',
+          boxShadow: '0 8px 32px rgba(255, 149, 0, 0.3)'
+        }}>
+          <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>{formatNumber(overview?.problemSetsCount || 0)}</div>
+          <div style={{ fontSize: '1.1rem', opacity: 0.9 }}>📚 問題セット数</div>
+          <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.5rem' }}>
+            システム全体
+          </div>
+        </div>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #AF52DE 0%, #FF2D92 100%)',
+          borderRadius: '16px',
+          padding: '1.5rem',
+          color: 'white',
+          boxShadow: '0 8px 32px rgba(175, 82, 222, 0.3)'
+        }}>
+          <div style={{ fontSize: '2.5rem', fontWeight: '700' }}>
+            {overview && overview.weeklyStats && overview.weeklyStats.length > 0 
+              ? Math.round(overview.weeklyStats.reduce((sum, day) => sum + day.averageCorrectRate, 0) / overview.weeklyStats.length)
+              : 0
+            }%
+          </div>
+          <div style={{ fontSize: '1.1rem', opacity: 0.9 }}>⭐ 週間平均正解率</div>
+          <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '0.5rem' }}>
+            過去7日間
+          </div>
+        </div>
+      </div>
 
       {/* 難易度別統計 */}
       <div style={{ marginBottom: '3rem' }}>
@@ -243,8 +338,8 @@ const AdminDashboard: React.FC = () => {
                   <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>{formatNumber(stat.totalChallenges)}</div>
                 </div>
                 <div>
-                  <div style={{ color: '#666' }}>平均スコア</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>{stat.averageScore}</div>
+                  <div style={{ color: '#666' }}>平均正解率</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '600' }}>{stat.averageCorrectRate || 0}%</div>
                 </div>
                 <div>
                   <div style={{ color: '#666' }}>平均時間</div>
@@ -280,9 +375,6 @@ const AdminDashboard: React.FC = () => {
               <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                 {stat.uniqueUsers}人が参加
               </div>
-              <div style={{ fontSize: '1.2rem', fontWeight: '600' }}>
-                平均: {stat.averageScore}点
-              </div>
               <div style={{ fontSize: '0.9rem', color: '#666' }}>
                 {formatTime(stat.averageTime)}
               </div>
@@ -290,6 +382,76 @@ const AdminDashboard: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* システムヘルス監視 */}
+      {systemHealth && (
+        <div style={{ marginBottom: '3rem' }}>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: '600', marginBottom: '1.5rem', color: '#1D1D1F' }}>
+            🏥 システムヘルス
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+            <div style={{
+              background: `linear-gradient(135deg, ${getHealthStatusColor(systemHealth.status)}22 0%, ${getHealthStatusColor(systemHealth.status)}44 100%)`,
+              borderRadius: '16px',
+              padding: '1.5rem',
+              border: `2px solid ${getHealthStatusColor(systemHealth.status)}`,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '2rem' }}>{getHealthStatusIcon(systemHealth.status)}</div>
+                <div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '700', color: getHealthStatusColor(systemHealth.status) }}>
+                    {systemHealth.status.toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#666' }}>システム全体</div>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                最終更新: {new Date(systemHealth.timestamp).toLocaleString('ja-JP')}
+              </div>
+            </div>
+
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem', color: '#007AFF' }}>
+                🕐 システム稼働時間
+              </h3>
+              <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#1D1D1F' }}>
+                {formatUptime(systemHealth.system.uptime)}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+                Node.js {systemHealth.system.nodeVersion}
+              </div>
+            </div>
+
+            {performanceStats && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem', color: '#34C759' }}>
+                  ⚡ パフォーマンス
+                </h3>
+                <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#1D1D1F' }}>
+                  {performanceStats.global.averageResponseTime.toFixed(1)}ms
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+                  平均応答時間
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
+                  総リクエスト: {performanceStats.global.totalRequests.toLocaleString()}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 管理ツール */}
       <div style={{ marginBottom: '3rem' }}>
@@ -327,6 +489,39 @@ const AdminDashboard: React.FC = () => {
               fontWeight: '600'
             }}>
               ユーザー管理画面へ
+            </div>
+          </Link>
+
+          <Link 
+            to="/admin/stats"
+            style={{
+              display: 'block',
+              background: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '16px',
+              padding: '2rem',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              textDecoration: 'none',
+              color: 'inherit',
+              transition: 'transform 0.2s ease'
+            }}
+            className="hover:scale-105"
+          >
+            <h3 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1rem', color: '#34C759' }}>
+              📊 リアルタイム統計
+            </h3>
+            <p style={{ color: '#666', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+              ユーザー活動、学年別統計、成長率など詳細な分析データを表示します。
+            </p>
+            <div style={{
+              display: 'inline-block',
+              background: 'linear-gradient(135deg, #34C759 0%, #30D158 100%)',
+              color: 'white',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              fontWeight: '600'
+            }}>
+              統計ダッシュボードへ
             </div>
           </Link>
 

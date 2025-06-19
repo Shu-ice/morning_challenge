@@ -4,6 +4,7 @@ import type { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axio
 import { DifficultyRank } from '@/types/difficulty';
 import type { ProblemsApiResponse, SubmitAnswersApiResponse, RankingApiResponse, LoginResponseData, Problem, RegisterData, LoginCredentials, ProfileUpdateData, SubmitAnswersRequest } from '@/types/index';
 import { logger } from '@/utils/logger';
+import { ErrorHandler } from '@/utils/errorHandler';
 
 // バックエンドAPIの基本URL - Viteのプロキシ設定を利用
 const API_BASE_URL = '/api';
@@ -391,8 +392,8 @@ const problemsAPI = {
   getHistory: async () => {
     try {
       logger.info('[API] 履歴取得リクエスト (認証情報を使用)');
-      // クエリパラメータなしでリクエストを送信
-      const response = await API.get('/problems/history'); 
+      // /api/history エンドポイントを使用するように変更
+      const response = await API.get('/history'); 
       logger.debug('[API] 履歴取得レスポンス:', response.data);
       return response.data;
     } catch (error: unknown) {
@@ -496,14 +497,29 @@ const adminAPI = {
   generateProblems: (date: string) => API.post(`/admin/generate-problems/${date}`),
 };
 
+// 監視・パフォーマンスAPI
+const monitoringAPI = {
+  // パフォーマンス統計
+  getPerformanceStats: () => API.get('/monitoring/performance'),
+  
+  // システムヘルスチェック
+  getSystemHealth: () => API.get('/monitoring/health'),
+  
+  // 詳細システム情報（管理者のみ）
+  getSystemInfo: () => API.get('/monitoring/system'),
+};
+
 // --- 履歴関連 API ---
 const historyAPI = {
-  getUserHistory: async (limit: number = 10) => {
+  getUserHistory: async (limit: number = 10, userId?: string) => {
     try {
-      logger.info(`[API] 履歴取得リクエスト`);
+      logger.info(`[API] 履歴取得リクエスト: limit=${limit}, userId=${userId || 'current user'}`);
+      
+      const params: { limit: number; userId?: string } = { limit };
+      if (userId) params.userId = userId;
       
       const response = await API.get('/history', { 
-        params: { limit }
+        params
       });
       
       logger.debug(`[API] 履歴取得レスポンス:`, response.data);
@@ -515,14 +531,16 @@ const historyAPI = {
       return {
         success: true,
         message: '履歴を取得しました',
+        count: response.data.count || 0,
         history: response.data.data || response.data.history || []
       };
     } catch (error: unknown) {
-      const axiosError = error as AxiosError;
-      logger.error(`[API] Get history error:`, error as Error);
+      const handledError = ErrorHandler.handleApiError(error, '履歴取得');
+      logger.error(`[API] Get history error:`, ErrorHandler.getUserFriendlyMessage(handledError));
       return {
         success: false,
-        message: (axiosError.response?.data as { message?: string })?.message || '履歴の取得に失敗しました',
+        message: ErrorHandler.getUserFriendlyMessage(handledError),
+        count: 0,
         history: []
       };
     }
@@ -532,9 +550,10 @@ const historyAPI = {
     try {
       const response = await API.get(`/history/${historyId}`);
       return response.data;
-    } catch (error) {
-      logger.error(`[API] Get history detail error:`, error as Error);
-      throw error;
+    } catch (error: unknown) {
+      const handledError = ErrorHandler.handleApiError(error, '履歴詳細取得');
+      logger.error(`[API] Get history detail error:`, ErrorHandler.getUserFriendlyMessage(handledError));
+      throw handledError;
     }
   }
 };
@@ -542,4 +561,4 @@ const historyAPI = {
 // API型定義は types/index.ts に移動済み
 
 // 必要なものだけを最後にまとめてエクスポート
-export { API, authAPI, userAPI, problemsAPI, rankingAPI, historyAPI, adminAPI, testBackendConnection }; 
+export { API, authAPI, userAPI, problemsAPI, rankingAPI, historyAPI, adminAPI, monitoringAPI, testBackendConnection }; 

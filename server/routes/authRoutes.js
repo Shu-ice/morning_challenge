@@ -1,5 +1,6 @@
 import express from 'express';
-import { registerUser, loginUser } from '../controllers/authController.js';
+import { registerUser, loginUser, updatePassword } from '../controllers/authController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -14,6 +15,14 @@ router.post('/register', registerUser);
 router.post('/login', (req, res, next) => {
     console.log('[authRoutes] POST /api/auth/login hit');
     loginUser(req, res, next);
+});
+
+// @desc    Update user password
+// @route   PUT /api/auth/update-password
+// @access  Private
+router.put('/update-password', protect, (req, res, next) => {
+    console.log('[authRoutes] PUT /api/auth/update-password hit');
+    updatePassword(req, res, next);
 });
 
 export default router; 

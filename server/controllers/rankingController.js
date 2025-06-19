@@ -1,6 +1,7 @@
 import Result from '../models/Result.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
+import { logger } from '../utils/logger.js';
 
 // @desc    日間ランキングの取得
 // @route   GET /api/rankings/daily
@@ -10,7 +11,7 @@ export const getDailyRankings = async (req, res) => {
     // リクエストで指定された日付を使用、なければ今日の日付
     const targetDate = req.query.date || new Date().toISOString().split('T')[0];
     
-    console.log(`[Ranking] 日間ランキング取得: date=${targetDate}, difficulty=${req.query.difficulty || 'all'}`);
+    logger.debug(`[Ranking] 日間ランキング取得: date=${targetDate}, difficulty=${req.query.difficulty || 'all'}`);
     
     // 難易度フィルタリング
     const filterConditions = {
@@ -22,13 +23,45 @@ export const getDailyRankings = async (req, res) => {
     
     // ランキングの取得（最大50件、limitが指定されていればそれを使用）
     const limit = parseInt(req.query.limit) || 50;
-    const rankings = await Result.find(filterConditions)
-      .sort({ score: -1, timeSpent: 1, createdAt: 1 })
-      .limit(limit)
-      .populate('userId', 'username avatar grade streak')
-      .lean();
+    let rankings;
     
-    console.log(`[Ranking] 取得件数: ${rankings.length}件`);
+    try {
+      // 通常のMongoose環境での取得を試行
+      rankings = await Result.find(filterConditions)
+        .sort({ correctAnswers: -1, timeSpent: 1, createdAt: 1 })
+        .limit(limit)
+        .populate('userId', 'username avatar grade streak')
+        .lean();
+    } catch (populateError) {
+      // モック環境またはpopulateが使えない場合の代替処理
+      logger.debug(`[Ranking] populateエラー、代替処理に切り替え: ${populateError.message}`);
+      
+      rankings = await Result.find(filterConditions)
+        .sort({ correctAnswers: -1, timeSpent: 1, createdAt: 1 })
+        .limit(limit)
+        .lean();
+      
+      // モック環境でのユーザー情報設定
+      const { getMockUsers } = await import('../config/database.js');
+      const mockUsers = getMockUsers();
+      
+      rankings = rankings.map(result => {
+        const resultIdStr = result.userId?.toString?.();
+        const user = mockUsers.find(u => u?._id && u._id.toString() === resultIdStr);
+        return {
+          ...result,
+          userId: {
+            _id: result.userId ?? null,
+            username: user?.username ?? result.username ?? 'Unknown',
+            avatar: user?.avatar ?? '👤',
+            grade: user?.grade ?? result.grade ?? 0,
+            streak: user?.streak ?? 0
+          }
+        };
+      });
+    }
+    
+    logger.debug(`[Ranking] 取得件数: ${rankings.length}件`);
     
     if (!rankings.length) {
       return res.json({
@@ -39,19 +72,59 @@ export const getDailyRankings = async (req, res) => {
       });
     }
     
+    // --- ユーザー情報補完 (populate が不完全な場合) ---
+    // userId 文字列配列の生成（populate 有無どちらでも安全に）
+    const allUserIds = rankings.map(r => {
+      if (!r.userId) return null;
+
+      // populate 成功時: userId は Document か PlainObject
+      if (typeof r.userId === 'object') {
+        // _id プロパティがあればそれを使用、なければ ObjectId そのものを toString
+        const idObj = r.userId._id ?? r.userId;
+        return idObj?.toString?.();
+      }
+
+      // populate 失敗時: 既に string
+      return r.userId.toString();
+    }).filter(Boolean);
+
+    let userInfoMap = {};
+    if (allUserIds.length > 0) {
+      if (process.env.MONGODB_MOCK === 'true') {
+        const { getMockUsers } = await import('../config/database.js');
+        const usersArr = getMockUsers().filter(u => {
+          if (!u?._id) return false;
+          return allUserIds.includes(u._id.toString());
+        });
+        userInfoMap = Object.fromEntries(usersArr.map(u => [u._id.toString(), u]));
+        logger.debug(`[Ranking] モック環境でのユーザー情報マップ作成完了: ${Object.keys(userInfoMap).length}件`);
+      } else {
+        const usersArr = await User.find({ _id: { $in: allUserIds } }).lean();
+        userInfoMap = Object.fromEntries(usersArr.map(u => [u._id.toString(), u]));
+      }
+    }
+
     // ランキングデータの整形
     const formattedRankings = rankings.map((result, index) => {
-      // populateが成功しているか確認
-      if (!result.userId) {
-        console.error(`User data not populated for result ID: ${result._id}. Skipping this result.`);
-        return null;
-      }
+      // userId を文字列で取得（populate 成功時は Object、失敗時は string）
+      const userIdStr = (typeof result.userId === 'object' && result.userId !== null)
+        ? result.userId._id?.toString()
+        : result.userId?.toString();
+
+      // 最新のユーザー情報があれば優先
+      const latest = userIdStr ? (userInfoMap[userIdStr] || {}) : {};
+
+      // populate が成功している場合のユーザーオブジェクト
+      const populatedUser = (typeof result.userId === 'object' && result.userId !== null)
+        ? result.userId
+        : {};
+
       return {
         rank: index + 1,
-        userId: result.userId._id,
-        username: result.userId.username,
-        avatar: result.userId.avatar,
-        grade: result.userId.grade,
+        userId: userIdStr, // 文字列 ID を返す
+        username: latest.username ?? populatedUser.username ?? 'Unknown',
+        avatar: (latest.avatar ?? populatedUser.avatar) || '👤',
+        grade: latest.grade ?? populatedUser.grade ?? result.grade ?? 0,
         difficulty: result.difficulty,
         score: result.score,
         timeSpent: result.timeSpent,
@@ -60,7 +133,7 @@ export const getDailyRankings = async (req, res) => {
         totalProblems: result.totalProblems,
         incorrectAnswers: result.incorrectAnswers,
         unanswered: result.unanswered,
-        streak: result.userId.streak,
+        streak: (latest.streak ?? populatedUser.streak) || 0,
         date: result.date
       };
     }).filter(Boolean); // nullを除去
@@ -72,7 +145,7 @@ export const getDailyRankings = async (req, res) => {
       data: formattedRankings
     });
   } catch (error) {
-    console.error("Error in getDailyRankings:", error);
+    logger.error("Error in getDailyRankings:", error);
     res.status(500).json({ 
       success: false,
       message: 'ランキングの取得に失敗しました',
@@ -96,7 +169,7 @@ export const getWeeklyRankings = async (req, res) => {
     const startDateStr = startOfWeek.toISOString().split('T')[0];
     const endDateStr = today.toISOString().split('T')[0];
     
-    console.log(`[Ranking] 週間ランキング取得: ${startDateStr} - ${endDateStr}`);
+    logger.debug(`[Ranking] 週間ランキング取得: ${startDateStr} - ${endDateStr}`);
     
     // 難易度フィルタリング
     const matchConditions = {
@@ -112,7 +185,7 @@ export const getWeeklyRankings = async (req, res) => {
     // 各ユーザーごとに最高スコアを集計（期間内の最高記録）
     const aggregatedRankings = await Result.aggregate([
       { $match: matchConditions },
-      { $sort: { score: -1, timeSpent: 1 } },
+      { $sort: { correctAnswers: -1, timeSpent: 1 } },
       {
         $group: {
           _id: '$userId',
@@ -125,7 +198,7 @@ export const getWeeklyRankings = async (req, res) => {
           date: { $first: '$date' }
         }
       },
-      { $sort: { score: -1, timeSpent: 1 } },
+      { $sort: { correctAnswers: -1, timeSpent: 1 } },
       { $limit: parseInt(req.query.limit) || 50 }
     ]);
     
@@ -139,26 +212,42 @@ export const getWeeklyRankings = async (req, res) => {
       });
     }
     
-    // ユーザー情報を取得
-    const userIds = aggregatedRankings.map(r => r._id);
-    const users = await User.find({ _id: { $in: userIds } }).lean();
+    // ユーザー情報を取得（undefined safety対応）
+    const userIds = aggregatedRankings.map(r => r._id).filter(Boolean);
+    let userInfoMap = {};
+    
+    if (userIds.length > 0) {
+      if (process.env.MONGODB_MOCK === 'true') {
+        const { getMockUsers } = await import('../config/database.js');
+        const usersArr = getMockUsers().filter(u => {
+          if (!u?._id) return false;
+          return userIds.some(id => id.toString() === u._id.toString());
+        });
+        userInfoMap = Object.fromEntries(usersArr.map(u => [u._id.toString(), u]));
+      } else {
+        const usersArr = await User.find({ _id: { $in: userIds } }).lean();
+        userInfoMap = Object.fromEntries(usersArr.map(u => [u._id.toString(), u]));
+      }
+    }
     
     // ユーザー情報をランキングデータと結合
     const formattedRankings = aggregatedRankings.map((record, index) => {
-      const user = users.find(u => u._id.toString() === record._id.toString());
+      const userIdStr = record._id?.toString();
+      const user = userIdStr ? userInfoMap[userIdStr] : null;
+      
       return {
         rank: index + 1,
         userId: record._id,
-        username: user ? user.username : 'Unknown User',
-        avatar: user ? user.avatar : '😶',
-        grade: user ? user.grade : '不明',
+        username: user?.username ?? 'Unknown User',
+        avatar: user?.avatar ?? '👤',
+        grade: user?.grade ?? record.grade ?? 0,
         difficulty: record.difficulty,
         score: record.score,
         timeSpent: record.timeSpent,
         totalTime: record.totalTime,
         correctAnswers: record.correctAnswers,
         totalProblems: record.totalProblems,
-        streak: user ? user.streak : 0,
+        streak: user?.streak ?? 0,
         date: record.date
       };
     });
@@ -171,7 +260,7 @@ export const getWeeklyRankings = async (req, res) => {
       data: formattedRankings
     });
   } catch (error) {
-    console.error("Error in getWeeklyRankings:", error);
+    logger.error("Error in getWeeklyRankings:", error);
     res.status(500).json({ 
       success: false,
       message: '週間ランキングの取得に失敗しました' 
@@ -192,7 +281,7 @@ export const getMonthlyRankings = async (req, res) => {
     const startDateStr = startOfMonth.toISOString().split('T')[0];
     const endDateStr = today.toISOString().split('T')[0];
     
-    console.log(`[Ranking] 月間ランキング取得: ${startDateStr} - ${endDateStr}`);
+    logger.debug(`[Ranking] 月間ランキング取得: ${startDateStr} - ${endDateStr}`);
     
     // 難易度フィルタリング
     const matchConditions = {
@@ -208,7 +297,7 @@ export const getMonthlyRankings = async (req, res) => {
     // 各ユーザーごとに最高スコアを集計
     const aggregatedRankings = await Result.aggregate([
       { $match: matchConditions },
-      { $sort: { score: -1, timeSpent: 1 } },
+      { $sort: { correctAnswers: -1, timeSpent: 1 } },
       {
         $group: {
           _id: '$userId',
@@ -221,7 +310,7 @@ export const getMonthlyRankings = async (req, res) => {
           date: { $first: '$date' }
         }
       },
-      { $sort: { score: -1, timeSpent: 1 } },
+      { $sort: { correctAnswers: -1, timeSpent: 1 } },
       { $limit: parseInt(req.query.limit) || 50 }
     ]);
     
@@ -234,26 +323,42 @@ export const getMonthlyRankings = async (req, res) => {
       });
     }
     
-    // ユーザー情報を取得
-    const userIds = aggregatedRankings.map(r => r._id);
-    const users = await User.find({ _id: { $in: userIds } }).lean();
+    // ユーザー情報を取得（undefined safety対応）
+    const userIds = aggregatedRankings.map(r => r._id).filter(Boolean);
+    let userInfoMap = {};
+    
+    if (userIds.length > 0) {
+      if (process.env.MONGODB_MOCK === 'true') {
+        const { getMockUsers } = await import('../config/database.js');
+        const usersArr = getMockUsers().filter(u => {
+          if (!u?._id) return false;
+          return userIds.some(id => id.toString() === u._id.toString());
+        });
+        userInfoMap = Object.fromEntries(usersArr.map(u => [u._id.toString(), u]));
+      } else {
+        const usersArr = await User.find({ _id: { $in: userIds } }).lean();
+        userInfoMap = Object.fromEntries(usersArr.map(u => [u._id.toString(), u]));
+      }
+    }
     
     // ユーザー情報をランキングデータと結合
     const formattedRankings = aggregatedRankings.map((record, index) => {
-      const user = users.find(u => u._id.toString() === record._id.toString());
+      const userIdStr = record._id?.toString();
+      const user = userIdStr ? userInfoMap[userIdStr] : null;
+      
       return {
         rank: index + 1,
         userId: record._id,
-        username: user ? user.username : 'Unknown User',
-        avatar: user ? user.avatar : '😶',
-        grade: user ? user.grade : '不明',
+        username: user?.username ?? 'Unknown User',
+        avatar: user?.avatar ?? '👤',
+        grade: user?.grade ?? record.grade ?? 0,
         difficulty: record.difficulty,
         score: record.score,
         timeSpent: record.timeSpent,
         totalTime: record.totalTime,
         correctAnswers: record.correctAnswers,
         totalProblems: record.totalProblems,
-        streak: user ? user.streak : 0,
+        streak: user?.streak ?? 0,
         date: record.date
       };
     });
@@ -267,7 +372,7 @@ export const getMonthlyRankings = async (req, res) => {
       data: formattedRankings
     });
   } catch (error) {
-    console.error("Error in getMonthlyRankings:", error);
+    logger.error("Error in getMonthlyRankings:", error);
     res.status(500).json({ 
       success: false,
       message: '月間ランキングの取得に失敗しました' 
@@ -339,7 +444,7 @@ export const getUserRanking = async (req, res) => {
       difficulty: difficulty || 'all'
     });
   } catch (error) {
-    console.error("Error in getUserRanking:", error);
+    logger.error("Error in getUserRanking:", error);
     res.status(500).json({ 
       success: false,
       message: 'ランキング取得に失敗しました' 

@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios'; // API通信用
-import { format } from 'date-fns'; // 日付フォーマット用
 import { DifficultyRank, difficultyToJapanese } from '@/types/difficulty';
 import '@/styles/admin/ProblemGenerator.css';
-import type { ApplicationError } from '../../types/error';
-import { extractErrorMessage } from '../../types/error';
+import type { AxiosError } from 'axios';
 import { logger } from '@/utils/logger';
+import { problemsAPI, API } from '@/api/index';
 
 // スタイル用のCSSファイルも後で作成想定
 // import '@/styles/ProblemGenerator.css'; 
@@ -32,7 +30,7 @@ interface ProblemGeneratorProps {
 }
 
 const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false }) => { // デフォルト値をfalseに設定
-  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyRank>('beginner');
   const [numberOfProblems, setNumberOfProblems] = useState<number>(10); // デフォルト10問
   const [isLoading, setIsLoading] = useState(false);
@@ -75,15 +73,8 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
         return;
       }
 
-      // APIのベースURLを取得
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5003/api';
-      
-      const response = await axios.get(`${baseUrl}/problems/status/${currentRequestId}`, {
-        // ★ headers に Authorization を追加
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // 統一されたAPIクライアントを使用してステータス確認
+      const response = await API.get(`/problems/status/${currentRequestId}`);
       const data: GenerationStatus = response.data.data;
       
       const currentElapsedTime = data.startTime ? formatTime(Date.now() - data.startTime) : 'N/A';
@@ -145,44 +136,23 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
     }
 
     try {
-      // 認証トークンを取得（localStorage または sessionStorage から）
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('認証トークンが見つかりません。ログインし直してください。');
-        setIsLoading(false);
-        return;
-      }
+      // 統一APIクライアントを使用して問題生成リクエストを送信
+      const response = await problemsAPI.generateProblems({
+        date: selectedDate,
+        difficulty: selectedDifficulty,
+        count: numberOfProblems,
+        force: forceUpdate
+      });
 
-      // APIのベースURLを取得（環境変数から、またはデフォルト値）
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5003/api';
-      
-      const response = await axios.post(
-        `${baseUrl}/problems/generate`,
-        {
-          date: selectedDate,
-          difficulty: selectedDifficulty,
-          count: numberOfProblems,
-          force: forceUpdate,
-          grade: 1 // デフォルト値として1を設定
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 30000 // 30秒タイムアウトに延長（計算量が多い場合に対応）
-        }
-      );
-
-      if (response.data.success) {
-        if (response.data.requestId) {
-          const newRequestIdFromServer = response.data.requestId as string;
+      if (response.success) {
+        if (response.requestId) {
+          const newRequestIdFromServer = response.requestId as string;
           // リクエストIDを保存して進捗状況確認を開始
           setRequestId(newRequestIdFromServer);
           setStatus({
             requestId: newRequestIdFromServer,
             status: 'processing',
-            message: response.data.message || '生成処理を開始しました。進捗を確認しています...',
+            message: response.message || '生成処理を開始しました。進捗を確認しています...',
             progress: 0,
             total: numberOfProblems,
             startTime: Date.now(),
@@ -194,22 +164,22 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
           setStatusCheckInterval(intervalId);
         } else {
           // 従来の即時応答の場合 (requestIdがない場合)
-          setMessage(`${response.data.message || '問題の生成に成功しました。'} (${selectedDate}, ${difficultyToJapanese(selectedDifficulty)})`);
+          setMessage(`${response.message || '問題の生成に成功しました。'} (${selectedDate}, ${difficultyToJapanese(selectedDifficulty)})`);
           setForceUpdate(false); // 成功したらforceUpdateをリセット
           setIsLoading(false);
         }
       } else {
-        setError(response.data.error || '問題の生成に失敗しました。');
+        setError('問題の生成に失敗しました。');
         setIsLoading(false);
       }
     } catch (err: unknown) {
       logger.error('Problem generation error:', err instanceof Error ? err : String(err));
       
-      const error = err as ApplicationError;
-      const errorMessage = extractErrorMessage(error);
+      const error = err as AxiosError;
+      const errorMessage = error.message || 'Unknown error';
       
       // より具体的なエラーハンドリング
-      if (axios.isAxiosError(error)) {
+      if (error && typeof error === 'object' && 'response' in error) {
         if (error.response) {
           // サーバーからのエラーレスポンス
           if (error.response.status === 409) {

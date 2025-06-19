@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger.js';
+
 const notFound = (req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);
   res.status(404);
@@ -5,7 +7,6 @@ const notFound = (req, res, next) => {
 };
 
 const errorHandler = (err, req, res, next) => {
-  const { logger } = require('../utils/logger.js');
   
   logger.error('--- Error Handler Caught ---');
   logger.error('Error Name:', err.name);

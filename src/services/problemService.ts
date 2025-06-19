@@ -81,16 +81,7 @@ class ProblemService {
     });
   }
   
-  // スコア計算
-  calculateScore(correctCount: number, totalTime: number): number {
-    // 基本スコア（正解率 * 100）
-    const baseScore = correctCount * 10;
-    
-    // 時間ボーナス（早ければ早いほど高得点）
-    const timeBonus = Math.max(0, (300 - totalTime) / 10);
-    
-    return Math.round(baseScore + timeBonus);
-  }
+
 }
 
 export default new ProblemService();

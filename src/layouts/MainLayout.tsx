@@ -163,6 +163,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         background: 'rgba(255, 255, 255, 0.95)'
                       }}>
                         <Link 
+                          to="/admin/dashboard"
+                          onClick={() => setIsAdminMenuOpen(false)}
+                          style={{
+                            display: 'block',
+                            padding: '10px 16px',
+                            fontSize: '0.9rem',
+                            color: '#424245',
+                            textDecoration: 'none',
+                            fontWeight: '500',
+                            transition: 'all 0.2s ease'
+                          }}
+                          className="hover:bg-blue-50 hover:text-blue-600"
+                        >
+                          📊 ダッシュボード
+                        </Link>
+                        <Link 
                           to="/admin/generate"
                           onClick={() => setIsAdminMenuOpen(false)}
                           style={{

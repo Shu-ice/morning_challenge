@@ -21,15 +21,15 @@ if (dotenvResult.error) {
 
 // 🔥 緊急修正: モック機能を強制有効化
 if (!process.env.MONGODB_MOCK) {
-  console.log('🔧 [EMERGENCY FIX] MONGODB_MOCK環境変数が設定されていません。強制的に有効化します...');
+  logger.info('🔧 [EMERGENCY FIX] MONGODB_MOCK環境変数が設定されていません。強制的に有効化します...');
   process.env.MONGODB_MOCK = 'true';
   process.env.DISABLE_TIME_CHECK = 'true';
   process.env.JWT_SECRET = 'morning-challenge-super-secret-key';
 }
 
-console.log('🎯 [CURRENT ENV] MONGODB_MOCK:', process.env.MONGODB_MOCK);
-console.log('🎯 [CURRENT ENV] DISABLE_TIME_CHECK:', process.env.DISABLE_TIME_CHECK);
-console.log('🎯 [CURRENT ENV] JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'NOT SET');
+logger.info('🎯 [CURRENT ENV] MONGODB_MOCK:', process.env.MONGODB_MOCK);
+logger.info('🎯 [CURRENT ENV] DISABLE_TIME_CHECK:', process.env.DISABLE_TIME_CHECK);
+logger.info('🎯 [CURRENT ENV] JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'NOT SET');
 
 // 環境設定を表示
 environmentConfig.displayConfig();
@@ -46,6 +46,7 @@ import cookieParser from 'cookie-parser';
 import { protect, admin } from './middleware/authMiddleware.js';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+import { securityHeaders, rateLimiter, sanitizeInput } from './middleware/securityMiddleware.js';
 
 import User from './models/User.js';
 import DailyProblemSet from './models/DailyProblemSet.js';
@@ -58,6 +59,8 @@ import { generateProblems as generateProblemsUtil } from './utils/problemGenerat
 import rankingRoutes from './routes/rankingRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import monitoringRoutes from './routes/monitoringRoutes.js';
+import historyRoutes from './routes/historyRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import { getHistory } from './controllers/problemController.js';
 
 // --- dayjs プラグインの適用 (トップレベルで実行) ---
@@ -103,7 +106,7 @@ const problemGenerationLocks = new Map();
 // --- ヘルパー関数定義 (initializeApp より前に定義) ---
 const isChallengeTimeAllowed = () => {
     if (process.env.DISABLE_TIME_CHECK === 'true') {
-    // console.log('[Time Check] Skipped due to DISABLE_TIME_CHECK=true'); // 必要ならコメント解除
+    // logger.info('[Time Check] Skipped due to DISABLE_TIME_CHECK=true'); // 必要ならコメント解除
         return true;
     }
 
@@ -397,31 +400,17 @@ const startServer = async () => {
         if (useMockDB) {
           logger.warn('⚠️ モックモードで実行中 - インメモリデータベースを使用します');
           try {
-            // 🔥 緊急修正: connectDB関数を使用してモックデータを初期化
+            // モックデータの初期化のみ行う（MongoMemoryServerは使用しない）
             const { connectDB } = await import('./config/database.js');
             await connectDB();
             logger.info('✅ モックデータベース初期化完了');
-            
-            // MongoMemoryServerも併用
-            const { MongoMemoryServer } = await import('mongodb-memory-server');
-            const mongoServer = await MongoMemoryServer.create();
-            const mockMongoUri = mongoServer.getUri();
-            logger.info('[Init] InMemory DB URI:', mockMongoUri);
-            
-            await mongoose.connect(mockMongoUri, {
-              serverSelectionTimeoutMS: 30000,
-              connectTimeoutMS: 30000,         
-              socketTimeoutMS: 45000,          
-              family: 4 
-            });
-            logger.info('✅ MongoDB インメモリサーバーに接続成功');
           } catch (error) {
-            logger.error('💥 インメモリDBの初期化に失敗しました:', error);
+            logger.error('💥 モックデータの初期化に失敗しました:', error);
             process.exit(1);
           }
-      } else {
+        } else {
           // 通常のMongoDBに接続
-          mongoose.connect(mongoUri, {
+          await mongoose.connect(mongoUri, {
             // useNewUrlParser: true,
             // useUnifiedTopology: true,
             serverSelectionTimeoutMS: 15000, // 通常DBも少し延長
@@ -449,6 +438,12 @@ const startServer = async () => {
         
         const app = express();
         
+        // ✅ セキュリティヘッダー追加（最優先）
+        app.use(securityHeaders);
+        
+        // ✅ Rate Limiting追加
+        app.use(rateLimiter);
+        
         // ✅ セキュリティ強化: 厳格なCORS設定
         app.use(cors({
           origin: environmentConfig.getCorsOrigin(),
@@ -457,7 +452,7 @@ const startServer = async () => {
           allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
           optionsSuccessStatus: 200,
           maxAge: 86400 // 24時間
-        })); 
+        }));
 
         // ★ グローバルリクエストロガーをCORSの直後、ボディパーサーの前に移動
         app.use((req, res, next) => {
@@ -467,10 +462,10 @@ const startServer = async () => {
         
         // app.use(cors({ // 元の詳細なCORS設定 (コメントアウト)
         //     origin: function (origin, callback) {
-        //         console.log('[CORS] Request from origin:', origin);
+        //         logger.info('[CORS] Request from origin:', origin);
         //         const allowedOrigins = [FRONTEND_ORIGIN];
         //         if (origin && allowedOrigins.includes(origin)) {
-        //             console.log(`[CORS] Origin ${origin} allowed.`);
+        //             logger.info(`[CORS] Origin ${origin} allowed.`);
         //             callback(null, true);
         //         } else {
         //             console.warn(`[CORS] Origin ${origin || 'N/A'} rejected. Allowed: ${allowedOrigins.join(', ')}`);
@@ -490,6 +485,9 @@ const startServer = async () => {
         app.use(express.json()); // JSON形式のリクエストボディをパース
         app.use(express.urlencoded({ extended: true })); // URLエンコードされたリクエストボディをパース
         app.use(cookieParser());
+        
+        // ✅ 入力値サニタイゼーション追加
+        app.use(sanitizeInput);
         
         // dayjs.extend(utc); // dayjsの初期化はトップレベルに移動済みなので不要
         // dayjs.extend(timezone);
@@ -526,16 +524,16 @@ const startServer = async () => {
         app.use('/api/rankings', rankingRoutes);
 
         app.use('/api/problems', problemRoutes);
+        app.use('/api/users', userRoutes);
         app.use('/api/admin', adminRoutes);
         app.use('/api/monitoring', monitoringRoutes);
+        app.use('/api/history', historyRoutes);
 
         app.post('/api/problems/submit', protect, async (req, res) => { // コメントアウトを解除
           // ...(元の処理)... 現状は省略
           logger.debug(`[API /api/problems/submit] User: ${req.user?._id}`);
           res.json({success:true, message: "/api/problems/submit accessed (server/server.js)"}); 
         });
-
-        app.get('/api/history', protect, getHistory);
 
         app.post('/api/problems/generate', protect, admin, async (req, res) => { // コメントアウトを解除
           // ...(元の処理)... 現状は省略
@@ -573,17 +571,21 @@ const startServer = async () => {
             logger.info('📊 パフォーマンス監視システムが開始されました');
         
 
-            // MongoDB接続後に初期化処理を呼び出すが、完了を待たない
-            mongoose.connection.once('open', async () => {
-                logger.info('[Init] MongoDB接続確立 - 初期化処理を非同期で開始します (500ms待機後)');
-                await new Promise(resolve => setTimeout(resolve, 500)); // 500ms待機は維持
+            // モック環境以外でのみMongoDB接続後の初期化処理を実行
+            if (!useMockDB) {
+                mongoose.connection.once('open', async () => {
+                    logger.info('[Init] MongoDB接続確立 - 初期化処理を非同期で開始します (500ms待機後)');
+                    await new Promise(resolve => setTimeout(resolve, 500)); // 500ms待機は維持
 
-                // initializeApp を呼び出すが、await しないことで非同期実行とする
-                // エラーは initializeApp 内部で処理するか、ここで .catch() する
-                initializeApp().catch(initError => {
-                    logger.error('[Init] 非同期初期化処理のトップレベルでエラーハンドリング:', initError);
+                    // initializeApp を呼び出すが、await しないことで非同期実行とする
+                    // エラーは initializeApp 内部で処理するか、ここで .catch() する
+                    initializeApp().catch(initError => {
+                        logger.error('[Init] 非同期初期化処理のトップレベルでエラーハンドリング:', initError);
+                    });
                 });
-            });
+            } else {
+                logger.info('[Init] モック環境のため、MongoDB接続イベントはスキップします');
+            }
         });
 
   } catch (error) {

@@ -14,6 +14,7 @@ import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingSpinner from '../components/LoadingSpinner';
 import useApiWithRetry from '../hooks/useApiWithRetry';
 import { logger } from '../utils/logger';
+import { ErrorHandler } from '../utils/errorHandler';
 
 interface ProblemData {
   id: string;
@@ -130,14 +131,6 @@ export const getLastUsedDifficulty = (): DifficultyRank => {
   }
 };
 
-// スコア計算関数 (仮)
-const calculateScore = (correct: number, total: number, time: number): number => {
-  if (total === 0) return 0;
-  const accuracyScore = (correct / total) * 100;
-  // 簡単なスコアリング：正答率を返す (時間による減点などは加えない)
-  return Math.round(accuracyScore);
-};
-
 // 統一ユーティリティのインポート
 import { getFormattedDate, formatTime } from '../utils/dateUtils';
 
@@ -181,6 +174,14 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       logger.debug('API応答:', typeof apiResponse === 'object' ? JSON.stringify(apiResponse) : String(apiResponse));
       
       if (!apiResponse.success || !apiResponse.problems || apiResponse.problems.length === 0) {
+        // 時間制限エラーの場合は専用のメッセージを表示
+        if ((apiResponse as any).isTimeRestricted) {
+          const errorMsg = apiResponse.message || 
+            '朝の計算チャレンジは、朝6:30から8:00の間のみ挑戦できます。\nまたの挑戦をお待ちしています！';
+          throw new Error(errorMsg);
+        }
+        
+        // 通常のエラーメッセージ
         const errorMsg = apiResponse.message || `${selectedDate}の${difficultyToJapanese(difficulty)}問題は見つかりませんでした。`;
         throw new Error(errorMsg);
       }
@@ -195,6 +196,21 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         if ('code' in error && error.code === 'ERR_NETWORK') return true;
         if ('status' in error && typeof error.status === 'number') {
           return error.status >= 500;
+        }
+        // 時間制限エラー（403）はリトライしない
+        if ('status' in error && error.status === 403) {
+          // 時間制限エラーの場合は特別なメッセージを設定
+          const errorResponse = 'response' in error && error.response && 
+                               typeof error.response === 'object' && 
+                               'data' in error.response ? error.response.data as { message?: string; isTimeRestricted?: boolean } : null;
+          
+          if (errorResponse?.isTimeRestricted) {
+            logger.warn('[Problems] 時間制限エラーを検出:', errorResponse.message);
+            // カスタムエラーメッセージを設定
+            const customError = new Error(errorResponse.message || '計算チャレンジは朝6:30から8:00の間のみ利用できます。');
+            (customError as any).isTimeRestricted = true;
+            throw customError;
+          }
         }
         return false;
       }
@@ -277,7 +293,8 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       
       // 時間制限チェック: 朝6:30-8:00のみ利用可能
       if (currentTime < 6.5 || currentTime > 8.0) {
-        logger.error('計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！');
+        logger.warn('⏰ 計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！');
+        alert('⏰ 朝の計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！\n現在は時間外です。');
         return;
       }
     }
@@ -420,12 +437,9 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         // ここでは、エラー時は古い endSession のような形で、フロントエンド時間でセッションを終了する想定はしない。
       }
     } catch (error) {
-      logger.error('[Problems] Error submitting answers:', error instanceof Error ? error : String(error));
-      if (isAxiosError(error) && error.response) {
-        logger.error(error.response.data.message || '回答の送信中にエラーが発生しました。');
-      } else {
-        logger.error('回答の送信中に不明なエラーが発生しました。');
-      }
+      const handledError = ErrorHandler.handleApiError(error, '回答送信');
+      logger.error('[Problems] Error submitting answers:', ErrorHandler.getUserFriendlyMessage(handledError));
+      alert(`回答の送信に失敗しました: ${ErrorHandler.getUserFriendlyMessage(handledError)}`);
     }
   };
 
@@ -456,32 +470,6 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     logger.info('[Problems] Cache manually cleared');
     // 問題を再読み込み
     window.location.reload();
-  };
-
-  // useEffect for timeout
-  useEffect(() => {
-      // remainingTime が 0 以下になり、かつゲームが開始されている場合
-      if (isStarted && remainingTime !== null && remainingTime <= 0 && currentProblems.length > 0) { // ★ isStarted を条件に追加
-          logger.info("Time's up!");
-          // タイムアウトした場合も handleComplete を呼び出す
-          // その時点での回答状況 (answers) を渡す
-          handleComplete(answers); // ★ calculateResults の代わりに handleComplete を呼ぶ
-      }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingTime, isStarted, currentProblems, answers, handleComplete]); // ★ 依存配列に isStarted, handleComplete を追加し、不要なものを削除
-
-  // ★★★ 問題間の「戻る」ボタンのハンドラを復活 ★★★
-  const handleBack = () => {
-    if (currentIndex > 0) {
-      // 現在の入力も念のため保存しておく
-      const newAnswers = [...answers];
-      newAnswers[currentIndex] = currentAnswer;
-      setAnswers(newAnswers);
-      // インデックスをデクリメント
-      setCurrentIndex(currentIndex - 1);
-      // 前の回答をセット（useEffectでもセットされるが、即時反映のため）
-      // setCurrentAnswer(answers[currentIndex - 1] || '');
-    }
   };
 
   // ★ パフォーマンス最適化: 必要な値のみを依存配列に設定
@@ -520,41 +508,60 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         logger.warn('問題キャッシュの解析に失敗しました:', parseError instanceof Error ? parseError : String(parseError));
       }
 
-      // API から問題を取得（統一リトライシステム使用）
+      // APIから新たに取得
       try {
-        const problems = await problemsApiWithRetry.execute();
+        const apiResponse = await problemsAPI.getProblems(difficulty, selectedDate);
         
-        if (problems && Array.isArray(problems)) {
-          // 問題データを整形
-          const formattedProblems = problems.map((problem: Problem, index: number) => ({
-            id: problem?.id?.toString() || `problem-${index}`,
-            question: problem?.question || `問題 ${index + 1}`,
-            type: problem?.type || 'mixed'
-          }));
-          logger.debug('[Problems API] Loaded from API:', JSON.stringify(formattedProblems.map((p: any) => p.id), null, 2));
+        if (apiResponse.success && apiResponse.problems && apiResponse.problems.length > 0) {
+          logger.info(`[Problems] Successfully loaded ${apiResponse.problems.length} problems from API`);
           
-          logger.info(`${formattedProblems.length}問の問題を取得しました`);
-          setCurrentProblems(formattedProblems);
-          
-          // 問題をセッションストレージにキャッシュ
+          // キャッシュに保存
           try {
-            sessionStorage.setItem(cacheKey, JSON.stringify(formattedProblems));
+            sessionStorage.setItem(cacheKey, JSON.stringify(apiResponse.problems));
+            logger.debug('[Problems Cache] Saved to cache');
           } catch (cacheError) {
-            logger.warn('問題キャッシュの保存に失敗しました:', cacheError instanceof Error ? cacheError : String(cacheError));
+            logger.warn('問題のキャッシュ保存に失敗しました:', cacheError instanceof Error ? cacheError : String(cacheError));
           }
+
+          setCurrentProblems(apiResponse.problems);
+        } else {
+          logger.warn('[Problems] No problems found or API error:', apiResponse);
+          setCurrentProblems([]);
         }
-      } catch (err: unknown) {
-        const error = err as Error;
-        logger.error('問題の取得中にエラーが発生しました:', err instanceof Error ? err : String(err));
-        // エラーはproblemsApiWithRetryが管理
+      } catch (error) {
+        logger.error('[Problems] Failed to load problems:', error instanceof Error ? error : String(error));
+        setCurrentProblems([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProblems();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficulty, selectedDate, currentUserId]); // 最適化: currentUserの代わりにcurrentUserIdのみ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, difficulty, selectedDate]); // 最適化: 必要最小限の依存配列
+
+  // useEffect for timeout - 最適化版
+  useEffect(() => {
+      // remainingTime が 0 以下になり、かつゲームが開始されている場合
+      if (isStarted && remainingTime !== null && remainingTime <= 0 && currentProblems.length > 0) {
+          logger.info("Time's up!");
+          // タイムアウトした場合も handleComplete を呼び出す
+          // その時点での回答状況 (answers) を渡す
+          handleComplete(answers);
+      }
+  }, [remainingTime, isStarted, currentProblems.length, answers, handleComplete]); // 最適化: 依存配列を明確化
+
+  // ★★★ 問題間の「戻る」ボタンのハンドラを復活 ★★★
+  const handleBack = () => {
+    if (currentIndex > 0) {
+      // 現在の入力も念のため保存しておく
+      const newAnswers = [...answers];
+      newAnswers[currentIndex] = currentAnswer;
+      setAnswers(newAnswers);
+      // インデックスをデクリメント
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
 
   // ★ 経過時間タイマー (これは isStarted をトリガーにするので変更なし)
   useEffect(() => {
@@ -659,11 +666,72 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       {!isStarted && (currentCountdownValue === null || !showStart) && (
         <div className="text-center p-10">
           <h2 className="text-2xl font-bold mb-4">{difficultyToJapanese(difficulty)} ({selectedDate})</h2>
+          
+          {/* API エラーの場合 */}
+          {problemsApiWithRetry.error && (
+            <div className="mb-6">
+              <div className="text-red-500 mb-4" dangerouslySetInnerHTML={{
+                __html: (() => {
+                  const message = problemsApiWithRetry.error?.message || 'エラーが発生しました';
+                  
+                  // 時間制限エラーメッセージの場合はルビ付きで表示
+                  if (message.includes('朝6:30から8:00') || message.includes('またの挑戦をお待ちしています')) {
+                    return `
+                      <ruby>朝<rt>あさ</rt></ruby>の<ruby>計算<rt>けいさん</rt></ruby>チャレンジは、<ruby>朝<rt>あさ</rt></ruby>6:30から8:00の<ruby>間<rt>あいだ</rt></ruby>のみ<ruby>挑戦<rt>ちょうせん</rt></ruby>できます。<br/>
+                      またの<ruby>挑戦<rt>ちょうせん</rt></ruby>をお<ruby>待<rt>ま</rt></ruby>ちしています！
+                    `;
+                  }
+                  
+                  return message;
+                })()
+              }} />
+              <button 
+                onClick={() => problemsApiWithRetry.retry()}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors mr-2"
+                disabled={problemsApiWithRetry.loading}
+              >
+                {problemsApiWithRetry.loading ? '再試行中...' : '再試行'}
+              </button>
+            </div>
+          )}
+          
           {/* 問題数が0件の場合 (APIエラーとは別) */}
-          {currentProblems.length === 0 && !isLoading && !false && (
+          {currentProblems.length === 0 && !isLoading && !problemsApiWithRetry.error && (
              <div className="mb-6">
-               <p className="text-red-500 mb-4">
-                 <ruby>選択<rt>せんたく</rt></ruby>された<ruby>日付<rt>ひづけ</rt></ruby>の<ruby>問題<rt>もんだい</rt></ruby>が<ruby>見<rt>み</rt></ruby>つかりませんでした。
+               <p className="text-orange-600 mb-4">
+                 {(() => {
+                   const now = new Date();
+                   const hours = now.getHours();
+                   const minutes = now.getMinutes();
+                   const currentTime = hours + minutes/60;
+                   const isAdmin = currentUser?.isAdmin === true;
+                   const isDevelopment = process.env.NODE_ENV === 'development';
+                   
+                   // 管理者の場合は常に管理者向けメッセージを表示
+                   if (isAdmin) {
+                     return (
+                       <span className="text-blue-600">
+                         🔧 <strong>管理者モード</strong><br/>
+                         問題が見つかりません。管理者権限で問題を生成してください。
+                       </span>
+                     );
+                   }
+                   
+                   // 時間外の場合（一般ユーザーのみ）
+                   if (currentTime < 6.5 || currentTime > 8.0) {
+                     return (
+                       <span dangerouslySetInnerHTML={{
+                         __html: `
+                           ⏰ <ruby>朝<rt>あさ</rt></ruby>の<ruby>計算<rt>けいさん</rt></ruby>チャレンジは、<strong><ruby>朝<rt>あさ</rt></ruby>6:30から8:00</strong>の<ruby>間<rt>あいだ</rt></ruby>のみ<ruby>挑戦<rt>ちょうせん</rt></ruby>できます。<br/>
+                           またの<ruby>挑戦<rt>ちょうせん</rt></ruby>をお<ruby>待<rt>ま</rt></ruby>ちしています！
+                         `
+                       }} />
+                     );
+                   }
+                   
+                   // 時間内だが問題が見つからない場合
+                   return '選択された日付の問題が見つかりませんでした。';
+                 })()}
                </p>
                {currentUser?.isAdmin && (
                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
@@ -681,7 +749,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
              </div>
           )}
           {/* 問題がある場合 */}
-          {currentProblems.length > 0 && (
+          {currentProblems.length > 0 && !problemsApiWithRetry.error && (
             <>
               <p className="mb-6">
                 {currentProblems.length}<ruby>問<rt>もん</rt></ruby>の<ruby>問題<rt>もんだい</rt></ruby>に<ruby>挑戦<rt>ちょうせん</rt></ruby>します。<br/>

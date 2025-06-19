@@ -5,8 +5,9 @@ export const GRADE_OPTIONS = [
   { value: '4', label: '小学4年生' },
   { value: '5', label: '小学5年生' },
   { value: '6', label: '小学6年生' },
+  { value: '7', label: 'その他' },
+  { value: '999', label: 'ひみつ' }, // 特別な学年999
 ];
 
-// GradeValue 型も 1-6 の数値または対応する文字列に限定
-// (ProfilePage側で String() しているため、文字列も許容する方が互換性が高い)
-export type GradeValue = 1 | 2 | 3 | 4 | 5 | 6 | string | undefined; 
+// GradeValue 型も新しい選択肢を含めて更新
+export type GradeValue = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 999 | string | undefined; 
