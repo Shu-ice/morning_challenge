@@ -4,6 +4,10 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { connectDB } from './config/database.js';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file (root directory)
+dotenv.config();
 
 // Routes
 import authRoutes from './routes/authRoutes.js';
