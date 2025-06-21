@@ -306,12 +306,23 @@ const connectDB = async () => {
     return true;
   } catch (error) {
     logger.error(`❌ MongoDB接続エラー: ${error.message}`);
-    logger.warn('🔄 InMemoryモードに自動切替中...');
-    
-    // 自動的にモックモードに切り替え
-    process.env.MONGODB_MOCK = 'true';
-    await initializeMockData();
-    return true;
+
+    // === 変更点 ===
+    // Vercel などの本番環境では自動でモック DB に切り替えない
+    // 明示的に USE_MOCK_DB=true が指定されている場合のみモックに切替
+    const allowMock = process.env.USE_MOCK_DB === 'true';
+    const isVercel = !!process.env.VERCEL; // Vercel 環境では VERCEL=1 が自動付与される
+
+    if (allowMock && !isVercel) {
+      logger.warn('🧪 USE_MOCK_DB=true のため InMemory モック DB に切替');
+      process.env.MONGODB_MOCK = 'true';
+      await initializeMockData();
+      return true;
+    }
+
+    // 本番環境で接続できない場合は致命的エラーとして終了
+    logger.error('❌ 本番環境で MongoDB に接続できません。MONGODB_URI を確認してください。');
+    throw error;
   }
 };
 
