@@ -496,6 +496,7 @@ const adminAPI = {
   // 従来の問題生成
   generateProblems: (date: string) => API.post(`/admin/generate-problems/${date}`),
 
+  // 管理者権限管理
   makeAdmin: async (userId: string) => {
     try {
       logger.info('[API] Making user admin:', userId);
@@ -583,4 +584,17 @@ const historyAPI = {
 // API型定義は types/index.ts に移動済み
 
 // 必要なものだけを最後にまとめてエクスポート
-export { API, authAPI, userAPI, problemsAPI, rankingAPI, historyAPI, adminAPI, monitoringAPI, testBackendConnection }; 
+export { API, authAPI, userAPI, problemsAPI, rankingAPI, historyAPI, adminAPI, monitoringAPI, testBackendConnection };
+
+// 管理者統計関連のAPI関数
+export const getOverview = () => API.get('/admin/stats/overview');
+export const getDifficultyStats = (period: string = 'week') => API.get(`/admin/stats/difficulty?period=${period}`);
+export const getGradeStats = (period: string = 'week') => API.get(`/admin/stats/grade?period=${period}`);
+export const getHourlyStats = (days: number = 7) => API.get(`/admin/stats/hourly?days=${days}`);
+
+// 管理者ダッシュボード専用API（新規追加）
+export const getDashboardData = () => API.get('/admin-dashboard');
+
+// システム監視関連
+export const getSystemHealth = () => API.get('/monitoring/health');
+export const getPerformanceStats = () => API.get('/monitoring/performance'); 

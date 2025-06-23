@@ -19,9 +19,88 @@
   "routes": [
     { "src": "/api/health", "dest": "/api/health.js" },
     { "src": "/api/env-test", "dest": "/api/env-test.js" },
+    { "src": "/api/auth/login", "dest": "/api/vercel-kv-login.js" },
     { "src": "/api/simple-login", "dest": "/api/simple-login.js" },
+    { "src": "/api/problems", "dest": "/api/problems.js" },
+    { "src": "/api/problems/submit", "dest": "/api/problems.js" },
+    { "src": "/api/admin/stats", "dest": "/api/admin-stats.js" },
+    { "src": "/api/admin/dashboard", "dest": "/api/admin-dashboard.js" },
+    { "src": "/api/time-window", "dest": "/api/time-window.js" },
     { "src": "/api/(.*)", "dest": "/api/express.js" },
     { "handle": "filesystem" },
     { "src": "/.*", "dest": "/index.html" }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "api/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/admin-dashboard",
+      "destination": "/api/admin-dashboard.js"
+    },
+    {
+      "source": "/api/admin-stats/(.*)",
+      "destination": "/api/admin-stats.js"
+    },
+    {
+      "source": "/api/problems",
+      "destination": "/api/problems.js"
+    },
+    {
+      "source": "/api/time-window",
+      "destination": "/api/time-window.js"
+    },
+    {
+      "source": "/api/auth/login",
+      "destination": "/api/auth-login.js"
+    },
+    {
+      "source": "/api/simple-login",
+      "destination": "/api/simple-login.js"
+    },
+    {
+      "source": "/api/vercel-kv-login",
+      "destination": "/api/vercel-kv-login.js"
+    },
+    {
+      "source": "/api/health",
+      "destination": "/api/health.js"
+    },
+    {
+      "source": "/api/env-test",
+      "destination": "/api/env-test.js"
+    },
+    {
+      "source": "/api/make-admin",
+      "destination": "/api/make-admin.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
   ]
 } 
