@@ -1,41 +1,10 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node",
-      "config": {
-        "maxDuration": 30
-      }
-    }
-  ],
-  "routes": [
-    { "src": "/api/health", "dest": "/api/health.js" },
-    { "src": "/api/env-test", "dest": "/api/env-test.js" },
-    { "src": "/api/auth/login", "dest": "/api/vercel-kv-login.js" },
-    { "src": "/api/simple-login", "dest": "/api/simple-login.js" },
-    { "src": "/api/problems", "dest": "/api/problems.js" },
-    { "src": "/api/problems/submit", "dest": "/api/problems.js" },
-    { "src": "/api/admin/stats", "dest": "/api/admin-stats.js" },
-    { "src": "/api/admin/dashboard", "dest": "/api/admin-dashboard.js" },
-    { "src": "/api/time-window", "dest": "/api/time-window.js" },
-    { "src": "/api/(.*)", "dest": "/api/express.js" },
-    { "handle": "filesystem" },
-    { "src": "/.*", "dest": "/index.html" }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "functions": {
     "api/*.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x"
     }
   },
   "rewrites": [
@@ -49,6 +18,10 @@
     },
     {
       "source": "/api/problems",
+      "destination": "/api/problems.js"
+    },
+    {
+      "source": "/api/problems/submit",
       "destination": "/api/problems.js"
     },
     {
@@ -80,6 +53,10 @@
       "destination": "/api/make-admin.js"
     },
     {
+      "source": "/api/(.*)",
+      "destination": "/api/express.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
@@ -102,5 +79,8 @@
         }
       ]
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 } 
