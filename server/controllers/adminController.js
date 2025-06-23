@@ -7,7 +7,13 @@ import mongoose from 'mongoose';
 import dayjs from 'dayjs';
 
 // モック環境かどうかを判定
-const isMongoMock = () => process.env.MONGODB_MOCK === 'true';
+const isMongoMock = () => {
+  // 環境変数から改行文字やスペースを除去して正確に比較
+  const mongoMockValue = process.env.MONGODB_MOCK?.toString().trim();
+  const isMock = mongoMockValue === 'true';
+  logger.debug(`[AdminController] MONGODB_MOCK check: raw="${process.env.MONGODB_MOCK}", trimmed="${mongoMockValue}", isMock=${isMock}`);
+  return isMock;
+};
 
 // @desc    システム全体の統計情報取得
 // @route   GET /api/admin/stats/overview

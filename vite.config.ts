@@ -1,15 +1,16 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import tsconfigPaths from 'vite-tsconfig-paths'
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
-  // Load env file based on mode (development, production)
-  // const env = loadEnv(mode, process.cwd(), '') // 一旦envの使用をコメントアウト
-
+export default defineConfig(async () => {
+  const tsconfigPaths = await import('vite-tsconfig-paths')
+  
   return {
-    plugins: [react(), tsconfigPaths()],
+    plugins: [
+      react(),
+      tsconfigPaths.default()
+    ],
     resolve: {
       dedupe: ['react', 'react-dom'],
       alias: {
@@ -17,7 +18,6 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      // port: Number(env.FRONTEND_PORT) || 3004, // 環境変数ではなく固定で指定
       port: 3004,
       host: true, // Allow access from network
       proxy: {
@@ -67,5 +67,9 @@ export default defineConfig(({ mode }) => {
       // グローバル定数を定義 (例: __APP_VERSION__)
       // 'process.env': JSON.stringify(env) // 環境変数をフロントエンドに公開する場合は注意が必要
     },
+    preview: {
+      port: 3004,
+      host: true
+    }
   }
 }) 

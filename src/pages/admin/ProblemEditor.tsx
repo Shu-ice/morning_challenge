@@ -42,8 +42,8 @@ const ProblemEditor: React.FC = () => {
         return;
       }
 
-      // APIのベースURLを取得
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5003/api';
+      // APIのベースURLを取得（本番環境では相対パスを使用）
+      const baseUrl = import.meta.env.VITE_API_URL || '/api';
       
       const response = await axios.get(`${baseUrl}/problems/edit`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -141,7 +141,7 @@ const ProblemEditor: React.FC = () => {
       }
 
       // APIのベースURLを取得
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5003/api';
+      const baseUrl = import.meta.env.VITE_API_URL || '/api';
       
       const response = await axios.post(`${baseUrl}/problems/edit`, {
         date: selectedDate,

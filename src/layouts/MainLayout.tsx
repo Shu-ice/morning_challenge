@@ -144,7 +144,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     マイページ
                   </Link>
                   
-                  {user.isAdmin && (
+                  {/* 🔥 強制デバッグ: 管理者メニュー条件チェック */}
+                  {(() => {
+                    console.log('🔥🔥🔥 [MainLayout] Admin menu condition check - user.isAdmin:', user.isAdmin);
+                    console.log('🔥🔥🔥 [MainLayout] Admin menu condition check - typeof:', typeof user.isAdmin);
+                    console.log('🔥🔥🔥 [MainLayout] Admin menu condition check - === true:', user.isAdmin === true);
+                    return user.isAdmin;
+                  })() && (
                     <div className="relative" ref={adminMenuRef}>
                       <button 
                         onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}

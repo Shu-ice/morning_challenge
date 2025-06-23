@@ -3,6 +3,15 @@ import { DifficultyRank } from '../constants/difficultyRank.js';
 import { getMockDailyProblemSets, addMockDailyProblemSet, findMockDailyProblemSet } from '../config/database.js';
 import { logger } from '../utils/logger.js';
 
+// モック環境判定関数
+const isMongoMock = () => {
+  // 環境変数から改行文字やスペースを除去して正確に比較
+  const mongoMockValue = process.env.MONGODB_MOCK?.toString().trim();
+  const isMock = mongoMockValue === 'true';
+  logger.debug(`[DailyProblemSetModel] MONGODB_MOCK check: raw="${process.env.MONGODB_MOCK}", trimmed="${mongoMockValue}", isMock=${isMock}`);
+  return isMock;
+};
+
 // モック用のインメモリストレージ（database.jsと共有）
 let mockProblemSetIdCounter = 1;
 
@@ -52,7 +61,7 @@ class DailyProblemSetModel {
 
   // findOne メソッドのモック実装
   static async findOne(query) {
-    if (process.env.MONGODB_MOCK === 'true') {
+    if (isMongoMock()) {
       logger.debug(`[DailyProblemSetModel] モック環境でfindOne検索: ${JSON.stringify(query)}`);
       
       // database.jsの統一関数を使用
@@ -74,7 +83,7 @@ class DailyProblemSetModel {
 
   // findOneAndUpdate メソッドのモック実装（上書き生成用）
   static async findOneAndUpdate(query, update, options = {}) {
-    if (process.env.MONGODB_MOCK === 'true') {
+    if (isMongoMock()) {
       logger.debug(`[DailyProblemSetModel] モック環境でfindOneAndUpdate: ${JSON.stringify(query)}, options: ${JSON.stringify(options)}`);
       
       const problemSets = getMockDailyProblemSets();
@@ -122,7 +131,7 @@ class DailyProblemSetModel {
 
   // create メソッドのモック実装
   static async create(data) {
-    if (process.env.MONGODB_MOCK === 'true') {
+    if (isMongoMock()) {
       logger.debug(`[DailyProblemSetModel] モック環境でcreate: ${JSON.stringify({ date: data.date, difficulty: data.difficulty, problemCount: data.problems?.length })}`);
       
       // database.jsの統一関数を使用
@@ -143,7 +152,7 @@ class DailyProblemSetModel {
 
   // save メソッドのモック実装（インスタンスメソッド）
   async save() {
-    if (process.env.MONGODB_MOCK === 'true') {
+    if (isMongoMock()) {
       logger.debug(`[DailyProblemSetModel] インスタンスsave実行: ID=${this._id}, date=${this.date}, difficulty=${this.difficulty}`);
       
       const problemSets = getMockDailyProblemSets();
@@ -172,7 +181,7 @@ class DailyProblemSetModel {
 
   // countDocuments メソッドのモック実装
   static async countDocuments(query) {
-    if (process.env.MONGODB_MOCK === 'true') {
+    if (isMongoMock()) {
       logger.debug(`[DailyProblemSetModel] モック環境でcountDocuments: ${JSON.stringify(query)}`);
       
       // database.jsの統一関数を使用してカウント
@@ -193,7 +202,7 @@ class DailyProblemSetModel {
 
   // aggregate メソッドのモック実装（基本的な統計処理用）
   static async aggregate(pipeline) {
-    if (process.env.MONGODB_MOCK === 'true') {
+    if (isMongoMock()) {
       logger.debug(`[DailyProblemSetModel] モック環境でaggregate: 簡略実装`);
       // 基本的な統計のみサポート（完全実装は複雑すぎるため）
       return [];
@@ -207,6 +216,6 @@ class DailyProblemSetModel {
 const DailyProblemSet = mongoose.model('DailyProblemSet', dailyProblemSetSchema);
 
 // モック環境では、DailyProblemSetModelを返す
-const ExportedModel = process.env.MONGODB_MOCK === 'true' ? DailyProblemSetModel : DailyProblemSet;
+const ExportedModel = isMongoMock() ? DailyProblemSetModel : DailyProblemSet;
 
 export default ExportedModel; 

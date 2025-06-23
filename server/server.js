@@ -51,25 +51,6 @@ logger.info(`🚀 サーバーがポート ${PORT} で起動準備中...`);
 logger.info(`🔗 フロントエンドオリジン許可予定: ${FRONTEND_ORIGIN}`);
 
 // ポート使用状況をチェックする関数
-const checkPortAvailability = async (port) => {
-  return new Promise((resolve) => {
-    const server = express().listen(port, () => {
-      server.close(() => resolve(true));
-    }).on('error', () => resolve(false));
-  });
-};
-
-// 利用可能なポートを見つける関数
-const findAvailablePort = async (startPort, maxAttempts = 10) => {
-  for (let i = 0; i < maxAttempts; i++) {
-    const port = startPort + i;
-    const isAvailable = await checkPortAvailability(port);
-    if (isAvailable) {
-      return port;
-    }
-  }
-  throw new Error(`No available port found starting from ${startPort}`);
-};
 
 const JST_OFFSET = 9 * 60;
 const problemGenerationLocks = new Map();
