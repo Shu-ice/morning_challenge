@@ -11,9 +11,17 @@
     {
       "src": "api/*.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/auth/login",
+      "destination": "/api/login"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"
