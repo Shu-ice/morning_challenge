@@ -967,4 +967,178 @@ export const getProblemSetStats = async (req, res) => {
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
+};
+
+// @desc    ユーザーを管理者にする
+// @route   PUT /api/admin/users/:userId/make-admin
+// @access  Private/Admin
+export const makeUserAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    logger.info(`[Admin] ユーザー ${userId} に管理者権限を付与`);
+
+    if (isMongoMock()) {
+      // モック環境での処理
+      const mockUsers = getMockUsers();
+      const userIndex = mockUsers.findIndex(user => user._id === userId);
+      
+      if (userIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: 'ユーザーが見つかりません'
+        });
+      }
+
+      mockUsers[userIndex].isAdmin = true;
+      
+      logger.info(`[Admin] モック環境でユーザー ${userId} を管理者に設定`);
+      return res.json({
+        success: true,
+        message: 'ユーザーに管理者権限を付与しました',
+        data: {
+          userId,
+          username: mockUsers[userIndex].username,
+          isAdmin: true
+        }
+      });
+    }
+
+    // MongoDB環境での処理
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: '無効なユーザーIDです'
+      });
+    }
+
+    const user = await User.findById(userId).select('username email isAdmin');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'ユーザーが見つかりません'
+      });
+    }
+
+    if (user.isAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: '既に管理者権限を持っています'
+      });
+    }
+
+    user.isAdmin = true;
+    await user.save();
+
+    logger.info(`[Admin] ユーザー ${user.username} (${user.email}) に管理者権限を付与`);
+
+    res.json({
+      success: true,
+      message: 'ユーザーに管理者権限を付与しました',
+      data: {
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+        isAdmin: true
+      }
+    });
+
+  } catch (error) {
+    logger.error('[Admin] 管理者権限付与エラー:', error);
+    res.status(500).json({
+      success: false,
+      message: '管理者権限の付与に失敗しました',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// @desc    ユーザーの管理者権限を削除する
+// @route   PUT /api/admin/users/:userId/remove-admin
+// @access  Private/Admin
+export const removeUserAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    logger.info(`[Admin] ユーザー ${userId} の管理者権限を削除`);
+
+    if (isMongoMock()) {
+      // モック環境での処理
+      const mockUsers = getMockUsers();
+      const userIndex = mockUsers.findIndex(user => user._id === userId);
+      
+      if (userIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: 'ユーザーが見つかりません'
+        });
+      }
+
+      mockUsers[userIndex].isAdmin = false;
+      
+      logger.info(`[Admin] モック環境でユーザー ${userId} の管理者権限を削除`);
+      return res.json({
+        success: true,
+        message: 'ユーザーの管理者権限を削除しました',
+        data: {
+          userId,
+          username: mockUsers[userIndex].username,
+          isAdmin: false
+        }
+      });
+    }
+
+    // MongoDB環境での処理
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: '無効なユーザーIDです'
+      });
+    }
+
+    const user = await User.findById(userId).select('username email isAdmin');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'ユーザーが見つかりません'
+      });
+    }
+
+    if (!user.isAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: '管理者権限を持っていません'
+      });
+    }
+
+    // 自分自身の管理者権限を削除することを防ぐ
+    if (user._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: '自分自身の管理者権限は削除できません'
+      });
+    }
+
+    user.isAdmin = false;
+    await user.save();
+
+    logger.info(`[Admin] ユーザー ${user.username} (${user.email}) の管理者権限を削除`);
+
+    res.json({
+      success: true,
+      message: 'ユーザーの管理者権限を削除しました',
+      data: {
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+        isAdmin: false
+      }
+    });
+
+  } catch (error) {
+    logger.error('[Admin] 管理者権限削除エラー:', error);
+    res.status(500).json({
+      success: false,
+      message: '管理者権限の削除に失敗しました',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 }; 

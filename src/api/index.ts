@@ -495,6 +495,28 @@ const adminAPI = {
   
   // 従来の問題生成
   generateProblems: (date: string) => API.post(`/admin/generate-problems/${date}`),
+
+  makeAdmin: async (userId: string) => {
+    try {
+      logger.info('[API] Making user admin:', userId);
+      const response = await API.put(`/admin/users/${userId}/make-admin`);
+      return response;
+    } catch (error: unknown) {
+      logger.error('[API] Make admin error:', (error as Error).message);
+      throw error;
+    }
+  },
+
+  removeAdmin: async (userId: string) => {
+    try {
+      logger.info('[API] Removing admin rights:', userId);
+      const response = await API.put(`/admin/users/${userId}/remove-admin`);
+      return response;
+    } catch (error: unknown) {
+      logger.error('[API] Remove admin error:', (error as Error).message);
+      throw error;
+    }
+  },
 };
 
 // 監視・パフォーマンスAPI

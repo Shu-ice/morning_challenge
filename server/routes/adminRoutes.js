@@ -5,7 +5,9 @@ import {
   getDifficultyStats,
   getGradeStats,
   getHourlyStats,
-  getProblemSetStats
+  getProblemSetStats,
+  makeUserAdmin,
+  removeUserAdmin
 } from '../controllers/adminController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 import { getTimeWindowConfig, updateTimeWindowConfig } from '../controllers/timeWindowController.js';
@@ -28,5 +30,7 @@ router.put('/time-window', updateTimeWindowConfig);
 
 // ユーザー管理API
 router.get('/users', getUsers);
+router.put('/users/:userId/make-admin', makeUserAdmin);
+router.put('/users/:userId/remove-admin', removeUserAdmin);
 
 export default router; 
