@@ -1,5 +1,5 @@
 // Vercel Function: /api/auth
-// サブパス: /api/auth/login, /api/auth/logout など
+// Handles /api/auth/login requests
 
 module.exports = async function handler(req, res) {
   console.log(`🔗 Auth API: ${req.method} ${req.url}`);
@@ -15,14 +15,8 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // URLからサブパスを取得
-  const urlPath = req.url || '';
-  const isLoginRequest = urlPath.includes('login');
-  
-  console.log(`📍 Path: ${urlPath}, isLogin: ${isLoginRequest}`);
-
-  // ログインリクエストの処理
-  if (isLoginRequest && req.method === 'POST') {
+  // POSTリクエストはログイン処理
+  if (req.method === 'POST') {
     try {
       const { email, password } = req.body;
 
@@ -77,11 +71,11 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // その他のリクエスト
-  return res.status(404).json({
-    success: false,
-    error: 'Endpoint not found',
-    availableEndpoints: ['/api/auth/login'],
+  // GETリクエスト - エンドポイント情報
+  return res.status(200).json({
+    success: true,
+    message: 'Auth API endpoint',
+    availableEndpoints: ['/api/auth/login (POST)'],
     timestamp: new Date().toISOString()
   });
 }; 
