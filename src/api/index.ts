@@ -7,7 +7,7 @@ import { logger } from '@/utils/logger';
 import { ErrorHandler } from '@/utils/errorHandler';
 
 // バックエンドAPIの基本URL - Viteのプロキシ設定を利用
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // バックエンドAPIの状態を確認
 logger.info(`[API] Connecting to backend API at: ${API_BASE_URL}`);

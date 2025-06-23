@@ -33,7 +33,9 @@ function Register({ onRegister, onLogin }: RegisterProps) {
       return;
     }
     const gradeNum = parseInt(grade, 10);
-    if (isNaN(gradeNum) || gradeNum < 1 || gradeNum > 8) {
+    // 有効な学年: 1-6(小学生), 7(その他), 999(ひみつ)
+    const validGrades = [1, 2, 3, 4, 5, 6, 7, 999];
+    if (isNaN(gradeNum) || !validGrades.includes(gradeNum)) {
       setError('有効な学年を選択してください');
       return;
     }
