@@ -82,6 +82,8 @@ let mockResults = [];
 let mockDailyProblemSets = [];
 
 const initializeMockData = async () => {
+  logger.info('🔥🔥🔥 [initializeMockData] モックデータ初期化開始！');
+  
   // デフォルトユーザーの作成
   mockUsers = [
     {
@@ -118,6 +120,13 @@ const initializeMockData = async () => {
       updatedAt: new Date()
     }
   ];
+
+  logger.info('🔥🔥🔥 [initializeMockData] ユーザー作成完了！');
+  logger.info('🔥🔥🔥 [initializeMockData] adminユーザー確認:');
+  const adminUser = mockUsers.find(u => u.email === 'admin@example.com');
+  logger.info(`🔥🔥🔥 [initializeMockData]   - username: ${adminUser?.username}`);
+  logger.info(`🔥🔥🔥 [initializeMockData]   - isAdmin: ${adminUser?.isAdmin}`);
+  logger.info(`🔥🔥🔥 [initializeMockData]   - typeof isAdmin: ${typeof adminUser?.isAdmin}`);
 
   // デフォルトのチャレンジ結果の作成（より現実的なデータ）
   const today = dayjs().format('YYYY-MM-DD');
@@ -394,12 +403,27 @@ const addMockUser = (user) => {
 };
 
 const findMockUser = (query) => {
+  logger.debug(`🔥🔥🔥 [findMockUser] 検索クエリ: ${JSON.stringify(query)}`);
+  logger.debug(`🔥🔥🔥 [findMockUser] 現在のmockUsers数: ${mockUsers.length}`);
+  
   if (query.email) {
-    return mockUsers.find(user => user.email === query.email);
+    const user = mockUsers.find(user => user.email === query.email);
+    logger.debug(`🔥🔥🔥 [findMockUser] email検索結果: ${user ? user.username : 'null'}`);
+    if (user) {
+      logger.debug(`🔥🔥🔥 [findMockUser] ユーザー詳細:`);
+      logger.debug(`🔥🔥🔥 [findMockUser]   - username: ${user.username}`);
+      logger.debug(`🔥🔥🔥 [findMockUser]   - email: ${user.email}`);
+      logger.debug(`🔥🔥🔥 [findMockUser]   - isAdmin: ${user.isAdmin}`);
+      logger.debug(`🔥🔥🔥 [findMockUser]   - typeof isAdmin: ${typeof user.isAdmin}`);
+    }
+    return user;
   }
   if (query._id) {
-    return mockUsers.find(user => user._id === query._id);
+    const user = mockUsers.find(user => user._id === query._id);
+    logger.debug(`🔥🔥🔥 [findMockUser] _id検索結果: ${user ? user.username : 'null'}`);
+    return user;
   }
+  logger.debug(`🔥🔥🔥 [findMockUser] 無効なクエリ`);
   return null;
 };
 
