@@ -8,6 +8,15 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
+  
+  // 🔥 強制デバッグ：MainLayoutレンダリング時
+  console.log('🔥🔥🔥 [MainLayout] COMPONENT RENDERING!');
+  console.log('🔥🔥🔥 [MainLayout] User object:', user);
+  console.log('🔥🔥🔥 [MainLayout] User isLoggedIn:', user?.isLoggedIn);
+  console.log('🔥🔥🔥 [MainLayout] User isAdmin:', user?.isAdmin);
+  console.log('🔥🔥🔥 [MainLayout] Admin check result:', user?.isAdmin === true);
+  console.log('🔥🔥🔥 [MainLayout] Admin menu will show:', user?.isLoggedIn && user?.isAdmin);
+  
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
 
