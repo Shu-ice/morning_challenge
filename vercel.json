@@ -1,85 +1,29 @@
 {
   "version": 2,
-  "functions": {
-    "api/admin-dashboard.js": {
-      "runtime": "nodejs20.x"
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     },
-    "api/admin-stats.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/problems.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/time-window.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/auth-login.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/simple-login.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/health.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/env-test.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/make-admin.js": {
-      "runtime": "nodejs20.x"
-    },
-    "api/express.js": {
-      "runtime": "nodejs20.x"
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
     }
-  },
-  "rewrites": [
+  ],
+  "routes": [
     {
-      "source": "/api/admin-dashboard",
-      "destination": "/api/admin-dashboard.js"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
     {
-      "source": "/api/admin/stats/(.*)",
-      "destination": "/api/admin-stats.js"
+      "handle": "filesystem"
     },
     {
-      "source": "/api/problems",
-      "destination": "/api/problems.js"
-    },
-    {
-      "source": "/api/problems/submit",
-      "destination": "/api/problems.js"
-    },
-    {
-      "source": "/api/time-window",
-      "destination": "/api/time-window.js"
-    },
-    {
-      "source": "/api/auth/login",
-      "destination": "/api/auth-login.js"
-    },
-    {
-      "source": "/api/simple-login",
-      "destination": "/api/simple-login.js"
-    },
-    {
-      "source": "/api/health",
-      "destination": "/api/health.js"
-    },
-    {
-      "source": "/api/env-test",
-      "destination": "/api/env-test.js"
-    },
-    {
-      "source": "/api/make-admin",
-      "destination": "/api/make-admin.js"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/express.js"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ],
   "headers": [
