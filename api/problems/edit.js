@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ success: false, error: 'Not Found', message: '問題セットが見つかりません' });
       }
 
-      return res.status(200).json({ success: true, problems: doc.problems, date: doc.date, difficulty: doc.difficulty, isEdited: doc.isEdited });
+      return res.status(200).json({ success: true, data: doc.problems, date: doc.date, difficulty: doc.difficulty, isEdited: doc.isEdited });
     }
 
     if (req.method === 'POST') {
@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
         { upsert: true, new: true }
       );
 
-      return res.status(200).json({ success: true, message: 'Saved', data: { date: updated.date, difficulty: updated.difficulty, problems: updated.problems } });
+      return res.status(200).json({ success: true, message: 'Saved', data: updated.problems, date: updated.date, difficulty: updated.difficulty });
     }
 
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
