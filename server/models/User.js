@@ -194,9 +194,14 @@ class UserModel {
                 }
               }
             };
-            logger.debug(`[UserModel] パスワード付きユーザー返却: ${userWithMethod.username}`);
+            logger.debug(`[UserModel] 🔥🔥🔥 パスワード付きユーザー返却:`);
+            logger.debug(`[UserModel] 🔥🔥🔥 Username: ${userWithMethod.username}`);
+            logger.debug(`[UserModel] 🔥🔥🔥 Email: ${userWithMethod.email}`);
+            logger.debug(`[UserModel] 🔥🔥🔥 isAdmin: ${userWithMethod.isAdmin}`);
+            logger.debug(`[UserModel] 🔥🔥🔥 All user properties:`, Object.keys(userWithMethod));
             return userWithMethod;
           }
+          logger.debug(`[UserModel] 🔥🔥🔥 Returning user without password processing:`, user);
           return user;
         }
       };
