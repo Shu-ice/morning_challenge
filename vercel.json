@@ -17,6 +17,9 @@
     }
   ],
   "routes": [
+    { "src": "/api/health", "dest": "/api/health.js" },
+    { "src": "/api/env-test", "dest": "/api/env-test.js" },
+    { "src": "/api/simple-login", "dest": "/api/simple-login.js" },
     { "src": "/api/(.*)", "dest": "/api/express.js" },
     { "handle": "filesystem" },
     { "src": "/.*", "dest": "/index.html" }
