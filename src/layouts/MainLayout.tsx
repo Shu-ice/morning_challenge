@@ -215,6 +215,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                           </ruby>
                           ツール
                         </Link>
+                        <Link 
+                          to="/admin/users"
+                          onClick={() => setIsAdminMenuOpen(false)}
+                          style={{
+                            display: 'block',
+                            padding: '10px 16px',
+                            fontSize: '0.9rem',
+                            color: '#424245',
+                            textDecoration: 'none',
+                            fontWeight: '500',
+                            transition: 'all 0.2s ease'
+                          }}
+                          className="hover:bg-blue-50 hover:text-blue-600"
+                        >
+                          👥 <ruby>
+                            ユーザー管理<rt>ユーザーかんり</rt>
+                          </ruby>
+                        </Link>
                       </div>
                     </div>
                   )}

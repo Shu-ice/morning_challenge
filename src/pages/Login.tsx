@@ -70,7 +70,10 @@ function Login({ onLogin, onRegister }: LoginProps) {
       const response = await loginApiWithRetry.execute();
       
       if (response) {
-        console.log('[Login] ログイン成功');
+        console.log('[Login] 🎉 ログイン成功');
+        console.log('[Login] 🔑 Token received:', !!response.token);
+        console.log('[Login] 👤 User data from API:', response.user);
+        
         const token = response.token;
         // レスポンス構造に合わせて修正 - response.userからユーザー情報を取得
         const user = response.user;
@@ -84,8 +87,11 @@ function Login({ onLogin, onRegister }: LoginProps) {
           loginTime: new Date().toISOString(),
           isAdmin: user.isAdmin || false,
         };
-        console.log('[Login] ユーザーデータ作成:', userDataFromResponse);
+        console.log('[Login] 🏗️ ユーザーデータ作成:', userDataFromResponse);
+        console.log('[Login] 👑 isAdmin in created data:', userDataFromResponse.isAdmin);
+        console.log('[Login] 📞 Calling onLogin callback...');
         onLogin(userDataFromResponse, token);
+        console.log('[Login] ✅ onLogin callback completed');
       }
     } catch (err: unknown) {
       // useApiWithRetryが既にエラーを管理しているので、ここでは追加処理のみ
