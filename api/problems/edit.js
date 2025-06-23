@@ -37,7 +37,11 @@ module.exports = async function handler(req, res) {
         return res.status(404).json({ success: false, error: 'Not Found', message: '問題セットが見つかりません' });
       }
 
-      return res.status(200).json({ success: true, data: doc.problems, date: doc.date, difficulty: doc.difficulty, isEdited: doc.isEdited });
+      const mapped = doc.problems.map(p => ({
+        ...p,
+        correctAnswer: p.correctAnswer !== undefined ? p.correctAnswer : p.answer
+      }));
+      return res.status(200).json({ success: true, data: mapped, date: doc.date, difficulty: doc.difficulty, isEdited: doc.isEdited });
     }
 
     if (req.method === 'POST') {
@@ -46,9 +50,15 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ success: false, error: 'Invalid payload' });
       }
 
+      // ensure each problem has correctAnswer
+      const processed = problems.map(p => ({
+        ...p,
+        correctAnswer: p.correctAnswer !== undefined ? p.correctAnswer : p.answer
+      }));
+
       const updated = await DailyProblemSet.findOneAndUpdate(
         { date, difficulty },
-        { problems, isEdited: true },
+        { problems: processed, isEdited: true },
         { upsert: true, new: true }
       );
 
