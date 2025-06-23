@@ -260,15 +260,24 @@ function generateProblemSet(difficulty) {
   
   let seedCounter = getDateSeed() + Date.now();
   
-  // 各問題タイプごとに指定数の問題を生成
+  // 各問題タイプごとに指定数の問題を生成 (null なら再試行して必ず count を満たす)
   for (const [problemType, count] of Object.entries(problemComposition)) {
-    for (let i = 0; i < count; i++) {
-      seedCounter += (i + 1) * 1000;
-      const problem = generateSpecificProblem(problemType, difficulty, seedCounter);
-      
+    let generated = 0;
+    let attempt = 0;
+    const maxAttempts = count * 20; // 安全装置（無限ループ防止）
+
+    while (generated < count && attempt < maxAttempts) {
+      seedCounter += 1000; // 毎回シードをずらす
+      const problem = generateSpecificProblem(problemType, difficulty, seedCounter + attempt);
       if (problem) {
         allProblems.push(problem);
+        generated++;
       }
+      attempt++;
+    }
+
+    if (generated < count) {
+      console.warn(`⚠️  ${problemType} で ${count} 件中 ${generated} 件しか生成できませんでした`);
     }
   }
   
@@ -282,7 +291,7 @@ function generateProblemSet(difficulty) {
 }
 
 // メインハンドラー関数
-module.exports = async function handler(req, res) {
+const handler = async function(req, res) {
   console.log('🎯 Problems API called:', req.method, req.url);
   console.log('📝 Query params:', req.query);
   
@@ -302,22 +311,17 @@ module.exports = async function handler(req, res) {
       console.log('📚 Generating problems...');
       
       // 🔧 Step 1: 難易度バリデーション（時間制限チェックより先に実行）
-      let difficulty = req.query.difficulty;
+      let difficulty = (req.query.difficulty || 'beginner').toString().toLowerCase();
       
-      // 難易度が指定されていない場合はデフォルト
-      if (!difficulty) {
-        difficulty = 'beginner';
-      }
-      
-      // 有効な難易度チェック
-      const validDifficulties = Object.values(DifficultyRank);
+      // === 難易度バリデーション（時間制限チェックより先に行う） ===
+      const validDifficulties = Object.values(DifficultyRank); // ['beginner', 'intermediate', ...]
       if (!validDifficulties.includes(difficulty)) {
-        console.log(`❌ Invalid difficulty: ${difficulty}, valid: ${validDifficulties.join(', ')}`);
+        console.log(`❌ Invalid difficulty: ${difficulty}. valid -> ${validDifficulties.join(', ')}`);
         return res.status(400).json({
           success: false,
           error: 'Invalid difficulty level',
           message: `有効な難易度を指定してください: ${validDifficulties.join(', ')}`,
-          validDifficulties: validDifficulties
+          validDifficulties
         });
       }
       
@@ -466,3 +470,8 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+// 他のAPIから使えるように問題セット生成関数をエクスポート
+handler.generateProblemSet = generateProblemSet;
+
+module.exports = handler;
