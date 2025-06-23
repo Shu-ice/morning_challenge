@@ -93,16 +93,35 @@ const loginUser = async (req, res, next) => {
   logger.debug('loginUser function started');
   const { email, password } = req.body;
   logger.info(`Login attempt for email: ${email}`);
+  logger.debug(`Request body keys: ${Object.keys(req.body)}`);
+  logger.debug(`Email provided: ${!!email}, Password provided: ${!!password}`);
 
   try {
+    // バリデーション: emailとpasswordが提供されているか確認
+    if (!email || !password) {
+      logger.error(`Login validation failed - Email: ${!!email}, Password: ${!!password}`);
+      res.status(400);
+      throw new Error('メールアドレスとパスワードの両方が必要です');
+    }
+
     logger.debug(`Searching for user by email: ${email}`);
+    logger.debug(`Environment: MONGODB_MOCK=${process.env.MONGODB_MOCK}`);
+    
     // 🔥 緊急修正: モック環境でのfindOne処理
     const userQuery = User.findOne({ email });
+    logger.debug(`User query created: ${typeof userQuery}`);
+    
     const user = await (userQuery.select ? userQuery.select('+password') : userQuery);
+    logger.debug(`User search result: ${JSON.stringify(user ? { username: user.username, email: user.email, hasPassword: !!user.password, isAdmin: user.isAdmin } : null)}`);
+    
     const userSearchTime = Date.now();
     logger.debug(`User search completed. Duration: ${userSearchTime - startTime}ms. User found: ${!!user}`);
 
     if (user) {
+      logger.debug(`Found user: ${user.username}, isAdmin: ${user.isAdmin}`);
+      logger.debug(`User has matchPassword method: ${typeof user.matchPassword === 'function'}`);
+      logger.debug(`User password exists: ${!!user.password}`);
+      
       logger.debug(`Comparing password for user: ${user.username}`);
       const isMatch = await user.matchPassword(password);
       const passwordMatchTime = Date.now();
@@ -117,7 +136,10 @@ const loginUser = async (req, res, next) => {
           avatar: user.avatar,
           isAdmin: user.isAdmin
         };
+        logger.debug(`Creating token with userInfo: ${JSON.stringify(userInfo)}`);
+        
         const token = generateToken(user._id, userInfo);
+        logger.debug(`Token generated successfully`);
 
         // クッキーにトークンを設定
         res.cookie('jwt', token, {
@@ -127,7 +149,7 @@ const loginUser = async (req, res, next) => {
           maxAge: 30 * 24 * 60 * 60 * 1000,
         });
 
-        res.json({
+        const loginResult = {
           success: true,
           message: 'ログインしました。',
           user: {
@@ -140,9 +162,14 @@ const loginUser = async (req, res, next) => {
             isLoggedIn: true
           },
           token: token,
-        });
+        };
+        
+        logger.info(`Login successful for ${email}. User isAdmin: ${user.isAdmin}`);
+        logger.debug(`Sending login result: ${JSON.stringify(loginResult)}`);
+        
+        res.json(loginResult);
         const endTime = Date.now();
-        logger.info(`Login successful for ${email}. Duration: ${endTime - startTime}ms`);
+        logger.info(`Login completed for ${email}. Duration: ${endTime - startTime}ms`);
       } else {
         const endTime = Date.now();
         logger.warn(`Login failed for ${email}: Invalid credentials. Duration: ${endTime - startTime}ms`);
@@ -151,13 +178,14 @@ const loginUser = async (req, res, next) => {
       }
     } else {
       const endTime = Date.now();
-      logger.warn(`Login failed for ${email}: Invalid credentials. Duration: ${endTime - startTime}ms`);
+      logger.warn(`Login failed for ${email}: User not found. Duration: ${endTime - startTime}ms`);
       res.status(401); // Unauthorized
       throw new Error('メールアドレスまたはパスワードが無効です');
     }
   } catch (error) {
     const endTime = Date.now();
     logger.error(`Login error for ${email}. Duration: ${endTime - startTime}ms. Error: ${error.message}`);
+    logger.error(`Error stack: ${error.stack}`);
     next(error);
   }
 };
