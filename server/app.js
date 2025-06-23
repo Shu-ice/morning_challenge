@@ -17,6 +17,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import historyRoutes from './routes/historyRoutes.js';
 import monitoringRoutes from './routes/monitoringRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import testRoutes from './routes/testRoutes.js';
 
 const app = express();
 
@@ -26,21 +27,52 @@ app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+// MongoDB connection middleware (Vercel optimized)
+app.use(async (req, res, next) => {
+  try {
+    if (!global.mongoConnected) {
+      console.log('🔗 Initializing MongoDB connection...');
+      
+      // Vercel環境でのタイムアウト対策
+      const connectionPromise = connectDB();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('MongoDB connection timeout')), 15000);
+      });
+      
+      await Promise.race([connectionPromise, timeoutPromise]);
+      global.mongoConnected = true;
+      console.log('✅ MongoDB connected');
+    }
+    next();
+  } catch (error) {
+    console.error('❌ MongoDB connection failed:', error.message);
+    
+    // 特定のAPIパスではエラーレスポンスを返す
+    if (req.path.includes('/api/test/') || req.path.includes('/api/health')) {
+      res.status(500).json({ 
+        error: 'Database connection failed',
+        details: error.message,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({ error: 'Database connection failed' });
+    }
+  }
+});
+
 // Route mounting
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/problems', problemRoutes);
 app.use('/api/rankings', rankingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/monitoring', monitoringRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/test', testRoutes);
 
 // Health endpoint
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ success: true });
 });
-
-await connectDB();
-console.log('✅ MongoDB connected');
 
 export default app;

@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { logger } from '../utils/logger.js';
 import bcrypt from 'bcryptjs';
 import dayjs from 'dayjs';
+import { generateProblems } from '../utils/problemGenerator.js';
 
 /**
  * データベース接続設定
@@ -215,75 +216,82 @@ const initializeMockData = async () => {
   for (let i = 0; i <= DAYS_AHEAD; i++) {
     const dateStr = dayjs().add(i, 'day').format('YYYY-MM-DD');
     
-    ['beginner', 'intermediate', 'advanced', 'expert'].forEach((difficulty, diffIndex) => {
-      const problemSetId = i * 4 + diffIndex + 1;
+    for (const difficulty of ['beginner', 'intermediate', 'advanced', 'expert']) {
+      const problemSetId = i * 4 + ['beginner', 'intermediate', 'advanced', 'expert'].indexOf(difficulty) + 1;
       
-      let problems = [];
-      // 各難易度に応じた問題を生成
-      if (difficulty === 'beginner') {
-        problems = [
-          { id: `mock_${difficulty}_${i+1}_1`, question: '23 + 45 = ?', correctAnswer: 68, options: [66, 67, 68, 69] },
-          { id: `mock_${difficulty}_${i+1}_2`, question: '87 - 34 = ?', correctAnswer: 53, options: [51, 52, 53, 54] },
-          { id: `mock_${difficulty}_${i+1}_3`, question: '56 + 29 = ?', correctAnswer: 85, options: [83, 84, 85, 86] },
-          { id: `mock_${difficulty}_${i+1}_4`, question: '74 - 28 = ?', correctAnswer: 46, options: [44, 45, 46, 47] },
-          { id: `mock_${difficulty}_${i+1}_5`, question: '234 + 56 = ?', correctAnswer: 290, options: [288, 289, 290, 291] },
-          { id: `mock_${difficulty}_${i+1}_6`, question: '389 - 67 = ?', correctAnswer: 322, options: [320, 321, 322, 323] },
-          { id: `mock_${difficulty}_${i+1}_7`, question: '567 + 89 = ?', correctAnswer: 656, options: [654, 655, 656, 657] },
-          { id: `mock_${difficulty}_${i+1}_8`, question: '7 × 8 = ?', correctAnswer: 56, options: [54, 55, 56, 57] },
-          { id: `mock_${difficulty}_${i+1}_9`, question: '9 × 6 = ?', correctAnswer: 54, options: [52, 53, 54, 55] },
-          { id: `mock_${difficulty}_${i+1}_10`, question: '8 × 9 = ?', correctAnswer: 72, options: [70, 71, 72, 73] }
-        ];
-      } else if (difficulty === 'intermediate') {
-        problems = [
-          { id: `mock_${difficulty}_${i+1}_1`, question: '25 + 47 = ?', correctAnswer: 72, options: [70, 71, 72, 73] },
-          { id: `mock_${difficulty}_${i+1}_2`, question: '93 - 58 = ?', correctAnswer: 35, options: [33, 34, 35, 36] },
-          { id: `mock_${difficulty}_${i+1}_3`, question: '12 × 8 = ?', correctAnswer: 96, options: [94, 95, 96, 97] },
-          { id: `mock_${difficulty}_${i+1}_4`, question: '144 ÷ 12 = ?', correctAnswer: 12, options: [10, 11, 12, 13] },
-          { id: `mock_${difficulty}_${i+1}_5`, question: '67 + 29 = ?', correctAnswer: 96, options: [94, 95, 96, 97] },
-          { id: `mock_${difficulty}_${i+1}_6`, question: '85 - 37 = ?', correctAnswer: 48, options: [46, 47, 48, 49] },
-          { id: `mock_${difficulty}_${i+1}_7`, question: '15 × 6 = ?', correctAnswer: 90, options: [88, 89, 90, 91] },
-          { id: `mock_${difficulty}_${i+1}_8`, question: '108 ÷ 9 = ?', correctAnswer: 12, options: [10, 11, 12, 13] },
-          { id: `mock_${difficulty}_${i+1}_9`, question: '74 + 56 = ?', correctAnswer: 130, options: [128, 129, 130, 131] },
-          { id: `mock_${difficulty}_${i+1}_10`, question: '156 - 89 = ?', correctAnswer: 67, options: [65, 66, 67, 68] }
-        ];
-      } else if (difficulty === 'advanced') {
-        problems = [
-          { id: `mock_${difficulty}_${i+1}_1`, question: '234 + 567 = ?', correctAnswer: 801, options: [799, 800, 801, 802] },
-          { id: `mock_${difficulty}_${i+1}_2`, question: '1000 - 347 = ?', correctAnswer: 653, options: [651, 652, 653, 654] },
-          { id: `mock_${difficulty}_${i+1}_3`, question: '23 × 45 = ?', correctAnswer: 1035, options: [1033, 1034, 1035, 1036] },
-          { id: `mock_${difficulty}_${i+1}_4`, question: '1728 ÷ 24 = ?', correctAnswer: 72, options: [70, 71, 72, 73] },
-          { id: `mock_${difficulty}_${i+1}_5`, question: '456 + 789 = ?', correctAnswer: 1245, options: [1243, 1244, 1245, 1246] },
-          { id: `mock_${difficulty}_${i+1}_6`, question: '2000 - 678 = ?', correctAnswer: 1322, options: [1320, 1321, 1322, 1323] },
-          { id: `mock_${difficulty}_${i+1}_7`, question: '34 × 56 = ?', correctAnswer: 1904, options: [1902, 1903, 1904, 1905] },
-          { id: `mock_${difficulty}_${i+1}_8`, question: '2016 ÷ 36 = ?', correctAnswer: 56, options: [54, 55, 56, 57] },
-          { id: `mock_${difficulty}_${i+1}_9`, question: '789 + 654 = ?', correctAnswer: 1443, options: [1441, 1442, 1443, 1444] },
-          { id: `mock_${difficulty}_${i+1}_10`, question: '3000 - 1234 = ?', correctAnswer: 1766, options: [1764, 1765, 1766, 1767] }
-        ];
-      } else if (difficulty === 'expert') {
-        problems = [
-          { id: `mock_${difficulty}_${i+1}_1`, question: '2³ + 5² = ?', correctAnswer: 33, options: [31, 32, 33, 34] },
-          { id: `mock_${difficulty}_${i+1}_2`, question: '√144 + √81 = ?', correctAnswer: 21, options: [19, 20, 21, 22] },
-          { id: `mock_${difficulty}_${i+1}_3`, question: '67 × 89 = ?', correctAnswer: 5963, options: [5961, 5962, 5963, 5964] },
-          { id: `mock_${difficulty}_${i+1}_4`, question: '4096 ÷ 64 = ?', correctAnswer: 64, options: [62, 63, 64, 65] },
-          { id: `mock_${difficulty}_${i+1}_5`, question: '3⁴ - 2⁵ = ?', correctAnswer: 49, options: [47, 48, 49, 50] },
-          { id: `mock_${difficulty}_${i+1}_6`, question: '√225 × √16 = ?', correctAnswer: 60, options: [58, 59, 60, 61] },
-          { id: `mock_${difficulty}_${i+1}_7`, question: '123 × 456 = ?', correctAnswer: 56088, options: [56086, 56087, 56088, 56089] },
-          { id: `mock_${difficulty}_${i+1}_8`, question: '9999 ÷ 99 = ?', correctAnswer: 101, options: [99, 100, 101, 102] },
-          { id: `mock_${difficulty}_${i+1}_9`, question: '5! ÷ 3! = ?', correctAnswer: 20, options: [18, 19, 20, 21] },
-          { id: `mock_${difficulty}_${i+1}_10`, question: '2⁶ + 3³ = ?', correctAnswer: 91, options: [89, 90, 91, 92] }
-        ];
+      try {
+        // 実際の問題生成関数を使用（日付ベースのシードで一貫性を確保）
+        const baseSeed = `${dateStr}_${difficulty}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const seed = baseSeed + i * 1000 + Math.random() * 100; // 日付ごとに異なるシード
+        
+        logger.debug(`[initializeMockData] ${dateStr} ${difficulty} 問題生成開始 (seed: ${seed})`);
+        
+        const generatedProblems = await generateProblems(difficulty, 10, seed);
+        
+        let problems = [];
+        if (generatedProblems && generatedProblems.length > 0) {
+          // generateProblems の出力を DailyProblemSet の期待する形式に変換
+          problems = generatedProblems.map(p => ({
+            id: p.id,
+            question: p.question,
+            correctAnswer: p.answer, // answer -> correctAnswer に変換
+            options: p.options
+          }));
+          logger.debug(`[initializeMockData] ${dateStr} ${difficulty} 問題生成成功: ${problems.length}問`);
+        } else {
+          logger.warn(`[initializeMockData] ${dateStr} ${difficulty} 問題生成失敗、デフォルト問題を使用`);
+          // フォールバック: 基本的な問題を生成
+          problems = Array.from({ length: 10 }, (_, idx) => {
+            const num1 = 10 + (i * 2) + idx;
+            const num2 = 5 + idx;
+            const operation = idx % 2 === 0 ? '+' : '-';
+            const answer = operation === '+' ? num1 + num2 : Math.abs(num1 - num2);
+            return {
+              id: `fallback_${difficulty}_${i+1}_${idx+1}`,
+              question: `${num1} ${operation} ${num2} = ?`,
+              correctAnswer: answer,
+              options: [answer - 1, answer, answer + 1, answer + 2].sort(() => Math.random() - 0.5)
+            };
+          });
+        }
+        
+        mockDailyProblemSets.push({
+          _id: problemSetId,
+          date: dateStr,
+          difficulty: difficulty,
+          problems: problems,
+          isEdited: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        
+      } catch (error) {
+        logger.error(`[initializeMockData] ${dateStr} ${difficulty} 問題生成エラー:`, error);
+        // エラー時のフォールバック問題を生成
+        const fallbackProblems = Array.from({ length: 10 }, (_, idx) => {
+          const num1 = 10 + (i * 3) + idx;
+          const num2 = 3 + idx;
+          const operation = '+';
+          const answer = num1 + num2;
+          return {
+            id: `error_fallback_${difficulty}_${i+1}_${idx+1}`,
+            question: `${num1} ${operation} ${num2} = ?`,
+            correctAnswer: answer,
+            options: [answer - 1, answer, answer + 1, answer + 2].sort(() => Math.random() - 0.5)
+          };
+        });
+        
+        mockDailyProblemSets.push({
+          _id: problemSetId,
+          date: dateStr,
+          difficulty: difficulty,
+          problems: fallbackProblems,
+          isEdited: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
       }
-      
-      mockDailyProblemSets.push({
-        _id: problemSetId,
-        date: dateStr,
-        difficulty: difficulty,
-        problems: problems,
-        isEdited: false,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-    });
+    }
   }
   
   logger.info('✅ モックユーザーデータ初期化完了');
@@ -297,176 +305,115 @@ const initializeMockData = async () => {
   logger.debug(`[Mock Init] 初期化完了時のmockDailyProblemSets配列長: ${mockDailyProblemSets.length}`);
 };
 
-const connectDB = async () => {
-  const isMongoMock = process.env.MONGODB_MOCK === 'true';
+// モック環境判定（本番環境では常にfalse）
+const isMongoMock = () => {
+  // 本番環境ではmongodbを使用、開発環境でのみモックを許可
+  const mongoMockValue = process.env.MONGODB_MOCK?.toString().trim();
+  const isProduction = process.env.NODE_ENV === 'production';
   
-  if (isMongoMock) {
-    logger.info('🗂️  InMemoryデータベースモードで起動');
-    await initializeMockData();
-    return true;
+  if (isProduction) {
+    logger.info('[Database] 本番環境: MongoDB Atlas接続を使用');
+    return false; // 本番環境では常にMongoDB
   }
+  
+  const isMock = mongoMockValue === 'true';
+  logger.debug(`[Database] 開発環境: MONGODB_MOCK="${mongoMockValue}", isMock=${isMock}`);
+  return isMock;
+};
 
+// MongoDB Atlas接続
+const connectMongoDB = async () => {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/morning_challenge';
-    logger.info(`🔗 MongoDB接続試行: ${mongoURI}`);
+    const mongoURI = process.env.MONGODB_URI;
+    if (!mongoURI) {
+      throw new Error('MONGODB_URI環境変数が設定されていません');
+    }
     
-    await mongoose.connect(mongoURI);
-    logger.info('✅ MongoDB接続成功');
+    logger.info(`[Database] MongoDB Atlas接続開始...`);
+    
+    // Vercel環境用の接続設定
+    const options = {
+      serverSelectionTimeoutMS: 10000, // 10秒
+      socketTimeoutMS: 20000, // 20秒
+      maxPoolSize: 5, // Vercelでは小さなプールサイズ
+      bufferMaxEntries: 0
+    };
+    
+    await mongoose.connect(mongoURI, options);
+    logger.info('✅ MongoDB Atlas接続成功');
+    
+    // Vercel環境では管理者ユーザー作成を非同期で実行（エラーでも続行）
+    createAdminUsersIfNeeded().catch(err => {
+      logger.warn('[Database] 管理者ユーザー作成は遅延実行:', err.message);
+    });
+    
     return true;
   } catch (error) {
-    logger.error(`❌ MongoDB接続エラー: ${error.message}`);
-
-    // === 変更点 ===
-    // Vercel などの本番環境では自動でモック DB に切り替えない
-    // 明示的に USE_MOCK_DB=true が指定されている場合のみモックに切替
-    const allowMock = process.env.USE_MOCK_DB === 'true';
-    const isVercel = !!process.env.VERCEL; // Vercel 環境では VERCEL=1 が自動付与される
-
-    if (allowMock && !isVercel) {
-      logger.warn('🧪 USE_MOCK_DB=true のため InMemory モック DB に切替');
-      process.env.MONGODB_MOCK = 'true';
-      await initializeMockData();
-      return true;
-    }
-
-    // 本番環境で接続できない場合は致命的エラーとして終了
-    logger.error('❌ 本番環境で MongoDB に接続できません。MONGODB_URI を確認してください。');
+    logger.error('[Database] MongoDB Atlas接続エラー:', error.message);
     throw error;
   }
 };
 
-// モックデータのゲッター関数（_id安全性チェック付き）
-const getMockUsers = () => {
-  // 全てのユーザーが有効な_idを持っていることを確認
-  const validUsers = mockUsers.filter(user => {
-    if (!user || !user._id) {
-      logger.warn(`[getMockUsers] 無効なユーザーを検出: ${JSON.stringify(user)}`);
-      return false;
+// 管理者ユーザーの作成
+const createAdminUsersIfNeeded = async () => {
+  try {
+    // 基本的なUserスキーマ定義
+    const userSchema = new mongoose.Schema({
+      username: { type: String, required: true, unique: true },
+      email: { type: String, required: true, unique: true },
+      password: { type: String, required: true },
+      grade: { type: Number, default: 1 },
+      avatar: { type: String, default: '😊' },
+      isAdmin: { type: Boolean, default: false },
+      createdAt: { type: Date, default: Date.now },
+      updatedAt: { type: Date, default: Date.now }
+    });
+
+    // モデルの取得または作成
+    const User = mongoose.models.User || mongoose.model('User', userSchema);
+    
+    // 管理者ユーザーデータ
+    const adminUsers = [
+      { username: 'admin', email: 'admin@example.com', password: 'admin123' },
+      { username: 'kanri', email: 'kanri@example.com', password: 'kanri123' }
+    ];
+    
+    for (const adminData of adminUsers) {
+      const existingUser = await User.findOne({ email: adminData.email });
+      if (!existingUser) {
+        logger.info(`[Database] 管理者ユーザー作成中: ${adminData.email}`);
+        
+        // パスワードをハッシュ化
+        const hashedPassword = await bcrypt.hash(adminData.password, 10);
+        
+        await User.create({
+          username: adminData.username,
+          email: adminData.email,
+          password: hashedPassword,
+          grade: 6,
+          avatar: '👑',
+          isAdmin: true
+        });
+        
+        logger.info(`[Database] 管理者ユーザー作成完了: ${adminData.email}`);
+      } else {
+        logger.debug(`[Database] 管理者ユーザー存在確認: ${adminData.email}`);
+      }
     }
-    return true;
-  });
-  
-  if (validUsers.length !== mockUsers.length) {
-    logger.warn(`[getMockUsers] ${mockUsers.length - validUsers.length}個の無効なユーザーを除外しました`);
+    
+  } catch (error) {
+    logger.error('[Database] 管理者ユーザー作成エラー:', error.message);
   }
-  
-  return validUsers;
-};
-const getMockResults = () => {
-  // 全ての結果レコードでuserIdが文字列であることを確認
-  const validResults = mockResults.map(result => ({
-    ...result,
-    userId: String(result.userId) // 文字列に統一
-  }));
-  return validResults;
-};
-const getMockDailyProblemSets = () => {
-  logger.debug(`[database.js] getMockDailyProblemSets called, returning ${mockDailyProblemSets.length} sets`);
-  return mockDailyProblemSets;
 };
 
-// モックデータの操作関数
-const addMockResult = (result) => {
-  // userIdを必ず文字列に統一
-  result.userId = String(result.userId);
-  result._id = result._id || (mockResults.length + 1).toString();
-  result.createdAt = result.createdAt || new Date();
-  result.updatedAt = result.updatedAt || new Date();
-  
-  mockResults.push(result);
-  logger.debug(`[addMockResult] 新しい結果レコードを追加: userId=${result.userId}, grade=${result.grade}`);
-  return result;
-};
-
-const addMockUser = (user) => {
-  // _idが未設定または無効な場合は新しいIDを生成
-  if (!user._id || typeof user._id !== 'string') {
-    user._id = (mockUsers.length + 1).toString();
-  }
-  
-  // _idの重複チェック
-  while (mockUsers.some(existingUser => existingUser._id === user._id)) {
-    const numericId = parseInt(user._id) || mockUsers.length + 1;
-    user._id = (numericId + 1).toString();
-  }
-  
-  // 必須フィールドのデフォルト値設定
-  user.createdAt = user.createdAt || new Date();
-  user.updatedAt = user.updatedAt || new Date();
-  user.grade = user.grade ?? 1;
-  user.avatar = user.avatar || '😊';
-  user.isAdmin = user.isAdmin || false;
-  
-  mockUsers.push(user);
-  logger.debug(`[addMockUser] 新しいユーザーを追加: ${user.username} (ID: ${user._id})`);
-  return user;
-};
-
-const findMockUser = (query) => {
-  logger.debug(`🔥🔥🔥 [findMockUser] 検索クエリ: ${JSON.stringify(query)}`);
-  logger.debug(`🔥🔥🔥 [findMockUser] 現在のmockUsers数: ${mockUsers.length}`);
-  
-  if (query.email) {
-    const user = mockUsers.find(user => user.email === query.email);
-    logger.debug(`🔥🔥🔥 [findMockUser] email検索結果: ${user ? user.username : 'null'}`);
-    if (user) {
-      logger.debug(`🔥🔥🔥 [findMockUser] ユーザー詳細:`);
-      logger.debug(`🔥🔥🔥 [findMockUser]   - username: ${user.username}`);
-      logger.debug(`🔥🔥🔥 [findMockUser]   - email: ${user.email}`);
-      logger.debug(`🔥🔥🔥 [findMockUser]   - isAdmin: ${user.isAdmin}`);
-      logger.debug(`🔥🔥🔥 [findMockUser]   - typeof isAdmin: ${typeof user.isAdmin}`);
-    }
-    return user;
-  }
-  if (query._id) {
-    const user = mockUsers.find(user => user._id === query._id);
-    logger.debug(`🔥🔥🔥 [findMockUser] _id検索結果: ${user ? user.username : 'null'}`);
-    return user;
-  }
-  logger.debug(`🔥🔥🔥 [findMockUser] 無効なクエリ`);
-  return null;
-};
-
-const updateMockUser = (id, updates) => {
-  logger.debug(`[updateMockUser] 更新処理開始: id=${id}, updates=`, updates);
-  const userIndex = mockUsers.findIndex(user => user._id === id);
-  logger.debug(`[updateMockUser] ユーザーインデックス: ${userIndex}`);
-  
-  if (userIndex !== -1) {
-    const beforeUpdate = { ...mockUsers[userIndex] };
-    mockUsers[userIndex] = { ...mockUsers[userIndex], ...updates, updatedAt: new Date() };
-    logger.debug(`[updateMockUser] 更新前grade: ${beforeUpdate.grade}, 更新後grade: ${mockUsers[userIndex].grade}`);
-    logger.debug(`[updateMockUser] 更新完了:`, mockUsers[userIndex]);
-    return mockUsers[userIndex];
-  }
-  logger.debug(`[updateMockUser] ユーザーが見つかりません: id=${id}`);
-  return null;
-};
-
-// 問題セット操作関数
-const addMockDailyProblemSet = (problemSet) => {
-  problemSet._id = mockDailyProblemSets.length + 1;
-  problemSet.createdAt = problemSet.createdAt || new Date();
-  problemSet.updatedAt = problemSet.updatedAt || new Date();
-  mockDailyProblemSets.push(problemSet);
-  logger.debug(`[database.js] addMockDailyProblemSet: 追加後の総数=${mockDailyProblemSets.length}`);
-  return problemSet;
-};
-
-const findMockDailyProblemSet = (query) => {
-  logger.debug(`[database.js] findMockDailyProblemSet: ${JSON.stringify(query)}`);
-  const result = mockDailyProblemSets.find(set => {
-    if (query.date && set.date !== query.date) return false;
-    if (query.difficulty && set.difficulty !== query.difficulty) return false;
-    if (query._id && set._id !== query._id) return false;
-    return true;
-  });
-  logger.debug(`[database.js] findMockDailyProblemSet result: ${result ? 'found' : 'not found'}`);
-  return result;
+// メイン接続関数
+const connectDB = async () => {
+  return await connectMongoDB();
 };
 
 export { 
   connectDB,
+  connectMongoDB,
   getMockUsers,
   getMockResults, 
   getMockDailyProblemSets,
