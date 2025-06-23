@@ -1,26 +1,29 @@
 #!/usr/bin/env node
 
 /**
- * 🚀 最終プロダクション動作テスト
+ * 🚨 緊急: Vercel API 404エラー完全修正テスト
  * 
- * URL: https://morningchallenge-pj6q05gsc-shu-ices-projects.vercel.app
- * 目標: admin@example.com で完全な管理者ダッシュボードアクセス
+ * 修正内容:
+ * 1. vercel.json の完全書き換え（シンプルなroutes設定）
+ * 2. api/auth/login.js の動作確認
+ * 3. フロントエンド互換性確認
  */
 
 const axios = require('axios');
 
+// 最新のプロダクションURLを使用
 const PRODUCTION_URL = 'https://morningchallenge-pj6q05gsc-shu-ices-projects.vercel.app';
 
 const tests = [
   {
-    name: '🏥 Health Check',
+    name: '🏥 Health Check (Basic)',
     url: `${PRODUCTION_URL}/api/health`,
     method: 'GET',
-    critical: false
+    critical: true
   },
   {
-    name: '🔐 Admin Login',
-    url: `${PRODUCTION_URL}/api/simple-login`,
+    name: '🔐 Admin Login (Critical)',
+    url: `${PRODUCTION_URL}/api/auth/login`,
     method: 'POST',
     data: {
       email: 'admin@example.com',
@@ -30,14 +33,14 @@ const tests = [
     saveToken: true
   },
   {
-    name: '📊 Admin Dashboard Access',
+    name: '📊 Admin Dashboard',
     url: `${PRODUCTION_URL}/api/admin-dashboard`,
     method: 'GET',
     critical: true,
     requiresAuth: true
   },
   {
-    name: '🧮 Problems API',
+    name: '🧮 Problems API', 
     url: `${PRODUCTION_URL}/api/problems`,
     method: 'GET',
     critical: false,
@@ -65,7 +68,7 @@ async function runTest(test) {
       url: test.url,
       timeout: 30000,
       headers: {
-        'User-Agent': 'Production-Final-Test/1.0',
+        'User-Agent': '404-Fix-Test/1.0',
         'Content-Type': 'application/json'
       }
     };
@@ -101,14 +104,13 @@ async function runTest(test) {
         console.log(`🎉 LOGIN SUCCESS!`);
         console.log(`👤 User: ${user.username} (${user.email})`);
         console.log(`👑 Admin: ${user.isAdmin}`);
-        console.log(`🎯 Grade: ${user.grade}`);
+        console.log(`🎯 Auth Method: ${response.data.authMethod || 'Unknown'}`);
       }
       
       if (test.name.includes('Dashboard') && response.data.data) {
         console.log(`🎉 DASHBOARD ACCESS SUCCESS!`);
-        console.log(`📊 System Health: ${response.data.data.systemHealth?.status}`);
-        console.log(`👥 Total Users: ${response.data.data.userStats?.totalUsers}`);
-        console.log(`📈 Today's Challenges: ${response.data.data.challengeStats?.challengesToday}`);
+        console.log(`📊 User Stats: ${response.data.data.userStats?.totalUsers || 'N/A'} total users`);
+        console.log(`📈 Challenge Stats: ${response.data.data.challengeStats?.totalChallenges || 'N/A'} total challenges`);
       }
     }
     
@@ -129,12 +131,18 @@ async function runTest(test) {
     if (error.response) {
       console.log(`📊 Status: ${error.response.status}`);
       
+      // 404エラーの詳細チェック
+      if (error.response.status === 404) {
+        console.log(`🚨 404 NOT FOUND - API ROUTING ISSUE!`);
+        console.log(`🚨 This indicates vercel.json routing problems`);
+      }
+      
       // Vercel認証エラーのチェック
       if (error.response.status === 401 && 
           typeof error.response.data === 'string' && 
           error.response.data.includes('Authentication Required')) {
-        console.log(`🚨 VERCEL AUTHENTICATION WALL DETECTED!`);
-        console.log(`🚨 This might indicate Vercel project protection is enabled`);
+        console.log(`🚨 VERCEL AUTHENTICATION WALL!`);
+        console.log(`🚨 Project protection is enabled`);
       }
       
       const responseText = typeof error.response.data === 'string' 
@@ -165,7 +173,7 @@ async function runTest(test) {
 }
 
 async function runAllTests() {
-  console.log('🚀 朝のチャレンジアプリ - 最終プロダクション動作テスト');
+  console.log('🚨 Vercel API 404エラー完全修正テスト');
   console.log('🌐 URL:', PRODUCTION_URL);
   console.log('='.repeat(80));
   
@@ -178,6 +186,10 @@ async function runAllTests() {
     // クリティカルテスト成功時は即座に報告
     if (test.critical && result.success) {
       console.log(`\n🎉 CRITICAL SUCCESS: ${test.name}`);
+      
+      if (test.name.includes('Health')) {
+        console.log(`🎯 API ルーティングが正常に動作！`);
+      }
       
       if (test.name.includes('Login')) {
         console.log(`🎯 admin@example.com ログイン成功！`);
@@ -199,44 +211,50 @@ async function runAllTests() {
   const failed = results.filter(r => !r.success);
   const criticalSuccess = results.filter(r => r.critical && r.success);
   const criticalFailed = results.filter(r => r.critical && !r.success);
+  const notFound = results.filter(r => r.status === 404);
   
   console.log(`✅ 成功: ${successful.length}/${results.length}`);
   console.log(`❌ 失敗: ${failed.length}/${results.length}`);
   console.log(`🚨 Critical Success: ${criticalSuccess.length}/${results.filter(r => r.critical).length}`);
   console.log(`🚨 Critical Failed: ${criticalFailed.length}/${results.filter(r => r.critical).length}`);
+  console.log(`🔍 404 Errors: ${notFound.length}/${results.length}`);
   
   // 最終判定
+  const healthSuccess = results.find(r => r.test.includes('Health') && r.success);
   const loginSuccess = results.find(r => r.test.includes('Login') && r.success);
   const dashboardSuccess = results.find(r => r.test.includes('Dashboard') && r.success);
   
-  if (loginSuccess && dashboardSuccess) {
+  if (notFound.length > 0) {
+    console.log('\n🚨 404 ERROR ANALYSIS');
+    console.log('📝 以下のAPIエンドポイントで404エラー:');
+    notFound.forEach(f => {
+      console.log(`  - ${f.test}: ${f.error?.message || 'Not Found'}`);
+    });
+    
+    console.log('\n📊 推奨対策:');
+    console.log('1. vercel.json のroutes設定確認');
+    console.log('2. APIファイル配置の確認');
+    console.log('3. Vercelビルドログの確認');
+    
+  } else if (healthSuccess && loginSuccess && dashboardSuccess) {
     console.log('\n🎉🎉 COMPLETE SUCCESS! 🎉🎉');
+    console.log('✅ API ルーティング正常');
     console.log('✅ admin@example.com ログイン成功');
     console.log('✅ 管理者ダッシュボードアクセス成功');
-    console.log('✅ 朝のチャレンジアプリが正常に動作しています！');
-    
-    console.log('\n🚀 次のステップ:');
-    console.log('1. ブラウザで直接アクセステスト');
-    console.log('2. 時間制限設定の確認');
-    console.log('3. 問題生成機能のテスト');
+    console.log('✅ 404エラー完全解決！');
     
   } else if (criticalFailed.length === 0) {
     console.log('\n🎯 SUCCESS WITH MINOR ISSUES');
     console.log('✅ 重要な機能は全て動作');
-    console.log('⚠️ 一部の非クリティカル機能に問題あり');
+    console.log('✅ 404エラーは解決済み');
     
   } else {
-    console.log('\n⚠️ CRITICAL ISSUES DETECTED');
-    console.log('📝 以下の重要機能に問題があります:');
+    console.log('\n⚠️ CRITICAL ISSUES REMAIN');
+    console.log('📝 以下の重要機能にまだ問題があります:');
     
     criticalFailed.forEach(f => {
       console.log(`  - ${f.test}: ${f.error?.message || f.error || 'Unknown error'}`);
     });
-    
-    console.log('\n📊 推奨対策:');
-    console.log('1. Vercel環境変数の確認');
-    console.log('2. プロジェクト認証設定の確認');
-    console.log('3. MongoDB Atlas接続の再確認');
   }
   
   console.log('\n🌐 プロダクションURL:');
