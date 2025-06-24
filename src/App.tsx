@@ -119,14 +119,17 @@ const AppRoutes: React.FC = () => {
 
   // 時間制限チェック関数
   const isWithinTimeWindow = () => {
+    // 管理者は常にバイパス
+    if (user?.isAdmin) return true;
+
     if (process.env.NODE_ENV === 'development' || process.env.REACT_APP_DISABLE_TIME_CHECK === 'true') {
-        return true;
+      return true;
     }
     const now = new Date();
     const hour = now.getHours();
     const minutes = now.getMinutes();
-    const currentTime = hour + minutes/60;
-    return (currentTime >= 6.5 && currentTime <= 8.0);
+    const currentTime = hour + minutes / 60;
+    return currentTime >= 6.5 && currentTime <= 8.0;
   };
 
   return (
