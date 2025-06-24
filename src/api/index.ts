@@ -311,7 +311,7 @@ const problemsAPI = {
       logger.debug(`[API] 送信データ (submitAnswers):`, submissionData);
       
       // ★ API.post の第二引数は submissionData を使う
-      const response = await API.post('/problems/submit', submissionData); 
+      const response = await API.post('/problems', submissionData); 
       logger.debug(`[API] 回答提出レスポンス (submitAnswers):`, response);
       
       if (response.data.data && !response.data.success) {

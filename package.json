@@ -23,7 +23,9 @@
     "server:prod": "cd server && cross-env NODE_ENV=production DISABLE_TIME_CHECK=false MONGODB_MOCK=false node server.js",
     "clean": "rimraf dist node_modules/.cache",
     "setup": "npm install && cd server && npm install",
-    "test": "echo \"テストは今後実装予定\" && exit 0"
+    "test": "echo \"テストは今後実装予定\" && exit 0",
+    "seed": "node scripts/update_admin_pass.js",
+    "smoke": "node scripts/quick_smoke_test.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.79.0",

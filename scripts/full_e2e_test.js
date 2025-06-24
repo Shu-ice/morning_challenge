@@ -5,7 +5,7 @@
 const axios = require('axios');
 
 // 本番環境URL
-const BASE_URL = 'https://morningchallenge-5vf5qwski-shu-ices-projects.vercel.app';
+const BASE_URL = process.env.BASE_URL || 'https://morningchallenge-8u5129p3n-shu-ices-projects.vercel.app';
 
 // 管理者クレデンシャル
 const ADMIN_CREDENTIALS = {

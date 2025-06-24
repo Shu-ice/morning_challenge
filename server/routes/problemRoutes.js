@@ -22,6 +22,9 @@ router.post('/edit', protect, admin, saveEditedProblems);
 // 問題回答提出ルート
 router.post('/submit', protect, timeRestriction, submitAnswers);
 
+// 新エンドポイント: /api/problems (POST) でも回答提出を受け付け
+router.post('/', protect, timeRestriction, submitAnswers);
+
 // 履歴取得ルート
 router.get('/history', protect, getHistory);
 

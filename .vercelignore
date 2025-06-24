@@ -1,0 +1,9 @@
+# Exclude backend express server used only for local development
+server/
+# Exclude test scripts and local documentation
+scripts/
+*.test.js
+*.test.ts
+# Exclude environment examples and local setup files
+.env*
+check-db.mongo 
