@@ -441,13 +441,28 @@ const handler = async function(req, res) {
       
       console.log(`✅ Scoring complete: ${correctCount}/${correctAnswers.length} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
       
+      // 各問題の詳細結果を構築
+      const detailedResults = correctAnswers.map((prob, idx) => {
+        const userAnsRaw = answers[idx];
+        const userAns = userAnsRaw !== undefined && userAnsRaw !== null ? String(userAnsRaw) : null;
+        const isCorrect = userAns !== null && parseFloat(userAns) === prob.answer;
+        return {
+          id: prob.id,
+          question: prob.question,
+          correctAnswer: prob.answer,
+          userAnswer: userAns,
+          isCorrect: isCorrect
+        };
+      });
+
       const responsePayload = {
         correctAnswers: correctCount,
+        incorrectAnswers: correctAnswers.length - correctCount,
         totalProblems: correctAnswers.length,
         score: score,
-        timeSpent: timeToComplete,
+        totalTime: timeToComplete,
         difficulty: usedDifficulty,
-        adminBypass: userIsAdmin
+        results: detailedResults
       };
 
       return res.status(200).json({
