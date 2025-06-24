@@ -4,20 +4,31 @@
  */
 
 /**
- * 日付をYYYY-MM-DD形式の文字列に変換
- * @param date - 変換する日付
- * @returns YYYY-MM-DD形式の文字列
+ * JSTタイムゾーンで日付をYYYY-MM-DD形式の文字列に変換
+ * @param date - 変換する日付（オプション、デフォルトは現在時刻）
+ * @returns YYYY-MM-DD形式の文字列（JSTタイムゾーン）
  */
-export const getFormattedDate = (date: Date): string => {
+export const getFormattedDate = (date: Date = new Date()): string => {
+  // UTC → JST 変換してから YYYY-MM-DD 抽出
+  const jstDate = new Date(date.getTime() + 9*60*60*1000);
+  return jstDate.toISOString().slice(0, 10);
+};
+
+/**
+ * 旧関数（ローカルタイムゾーン版）- 後方互換性のため残す
+ * @param date - 変換する日付
+ * @returns YYYY-MM-DD形式の文字列（ローカルタイムゾーン）
+ */
+export const getFormattedDateLocal = (date: Date): string => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
 /**
- * 現在の日付をYYYY-MM-DD形式で取得
- * @returns 今日の日付のYYYY-MM-DD形式の文字列
+ * JSTタイムゾーンで現在の日付をYYYY-MM-DD形式で取得
+ * @returns JSTでの今日の日付のYYYY-MM-DD形式の文字列
  */
 export const getTodayFormatted = (): string => {
-  return getFormattedDate(new Date());
+  return getFormattedDate();
 };
 
 /**
@@ -94,11 +105,22 @@ export const isValidDateString = (dateString: string): boolean => {
 };
 
 /**
- * 日付が今日かチェック
+ * JSTタイムゾーンで日付が今日かチェック
  * @param date - チェックする日付
- * @returns 今日の場合true
+ * @returns JSTでの今日の場合true
  */
 export const isToday = (date: Date): boolean => {
+  const todayJST = getFormattedDate();
+  const dateJST = getFormattedDate(date);
+  return todayJST === dateJST;
+};
+
+/**
+ * ローカルタイムゾーンで日付が今日かチェック（旧関数）
+ * @param date - チェックする日付
+ * @returns ローカルでの今日の場合true
+ */
+export const isTodayLocal = (date: Date): boolean => {
   const today = new Date();
   return (
     date.getFullYear() === today.getFullYear() &&
@@ -127,4 +149,9 @@ export const isFutureDate = (date: Date): boolean => {
   const today = new Date();
   today.setHours(23, 59, 59, 999);
   return date.getTime() > today.getTime();
+};
+
+export const getTodayJST = (): string => {
+  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return getFormattedDate(jst);
 }; 

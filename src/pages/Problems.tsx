@@ -17,6 +17,7 @@ import useApiWithRetry from '../hooks/useApiWithRetry';
 import { logger } from '../utils/logger';
 import { ErrorHandler } from '../utils/errorHandler';
 import { QUERY_KEYS } from '../hooks/useApiQuery';
+import { getTodayJST } from '@/utils/dateUtils';
 
 interface ProblemData {
   id: string;
@@ -54,11 +55,14 @@ const getDateSeed = () => {
   return seed;
 };
 
-// 日付文字列を取得（YYYY-MM-DD形式）
-const getDateString = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+// JST日付文字列を取得（YYYY-MM-DD形式）
+const getJSTDateString = () => {
+  const jstDate = new Date(Date.now() + 9*60*60*1000);
+  return jstDate.toISOString().slice(0, 10); // 例: 2025-06-25
 };
+
+// 旧関数（後方互換性のため残す）
+const getDateString = getJSTDateString;
 
 // 完了情報をチェック (ユーザー名を考慮)
 const hasCompletedTodaysProblems = (difficulty: DifficultyRank) => {
@@ -389,7 +393,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     logger.debug('[Problems] handleComplete called.');
     logger.debug('[Problems] Submitting with:', {
       difficulty: difficulty,
-      date: selectedDate, // ★ 選択された日付を使用
+      date: getTodayJST(),
       problemIds: currentProblems.map((p: ProblemData) => p.id),
       answers: finalAnswers,
       timeSpentMs: timeTaken, 
@@ -400,7 +404,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       // problemsAPI.submitAnswers を呼び出し
       const response = await problemsAPI.submitAnswers({
         difficulty: difficulty,
-        date: selectedDate, // ★ 選択された日付を使用
+        date: getTodayJST(),
         problemIds: currentProblems.map((p: ProblemData) => p.id),
         answers: finalAnswers,
         timeSpentMs: timeTaken, // timeSpent → timeSpentMs に修正
