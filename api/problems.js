@@ -306,9 +306,29 @@ const handler = async function(req, res) {
     return res.status(200).end();
   }
 
+  // MongoDB接続
+  if (!mongoose.connection.readyState) {
+    await mongoose.connect(MONGODB_URI, { 
+      dbName: 'morning_challenge',
+      useNewUrlParser: true,
+      useUnifiedTopology: true 
+    });
+  }
+
+  // DailyProblemSetスキーマ定義
+  const dailyProblemSetSchema = new mongoose.Schema({
+    date: { type: String, required: true },
+    difficulty: { type: String, required: true },
+    problems: { type: Array, required: true },
+    isActive: { type: Boolean, default: true }
+  }, { timestamps: true });
+
+  const DailyProblemSet = mongoose.models.DailyProblemSet || 
+    mongoose.model('DailyProblemSet', dailyProblemSetSchema);
+
   try {
     if (req.method === 'GET') {
-      console.log('📚 Generating problems...');
+      console.log('📚 Problems API called...');
       
       // 🔧 Step 1: 難易度バリデーション（時間制限チェックより先に実行）
       let difficulty = (req.query.difficulty || 'beginner').toString().toLowerCase();
@@ -360,7 +380,35 @@ const handler = async function(req, res) {
         });
       }
       
-      console.log(`📚 Generating 10 problems for difficulty=${difficulty}`);
+      // 🔧 Step 3: 日付とMongoDB検索
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD JST
+      console.log(`📚 Checking for existing problems: date=${today}, difficulty=${difficulty}`);
+      
+      // MongoDB dailyproblemsets コレクションから既存問題を検索
+      let existingProblemSet = await DailyProblemSet.findOne({
+        date: today,
+        difficulty: difficulty
+      });
+      
+      if (existingProblemSet && existingProblemSet.problems && existingProblemSet.problems.length > 0) {
+        console.log(`✅ Found existing problem set: ${existingProblemSet.problems.length} problems`);
+        
+        return res.status(200).json({
+          success: true,
+          problems: existingProblemSet.problems,
+          timeWindow: {
+            start: TIME_WINDOW.start,
+            end: TIME_WINDOW.end,
+            adminBypass: userIsAdmin
+          },
+          difficulty: difficulty,
+          date: today,
+          source: 'database',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      console.log(`📚 No existing problems found, generating new set for difficulty=${difficulty}`);
       
       // 問題セット生成
       const problems = generateProblemSet(difficulty);
@@ -374,6 +422,22 @@ const handler = async function(req, res) {
         });
       }
       
+      // MongoDBに新規問題セットを保存
+      try {
+        const newProblemSet = new DailyProblemSet({
+          date: today,
+          difficulty: difficulty,
+          problems: problems,
+          isActive: true
+        });
+        
+        await newProblemSet.save();
+        console.log(`✅ Saved new problem set to database: ${problems.length} problems`);
+      } catch (saveError) {
+        console.error('⚠️ Failed to save problems to database:', saveError.message);
+        // 保存に失敗しても生成した問題は返す
+      }
+      
       console.log(`✅ Generated ${problems.length} problems for difficulty ${difficulty}${userIsAdmin ? ' (ADMIN ACCESS)' : ''}`);
       
       return res.status(200).json({
@@ -385,6 +449,8 @@ const handler = async function(req, res) {
           adminBypass: userIsAdmin
         },
         difficulty: difficulty,
+        date: today,
+        source: 'generated',
         timestamp: new Date().toISOString()
       });
     }
@@ -415,8 +481,19 @@ const handler = async function(req, res) {
         });
       }
       
-      // 回答データの取得
-      const { answers, timeToComplete, difficulty } = req.body;
+      // 回答データの取得 - 新スキーマ対応
+      const { 
+        problemIds, 
+        answers, 
+        difficulty, 
+        date, 
+        timeToComplete 
+      } = req.body;
+      
+      // フォールバック: 旧スキーマ対応
+      const usedDifficulty = difficulty || 'beginner';
+      const usedDate = date || new Date().toISOString().split('T')[0];
+      const usedTimeToComplete = timeToComplete || 0;
       
       if (!answers || !Array.isArray(answers)) {
         console.log('❌ Invalid answers array');
@@ -425,50 +502,157 @@ const handler = async function(req, res) {
           error: 'Answers array is required'
         });
       }
+      
+      console.log(`📝 Submission data: difficulty=${usedDifficulty}, date=${usedDate}, problemIds=${problemIds ? problemIds.length : 'none'}`);
 
-      // 採点のために同じ難易度で問題を再生成
-      const usedDifficulty = difficulty || 'beginner';
-      const correctAnswers = generateProblemSet(usedDifficulty);
+      // MongoDB から該当の問題セットを取得
+      let problemSet = await DailyProblemSet.findOne({
+        date: usedDate,
+        difficulty: usedDifficulty
+      });
+
+      if (!problemSet || !problemSet.problems || problemSet.problems.length === 0) {
+        console.log('❌ Problem set not found for scoring');
+        return res.status(404).json({
+          success: false,
+          error: 'Problem set not found',
+          message: '採点用の問題セットが見つかりません。'
+        });
+      }
+
+      // problemIds の順序で問題を並び替え
+      let orderedProblems = problemSet.problems;
+      if (problemIds && Array.isArray(problemIds) && problemIds.length > 0) {
+        const problemMap = new Map();
+        problemSet.problems.forEach(p => {
+          problemMap.set(p.id, p);
+        });
+        
+        orderedProblems = [];
+        for (const id of problemIds) {
+          const problem = problemMap.get(id);
+          if (problem) {
+            orderedProblems.push(problem);
+          } else {
+            console.warn(`⚠️ Problem ID ${id} not found in database`);
+          }
+        }
+        
+        if (orderedProblems.length === 0) {
+          console.log('❌ No matching problems found for provided IDs');
+          return res.status(400).json({
+            success: false,
+            error: 'No matching problems found',
+            message: '指定された問題IDに対応する問題が見つかりません。'
+          });
+        }
+        
+        console.log(`📝 Reordered problems based on problemIds: ${orderedProblems.length} problems`);
+      } else {
+        console.log('📝 Using original problem order (no problemIds provided)');
+      }
+
+      // 採点処理
       let correctCount = 0;
+      const detailedResults = [];
       
       answers.forEach((userAnswer, index) => {
-        if (correctAnswers[index] && parseFloat(userAnswer) === correctAnswers[index].answer) {
-          correctCount++;
-        }
+        if (index >= orderedProblems.length) return;
+        
+        const problem = orderedProblems[index];
+        const userAnsRaw = userAnswer;
+        const userAnsStr = userAnsRaw !== undefined && userAnsRaw !== null ? String(userAnsRaw).trim() : null;
+        const userAnsNum = userAnsStr !== null && userAnsStr !== '' ? parseFloat(userAnsStr) : NaN;
+
+        const correctAnsNum = typeof problem.answer === 'string' ? parseFloat(problem.answer) : problem.answer;
+        const isCorrect = Number.isFinite(userAnsNum) && userAnsNum === correctAnsNum;
+
+        if (isCorrect) correctCount++;
+        
+        detailedResults.push({
+          id: problem.id,
+          question: problem.question,
+          correctAnswer: correctAnsNum,
+          userAnswer: userAnsStr,
+          isCorrect
+        });
       });
 
-      const score = Math.round((correctCount / correctAnswers.length) * 100);
+      const score = orderedProblems.length > 0 ? Math.round((correctCount / orderedProblems.length) * 100) : 0;
       
-      console.log(`✅ Scoring complete: ${correctCount}/${correctAnswers.length} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
+      // 時間計算 (ms / s)
+      const totalTimeMs = usedTimeToComplete || req.body.timeSpentMs || 0;
+      const timeSpentSec = Math.round(totalTimeMs / 1000);
       
-      // 各問題の詳細結果を構築
-      const detailedResults = correctAnswers.map((prob, idx) => {
-        const userAnsRaw = answers[idx];
-        const userAns = userAnsRaw !== undefined && userAnsRaw !== null ? String(userAnsRaw) : null;
-        const isCorrect = userAns !== null && parseFloat(userAns) === prob.answer;
-        return {
-          id: prob.id,
-          question: prob.question,
-          correctAnswer: prob.answer,
-          userAnswer: userAns,
-          isCorrect: isCorrect
-        };
-      });
+      console.log(`✅ Scoring complete: ${correctCount}/${orderedProblems.length} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
+      
+      // JWT認証情報の取得
+      const authHeader = req.headers.authorization;
+      let userId = null;
+      let username = 'anonymous';
+      
+      if (authHeader) {
+        const user = verifyTokenAndGetUser(authHeader);
+        if (user) {
+          userId = user.id || user._id || user.userId;
+          username = user.username || user.email || 'user';
+        }
+      }
+
+      // results コレクションへの保存
+      const resultDocument = {
+        userId: userId,
+        username: username,
+        date: usedDate,
+        difficulty: usedDifficulty,
+        correctAnswers: correctCount,
+        totalProblems: orderedProblems.length,
+        score: score,
+        totalTime: totalTimeMs,
+        timeSpent: timeSpentSec,
+        results: detailedResults,
+        createdAt: new Date()
+      };
+
+      // MongoDB に結果を保存
+      try {
+        const ResultSchema = new mongoose.Schema({
+          userId: String,
+          username: String,
+          date: String,
+          difficulty: String,
+          correctAnswers: Number,
+          totalProblems: Number,
+          score: Number,
+          totalTime: Number,
+          timeSpent: Number,
+          results: Array
+        }, { timestamps: true });
+        
+        const Result = mongoose.models.Result || mongoose.model('Result', ResultSchema);
+        
+        const savedResult = await Result.create(resultDocument);
+        console.log(`✅ Result saved to database: ID=${savedResult._id}`);
+      } catch (saveError) {
+        console.error('⚠️ Failed to save result to database:', saveError.message);
+        // 保存に失敗しても結果は返す
+      }
 
       const responsePayload = {
         correctAnswers: correctCount,
-        incorrectAnswers: correctAnswers.length - correctCount,
-        totalProblems: correctAnswers.length,
+        incorrectAnswers: orderedProblems.length - correctCount,
+        totalProblems: orderedProblems.length,
         score: score,
-        totalTime: timeToComplete,
+        totalTime: totalTimeMs,
+        timeSpent: timeSpentSec,
         difficulty: usedDifficulty,
-        results: detailedResults
+        results: detailedResults,
+        rank: null // 後続で集計する
       };
 
       return res.status(200).json({
         success: true,
-        result: responsePayload,      // 旧フロントエンド互換
-        results: responsePayload,     // 新フロントエンド互換（複数形）
+        results: responsePayload,
         timestamp: new Date().toISOString()
       });
     }
