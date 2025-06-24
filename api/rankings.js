@@ -27,43 +27,61 @@ module.exports = async function handler(req, res) {
     const resultsCollection = db.collection('results');
     const usersCollection = db.collection('users');
 
-    // 今日のランキング取得（デフォルト）
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    console.log('📊 ランキング取得中...', { today, tomorrow });
-
     // クエリパラメータから difficulty と limit を取得
     const { difficulty, limit = 100, date } = req.query || {};
 
-    // 日付フィルタ（YYYY-MM-DD）
-    let startDate = today;
-    let endDate = tomorrow;
+    // 日付フィルタ（YYYY-MM-DD文字列として扱う）
+    let queryDate;
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      startDate = new Date(date + 'T00:00:00');
-      endDate = new Date(date + 'T00:00:00');
-      endDate.setDate(endDate.getDate() + 1);
+      queryDate = date;
+    } else {
+      // デフォルトは今日の日付
+      const today = new Date();
+      queryDate = today.toISOString().split('T')[0]; // YYYY-MM-DD形式
     }
 
-    // Mongo クエリ条件
+    console.log('📊 ランキング取得中...', { queryDate, difficulty });
+
+    // Mongo クエリ条件（文字列として日付を検索）
     const query = {
-      date: {
-        $gte: startDate,
-        $lt: endDate
-      }
+      date: queryDate
     };
 
     if (difficulty && typeof difficulty === 'string') {
       query.difficulty = difficulty.toLowerCase();
     }
 
-    // 今日の結果を取得
-    const todayResults = await resultsCollection.find(query)
+    // 今日の結果を取得（文字列日付で検索）
+    let todayResults = await resultsCollection.find(query)
       .sort({ score: -1, timeSpent: 1 })
       .limit(parseInt(limit, 10) || 100)
       .toArray();
+
+    // ★ 文字列日付で結果が見つからない場合、Date型での検索も試行（後方互換性）
+    if (todayResults.length === 0) {
+      console.log('⚠️ 文字列日付での結果が見つからないため、Date型でも検索を試行');
+      const startDate = new Date(queryDate + 'T00:00:00');
+      const endDate = new Date(queryDate + 'T00:00:00');
+      endDate.setDate(endDate.getDate() + 1);
+      
+      const dateQuery = {
+        date: {
+          $gte: startDate,
+          $lt: endDate
+        }
+      };
+      
+      if (difficulty && typeof difficulty === 'string') {
+        dateQuery.difficulty = difficulty.toLowerCase();
+      }
+      
+      todayResults = await resultsCollection.find(dateQuery)
+        .sort({ score: -1, timeSpent: 1 })
+        .limit(parseInt(limit, 10) || 100)
+        .toArray();
+        
+      console.log('📊 Date型検索での結果数:', todayResults.length);
+    }
 
     console.log('📊 取得した結果数:', todayResults.length);
 
@@ -104,7 +122,7 @@ module.exports = async function handler(req, res) {
         userId: result.userId,
         username: user?.username || '不明なユーザー',
         avatar: user?.avatar || '👤',
-        grade: user?.grade || 1,
+        grade: (user?.grade === 99 || user?.grade === 999) ? 'ひみつ' : (user?.grade || 1),
         score: result.score,
         timeSpent: result.timeSpent,
         difficulty: result.difficulty,
