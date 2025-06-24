@@ -419,7 +419,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         // apiResultFromServer は ApiResultData 型と想定される。
         // ApiResultData には problems というフィールドがあり、これが ProblemResult[] 型。
         // finalizeSession の第一引数は ProblemResult[] を期待している。
-        const problems = apiResultFromServer?.problems || [];
+        const problems = apiResultFromServer?.results || apiResultFromServer?.problems || [];
         if (problems.length > 0) {
           finalizeSession(problems, apiResultFromServer);
         } else {
