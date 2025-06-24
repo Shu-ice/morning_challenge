@@ -235,13 +235,23 @@ function generateSpecificProblem(problemType, difficulty, seed) {
     
     // バリデーション
     if (!Number.isFinite(answer) || answer < 0 || answer > params.maxResultValue) {
+      console.warn(`❌ Invalid answer: ${answer} for ${problemType}, seed: ${seed}`);
+      return null;
+    }
+    
+    const finalAnswer = Math.round(answer);
+    
+    // 最終検証
+    if (!Number.isFinite(finalAnswer)) {
+      console.error(`❌ Final answer is not finite: ${finalAnswer} for ${problemType}`);
       return null;
     }
     
     return {
       id: `${problemType}_${seed}`,
       question: question + ' = ?',
-      answer: Math.round(answer),
+      answer: finalAnswer,
+      correctAnswer: finalAnswer, // ★ スコアリングで使用するフィールドを追加
       options: [], // フロントエンドが期待する形式
       type: 'calculation'
     };
@@ -564,7 +574,10 @@ const handler = async function(req, res) {
         const userAnsStr = userAnsRaw !== undefined && userAnsRaw !== null ? String(userAnsRaw).trim() : null;
         const userAnsNum = userAnsStr !== null && userAnsStr !== '' ? parseFloat(userAnsStr) : NaN;
 
-        const correctAnsNum = typeof problem.answer === 'string' ? parseFloat(problem.answer) : problem.answer;
+        // ★ correctAnswer を優先し、なければ answer を使用
+        const correctAnsNum = problem.correctAnswer !== undefined 
+          ? (typeof problem.correctAnswer === 'string' ? parseFloat(problem.correctAnswer) : problem.correctAnswer)
+          : (typeof problem.answer === 'string' ? parseFloat(problem.answer) : problem.answer);
         const isCorrect = Number.isFinite(userAnsNum) && userAnsNum === correctAnsNum;
 
         if (isCorrect) correctCount++;
@@ -590,12 +603,15 @@ const handler = async function(req, res) {
       const authHeader = req.headers.authorization;
       let userId = null;
       let username = 'anonymous';
+      let userGrade = null;
       
       if (authHeader) {
         const user = verifyTokenAndGetUser(authHeader);
         if (user) {
-          userId = user.id || user._id || user.userId;
+          userId = user._id || user.id || user.userId || user.sub || null;
+          if (userId && typeof userId !== 'string') userId = String(userId);
           username = user.username || user.email || 'user';
+          userGrade = user.grade ?? null;
         }
       }
 
@@ -603,6 +619,7 @@ const handler = async function(req, res) {
       const resultDocument = {
         userId: userId,
         username: username,
+        grade: userGrade,
         date: usedDate,
         difficulty: usedDifficulty,
         correctAnswers: correctCount,
@@ -626,7 +643,8 @@ const handler = async function(req, res) {
           score: Number,
           totalTime: Number,
           timeSpent: Number,
-          results: Array
+          results: Array,
+          grade: mongoose.Schema.Types.Mixed
         }, { timestamps: true });
         
         const Result = mongoose.models.Result || mongoose.model('Result', ResultSchema);
