@@ -488,18 +488,24 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
       const cacheKey = `problems_${difficulty}_${selectedDate}_${currentUserId}`;
 
-      // 開発モードでは常に最新データを取得
-      if (import.meta.env.DEV) {
-        logger.info('[Problems] Development mode: clearing cache to fetch latest data');
+      // 開発モードまたは管理者ユーザーは常に最新データを取得
+      if (import.meta.env.DEV || (currentUser && currentUser.isAdmin)) {
+        logger.info('[Problems] Cache bypass (DEV or ADMIN): clearing cache to fetch latest data');
         sessionStorage.removeItem(cacheKey);
       }
 
-      // キャッシュから取得を試行
+      // キャッシュから取得を試行（管理者以外の場合のみ）
       try {
-        const cachedData = sessionStorage.getItem(cacheKey);
+        const cachedData = !currentUser?.isAdmin ? sessionStorage.getItem(cacheKey) : null;
         if (cachedData) {
           const parsedProblems = JSON.parse(cachedData) as ProblemData[];
           logger.debug('[Problems Cache] Loaded from cache:', JSON.stringify(parsedProblems.map((p: ProblemData) => p.id), null, 2));
+          // submitAnswers APIで使用するために問題を保存
+          try {
+            sessionStorage.setItem('currentProblems', JSON.stringify(parsedProblems));
+          } catch (e) {
+            logger.warn('Failed to store currentProblems in session storage');
+          }
           setCurrentProblems(parsedProblems);
           setIsLoading(false);
           return;
@@ -518,7 +524,9 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           // キャッシュに保存
           try {
             sessionStorage.setItem(cacheKey, JSON.stringify(apiResponse.problems));
-            logger.debug('[Problems Cache] Saved to cache');
+            // submitAnswers APIで使用するために問題を保存
+            sessionStorage.setItem('currentProblems', JSON.stringify(apiResponse.problems));
+            logger.debug('[Problems Cache] Saved to cache and currentProblems');
           } catch (cacheError) {
             logger.warn('問題のキャッシュ保存に失敗しました:', cacheError instanceof Error ? cacheError : String(cacheError));
           }
