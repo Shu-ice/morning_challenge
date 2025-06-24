@@ -15,12 +15,17 @@ class ApiService {
 
   // リクエストヘッダーを取得
   getHeaders(): Record<string, string> {
+    // 毎回最新のトークンを取得（ログイン後にインスタンス生成済みでも反映）
+    const currentToken = this.token || localStorage.getItem('token');
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    if (currentToken) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
+      // クラス内キャッシュを更新
+      this.token = currentToken;
     }
 
     return headers;
@@ -113,7 +118,8 @@ class ApiService {
   }
 }
 
-export default new ApiService();
+const api = new ApiService();
+export default api;
 
 // 管理者統計関連のAPI関数
 export const getOverview = () => api.get('/admin/stats/overview');
