@@ -441,16 +441,19 @@ const handler = async function(req, res) {
       
       console.log(`✅ Scoring complete: ${correctCount}/${correctAnswers.length} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
       
+      const responsePayload = {
+        correctAnswers: correctCount,
+        totalProblems: correctAnswers.length,
+        score: score,
+        timeSpent: timeToComplete,
+        difficulty: usedDifficulty,
+        adminBypass: userIsAdmin
+      };
+
       return res.status(200).json({
         success: true,
-        result: {
-          correctAnswers: correctCount,
-          totalProblems: correctAnswers.length,
-          score: score,
-          timeSpent: timeToComplete,
-          difficulty: usedDifficulty,
-          adminBypass: userIsAdmin
-        },
+        result: responsePayload,      // 旧フロントエンド互換
+        results: responsePayload,     // 新フロントエンド互換（複数形）
         timestamp: new Date().toISOString()
       });
     }

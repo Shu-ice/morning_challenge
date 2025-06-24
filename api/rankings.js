@@ -35,13 +35,35 @@ module.exports = async function handler(req, res) {
 
     console.log('📊 ランキング取得中...', { today, tomorrow });
 
-    // 今日の結果を取得
-    const todayResults = await resultsCollection.find({
+    // クエリパラメータから difficulty と limit を取得
+    const { difficulty, limit = 100, date } = req.query || {};
+
+    // 日付フィルタ（YYYY-MM-DD）
+    let startDate = today;
+    let endDate = tomorrow;
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      startDate = new Date(date + 'T00:00:00');
+      endDate = new Date(date + 'T00:00:00');
+      endDate.setDate(endDate.getDate() + 1);
+    }
+
+    // Mongo クエリ条件
+    const query = {
       date: {
-        $gte: today,
-        $lt: tomorrow
+        $gte: startDate,
+        $lt: endDate
       }
-    }).sort({ score: -1, timeSpent: 1 }).limit(100).toArray();
+    };
+
+    if (difficulty && typeof difficulty === 'string') {
+      query.difficulty = difficulty.toLowerCase();
+    }
+
+    // 今日の結果を取得
+    const todayResults = await resultsCollection.find(query)
+      .sort({ score: -1, timeSpent: 1 })
+      .limit(parseInt(limit, 10) || 100)
+      .toArray();
 
     console.log('📊 取得した結果数:', todayResults.length);
 
