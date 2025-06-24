@@ -151,14 +151,21 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
     
     const gradeStr = String(grade);
 
-    // 特別な学年の処理（テスト用）
-    if (gradeStr === '999') {
-      return 'ひみつ';
+    // Backend already provides Japanese labels, so display them directly
+    // If it's already a Japanese label, return as is
+    if (gradeStr.includes('年生') || gradeStr === 'ひみつ' || gradeStr === '大学生' || gradeStr === '社会人') {
+      return gradeStr;
     }
 
-    // 数値または数値文字列 (小1～小6) の場合
-    if (/^[1-6]$/.test(gradeStr)) {
-      return `小${gradeStr}年生`;
+    // Fallback for numeric grades (in case backend doesn't provide labels)
+    const gradeNum = parseInt(gradeStr, 10);
+    if (!isNaN(gradeNum)) {
+      if (gradeNum >= 1 && gradeNum <= 6) return `小${gradeNum}年生`;
+      if (gradeNum >= 7 && gradeNum <= 9) return `中${gradeNum - 6}年生`;
+      if (gradeNum >= 10 && gradeNum <= 12) return `高${gradeNum - 9}年生`;
+      if (gradeNum === 13) return '大学生';
+      if (gradeNum === 14) return '社会人';
+      if (gradeNum === 99 || gradeNum === 999) return 'ひみつ';
     }
     
     // GRADE_OPTIONS からラベルを探す
@@ -281,7 +288,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
                     </span>
                   </div>
                 <div className="time-column">
-                  {formatTimeSpent(ranking.totalTime)}
+                  {formatTimeSpent(ranking.timeSpent)}
                 </div>
               </div>
             );
@@ -312,7 +319,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
               <div className="stat-item">
                 <div className="stat-label"><ruby>平均時間<rt>へいきんじかん</rt></ruby></div>
                 <div className="stat-value">
-                  <span className="number">{(rankings.reduce((acc, r) => acc + r.totalTime, 0) / rankings.length / 1000).toFixed(2)}</span>
+                  <span className="number">{(rankings.reduce((acc, r) => acc + r.timeSpent, 0) / rankings.length).toFixed(2)}</span>
                   <span className="stat-unit">秒</span>
                 </div>
               </div>

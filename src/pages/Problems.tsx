@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import '../styles/Problems.css';
 // import { useNavigate, useLocation } from 'react-router-dom'; // useNavigate を削除
 // import { useAuth } from '@/contexts/AuthContext'; // Use localStorage instead for now
@@ -15,6 +16,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import useApiWithRetry from '../hooks/useApiWithRetry';
 import { logger } from '../utils/logger';
 import { ErrorHandler } from '../utils/errorHandler';
+import { QUERY_KEYS } from '../hooks/useApiQuery';
 
 interface ProblemData {
   id: string;
@@ -136,6 +138,7 @@ import { getFormattedDate, formatTime } from '../utils/dateUtils';
 
 const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) => {
   // const { user } = useAuth(); // Comment out useAuth
+  const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<UserData & { token: string } | null>(null); // Store user with token
   const [isLoading, setIsLoading] = useState(true);
   const [currentProblems, setCurrentProblems] = useState<ProblemData[]>([]); // 型明示
@@ -428,6 +431,12 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
         // ローカルストレージに完了情報を保存
         saveCompletionData(difficulty, currentUser);
+        
+        // ランキングと履歴のキャッシュを無効化（結果→ランキング遷移時の即時反映のため）
+        logger.info('[Problems] Invalidating rankings and history cache after answer submission');
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.rankings] });
+        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.history] });
+        
         onComplete(response.results); // onComplete には response.results (結果データ本体) を渡す
       } else {
         logger.error('[Problems] Answer submission failed or unexpected response:', response);

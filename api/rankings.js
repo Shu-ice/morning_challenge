@@ -1,5 +1,6 @@
 // 🏆 ランキングAPI - Vercel対応
 const { MongoClient, ObjectId } = require('mongodb');
+const { getGradeLabel, normalizeGrade } = require('../server/constants/gradeMapping');
 
 const uri = process.env.MONGODB_URI || 'mongodb+srv://moutaro:moutaromoutaro@morninng.cq5xzt9.mongodb.net/?retryWrites=true&w=majority&appName=morninng';
 
@@ -53,34 +54,33 @@ module.exports = async function handler(req, res) {
 
     // 今日の結果を取得（文字列日付で検索）
     let todayResults = await resultsCollection.find(query)
-      .sort({ score: -1, timeSpent: 1 })
+      .sort({ score: -1, timeSpent: 1, createdAt: 1 })
       .limit(parseInt(limit, 10) || 100)
       .toArray();
 
-    // ★ 文字列日付で結果が見つからない場合、Date型での検索も試行（後方互換性）
+    // ★ 文字列日付で結果が見つからない場合、createdAt による日付範囲検索も試行
     if (todayResults.length === 0) {
-      console.log('⚠️ 文字列日付での結果が見つからないため、Date型でも検索を試行');
+      console.log('⚠️ 文字列日付での結果が見つからないため、createdAt範囲検索を試行');
       const startDate = new Date(queryDate + 'T00:00:00');
-      const endDate = new Date(queryDate + 'T00:00:00');
-      endDate.setDate(endDate.getDate() + 1);
+      const endDate = new Date(queryDate + 'T23:59:59');
       
-      const dateQuery = {
-        date: {
+      const createdAtQuery = {
+        createdAt: {
           $gte: startDate,
-          $lt: endDate
+          $lte: endDate
         }
       };
       
       if (difficulty && typeof difficulty === 'string') {
-        dateQuery.difficulty = difficulty.toLowerCase();
+        createdAtQuery.difficulty = difficulty.toLowerCase();
       }
       
-      todayResults = await resultsCollection.find(dateQuery)
-        .sort({ score: -1, timeSpent: 1 })
+      todayResults = await resultsCollection.find(createdAtQuery)
+        .sort({ score: -1, timeSpent: 1, createdAt: 1 })
         .limit(parseInt(limit, 10) || 100)
         .toArray();
         
-      console.log('📊 Date型検索での結果数:', todayResults.length);
+      console.log('📊 createdAt範囲検索での結果数:', todayResults.length);
     }
 
     console.log('📊 取得した結果数:', todayResults.length);
@@ -117,19 +117,22 @@ module.exports = async function handler(req, res) {
     // ランキングデータの整形
     const rankings = todayResults.map((result, index) => {
       const user = userMap[result.userId?.toString()];
-      const username = user?.username || result.username || '不明なユーザー';
-      const rawGrade = user?.grade ?? result.grade;
-      const gradeDisplay = (rawGrade === 99 || rawGrade === 999) ? 'ひみつ' : (rawGrade || 1);
+      const username = user?.username ?? result.username ?? 'unknown';
+      const gradeNum = user?.grade ?? result.grade;
+      const gradeLabel = getGradeLabel(gradeNum);
+      
       return {
-        rank: index + 1,
+        rank: index + 1, // rank 再計算
         userId: result.userId,
         username: username,
         avatar: user?.avatar || '👤',
-        grade: gradeDisplay,
+        grade: gradeLabel,
+        gradeNum: normalizeGrade(gradeNum), // 元の数値も保持
         score: result.score,
-        timeSpent: result.timeSpent,
+        timeSpent: result.timeSpent, // 0.01秒単位でそのまま表示
         difficulty: result.difficulty,
         date: result.date,
+        createdAt: result.createdAt, // 日時列表示用
         correctAnswers: result.correctAnswers || 0,
         totalProblems: result.totalProblems || 10
       };

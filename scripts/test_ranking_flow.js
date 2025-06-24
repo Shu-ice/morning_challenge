@@ -92,7 +92,8 @@ async function testBeginnerProblemSubmission() {
       answers: answers,
       difficulty: 'beginner',
       date: new Date().toISOString().split('T')[0],
-      timeToComplete: 120000 // 2 minutes
+      timeSpentMs: 120000, // 2 minutes in milliseconds
+      startTime: Date.now() - 120000 // Started 2 minutes ago
     };
 
     log('Submitting beginner answers...');
@@ -105,11 +106,15 @@ async function testBeginnerProblemSubmission() {
 
     const results = response.data.results;
     log(`✅ Submission successful: ${results.correctAnswers}/${results.totalProblems} correct (${results.score}%)`);
+    log(`   Time spent: ${results.timeSpent} seconds (0.01 second units)`);
+    log(`   Total time (ms): ${results.totalTime}`);
     
     return {
       score: results.score,
       correctAnswers: results.correctAnswers,
-      totalProblems: results.totalProblems
+      totalProblems: results.totalProblems,
+      timeSpent: results.timeSpent,
+      totalTime: results.totalTime
     };
   } catch (err) {
     error(`Beginner submission failed: ${err.message}`);
@@ -167,6 +172,24 @@ async function testRankingReflection() {
       log(`   Score: ${ourEntry.score}%`);
       log(`   Correct: ${ourEntry.correctAnswers}/${ourEntry.totalProblems}`);
       log(`   Username: ${ourEntry.username}`);
+      log(`   Grade: ${ourEntry.grade} (should be Japanese label)`);
+      log(`   TimeSpent: ${ourEntry.timeSpent}s (0.01 second units)`);
+      log(`   CreatedAt: ${ourEntry.createdAt}`);
+      
+      // Verify grade display
+      if (ourEntry.grade && (ourEntry.grade.includes('年生') || ourEntry.grade === 'ひみつ')) {
+        log('✅ Grade displayed as Japanese label');
+      } else {
+        error(`Grade not properly formatted: ${ourEntry.grade}`);
+      }
+      
+      // Verify time is in 0.01 second units (should be reasonable)
+      if (ourEntry.timeSpent && ourEntry.timeSpent > 0 && ourEntry.timeSpent < 10000) {
+        log('✅ Time displayed in proper 0.01 second units');
+      } else {
+        error(`Time not in proper format: ${ourEntry.timeSpent}`);
+      }
+      
       return true;
     } else {
       error('Our submission NOT found in ranking');
@@ -218,6 +241,17 @@ async function testResultsInDatabase() {
       log(`   Date: ${todayBeginnerEntry.date}`);
       log(`   Difficulty: ${todayBeginnerEntry.difficulty}`);
       log(`   Score: ${todayBeginnerEntry.correctAnswers}/${todayBeginnerEntry.totalProblems}`);
+      log(`   TimeSpent: ${todayBeginnerEntry.timeSpent}s (0.01 second units)`);
+      log(`   Grade: ${todayBeginnerEntry.grade}`);
+      log(`   CreatedAt: ${todayBeginnerEntry.createdAt}`);
+      
+      // Verify time storage
+      if (todayBeginnerEntry.timeSpent && todayBeginnerEntry.timeSpent > 0) {
+        log('✅ Time stored properly in database');
+      } else {
+        error(`Time not stored properly: ${todayBeginnerEntry.timeSpent}`);
+      }
+      
       return true;
     } else {
       error('Today\'s beginner result not found in history');
@@ -267,6 +301,9 @@ async function runRankingFlowTest() {
     log('✅ Rankings API returns submitted results');
     log('✅ String date format handled properly');
     log('✅ Complete flow working end-to-end');
+    log('✅ Grade mapping with Japanese labels working');
+    log('✅ Time tracking in 0.01 second units working');
+    log('✅ CreatedAt timestamps working');
 
   } catch (err) {
     error(`Unexpected error: ${err.message}`);

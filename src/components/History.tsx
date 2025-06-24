@@ -185,7 +185,9 @@ export const History: React.FC = () => {
               className="history-item"
             >
               <div className="date-column">
-                {format(new Date(item.timestamp || item.createdAt || item.date), 'M月d日 (E) HH:mm', { locale: ja })}
+                {item.createdAt ? 
+                  new Date(item.createdAt).toLocaleString('ja-JP') : 
+                  format(new Date(item.timestamp || item.date), 'M月d日 (E) HH:mm', { locale: ja })}
               </div>
               <div className="difficulty-column">
                 {getDifficultyName(item.difficulty)}
@@ -199,7 +201,7 @@ export const History: React.FC = () => {
                 </span>
               </div>
               <div className="time-column">
-                {formatTime(item.totalTime || item.timeSpent * 1000)}
+                {item.timeSpent ? item.timeSpent.toFixed(2) + '秒' : formatTime(item.totalTime || 0)}
               </div>
             </div>
           ))

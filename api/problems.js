@@ -497,13 +497,19 @@ const handler = async function(req, res) {
         answers, 
         difficulty, 
         date, 
-        timeToComplete 
+        timeToComplete,
+        timeSpentMs,
+        startTime
       } = req.body;
       
       // フォールバック: 旧スキーマ対応
       const usedDifficulty = difficulty || 'beginner';
       const usedDate = date || new Date().toISOString().split('T')[0];
-      const usedTimeToComplete = timeToComplete || 0;
+      
+      // 時間計算の改善
+      const totalTimeMs = timeSpentMs ?? (timeToComplete ? timeToComplete : 
+        (Date.now() - (startTime || Date.now())));
+      const timeSpentSec = Math.round(totalTimeMs / 10) / 100; // 0.01秒単位
       
       if (!answers || !Array.isArray(answers)) {
         console.log('❌ Invalid answers array');
@@ -592,10 +598,6 @@ const handler = async function(req, res) {
       });
 
       const score = orderedProblems.length > 0 ? Math.round((correctCount / orderedProblems.length) * 100) : 0;
-      
-      // 時間計算 (ms / s)
-      const totalTimeMs = usedTimeToComplete || req.body.timeSpentMs || 0;
-      const timeSpentSec = Math.round(totalTimeMs / 1000);
       
       console.log(`✅ Scoring complete: ${correctCount}/${orderedProblems.length} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
       
