@@ -305,13 +305,43 @@ const problemsAPI = {
     try {
       logger.info('[API] 回答送信リクエスト (submitAnswers):', payload);
       
-      // 送信するデータから userId を除外 (トークンから取得するため)
-      // ただし、バックエンド側のロジックによっては含めた方が良い場合もある
-      const { userId, ...submissionData } = payload; 
-      logger.debug(`[API] 送信データ (submitAnswers):`, submissionData);
+      // problemIds を取得するためにローカルストレージまたはセッションからproblems配列を取得
+      let problemIds: string[] = [];
       
-      // ★ API.post の第二引数は submissionData を使う
-      const response = await API.post('/problems', submissionData); 
+      if (payload.problemIds && Array.isArray(payload.problemIds)) {
+        // payload に problemIds が含まれている場合はそれを使用
+        problemIds = payload.problemIds;
+      } else {
+        // セッションストレージから問題IDを取得する試行
+        try {
+          const storedProblems = sessionStorage.getItem('currentProblems');
+          if (storedProblems) {
+            const problems = JSON.parse(storedProblems);
+            if (Array.isArray(problems)) {
+              problemIds = problems.map((p: { id: string }) => p.id);
+              logger.debug('[API] ProblemIds extracted from session storage:', problemIds);
+            }
+          }
+        } catch (e) {
+          logger.debug('[API] Failed to extract problemIds from session storage');
+        }
+      }
+      
+      // 送信するデータから userId を除外 (トークンから取得するため)
+      const { userId, ...submissionData } = payload; 
+      
+      // problemIds を追加
+      const enrichedSubmissionData = {
+        ...submissionData,
+        problemIds: problemIds.length > 0 ? problemIds : undefined,
+        date: submissionData.date || new Date().toISOString().split('T')[0], // 日付がない場合は今日を設定
+        difficulty: submissionData.difficulty || 'beginner' // デフォルト難易度
+      };
+      
+      logger.debug(`[API] 送信データ (submitAnswers):`, enrichedSubmissionData);
+      
+      // ★ API.post の第二引数は enrichedSubmissionData を使う
+      const response = await API.post('/problems', enrichedSubmissionData); 
       logger.debug(`[API] 回答提出レスポンス (submitAnswers):`, response);
       
       if (response.data.data && !response.data.success) {

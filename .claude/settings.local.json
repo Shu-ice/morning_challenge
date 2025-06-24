@@ -22,7 +22,8 @@
       "Bash(npm test)",
       "Bash(npm install:*)",
       "Bash(git push:*)",
-      "Bash(vercel:*)"
+      "Bash(vercel:*)",
+      "Bash(npm run smoke:*)"
     ],
     "deny": []
   }

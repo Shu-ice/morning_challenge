@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import '../styles/ProfilePage.css';
 import { UserData } from '../types/index';
 import { GRADE_OPTIONS } from '../types/grades';
 import { authAPI, userAPI } from '../api/index';
 import { ErrorHandler } from '../utils/errorHandler';
+import { QUERY_KEYS } from '../hooks/useApiQuery';
 
 interface ProfilePageProps {
   user: UserData;
@@ -18,6 +21,8 @@ const isValidEmail = (email: string): boolean => {
 };
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ user, onLogout, onViewHistory, onSaveProfile }) => {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [editMode, setEditMode] = useState(false);
   const [username, setUsername] = useState(user.username);
   const [email, setEmail] = useState(user.email || '');
@@ -80,12 +85,31 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onLogout, onViewHistory
         } as UserData;
 
         onSaveProfile(updatedUser);
-        setSuccessMessage('プロフィールを更新しました');
+        
+        // ユーザー名が変更された場合は、ランキングキャッシュを無効化
+        if (username !== user.username) {
+          console.log('🔄 Username changed, invalidating ranking queries...');
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.rankings] });
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.history] });
+        }
+        
+        const usernameChanged = username !== user.username;
+        
+        setSuccessMessage(
+          usernameChanged 
+            ? 'プロフィールを更新しました。ランキングページに移動してランキングを確認してください...' 
+            : 'プロフィールを更新しました'
+        );
         setEditMode(false);
         
+        // 成功メッセージを表示し、2秒後に自動的にランキングページへ遷移（ユーザー名変更時のみ）
         setTimeout(() => {
           setSuccessMessage('');
-        }, 3000);
+          // ユーザー名が変更された場合はランキングページに遷移
+          if (usernameChanged) {
+            navigate('/rankings', { replace: false });
+          }
+        }, 2000);
       } else {
         setError(response.data?.message || 'プロフィールの更新に失敗しました');
       }
@@ -153,7 +177,28 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onLogout, onViewHistory
       <h1>マイプロフィール</h1>
       
       {successMessage && (
-        <div className="success-message">{successMessage}</div>
+        <div className="success-message">
+          {successMessage}
+          {/* ユーザー名変更時にランキングページへのクイックアクセスボタンを表示 */}
+          {successMessage.includes('ランキングページに移動') && (
+            <div style={{ marginTop: '10px' }}>
+              <button 
+                onClick={() => navigate('/rankings')}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#4CAF50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                今すぐランキングを確認
+              </button>
+            </div>
+          )}
+        </div>
       )}
       
       {error && (

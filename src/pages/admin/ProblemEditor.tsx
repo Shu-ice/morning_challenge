@@ -241,6 +241,19 @@ const ProblemEditor: React.FC = () => {
         <button onClick={loadProblems} disabled={isLoading} className="load-button">
           {isLoading ? '読み込み中...' : '問題を読み込む'}
         </button>
+        
+        <button 
+          onClick={() => {
+            // キャッシュをクリアして画面をリロード
+            sessionStorage.clear();
+            localStorage.removeItem('currentProblems');
+            window.location.reload();
+          }}
+          className="clear-cache-button"
+          style={{ marginLeft: '10px', backgroundColor: '#ff6b6b', color: 'white' }}
+        >
+          キャッシュクリア & リロード
+        </button>
       </div>
 
       {message && <div className="message success-message">{message}</div>}
