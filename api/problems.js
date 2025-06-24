@@ -30,6 +30,11 @@ const isWithinTimeWindow = () => {
   return currentTime >= 6.5 && currentTime <= 8.0; // 6:30-8:00
 };
 
+// UTC → JST 変換してから YYYY-MM-DD 抽出
+const toJSTDateString = (d = new Date()) => {
+  return new Date(d.getTime() + 9*60*60*1000).toISOString().slice(0,10);
+};
+
 // JWT検証とadmin判定
 function verifyTokenAndGetUser(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -391,7 +396,7 @@ const handler = async function(req, res) {
       }
       
       // 🔧 Step 3: 日付とMongoDB検索
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD JST
+      const today = toJSTDateString(); // YYYY-MM-DD JST
       console.log(`📚 Checking for existing problems: date=${today}, difficulty=${difficulty}`);
       
       // MongoDB dailyproblemsets コレクションから既存問題を検索
@@ -504,7 +509,7 @@ const handler = async function(req, res) {
       
       // フォールバック: 旧スキーマ対応
       const usedDifficulty = difficulty || 'beginner';
-      const usedDate = date || new Date().toISOString().split('T')[0];
+      const usedDate = date ? date.replace(/\//g, '-') : toJSTDateString();
       
       // 時間計算の改善
       const totalTimeMs = timeSpentMs ?? (timeToComplete ? timeToComplete : 

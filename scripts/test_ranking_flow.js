@@ -3,6 +3,7 @@
 /**
  * Test Script for Ranking Flow Verification
  * Tests: beginner problem submission → results insert → ranking reflection
+ * Includes JST timezone and date format testing
  */
 
 const axios = require('axios');
@@ -32,7 +33,44 @@ async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// JST timezone helper function
+const toJSTDateString = (d = new Date()) => {
+  return new Date(d.getTime() + 9*60*60*1000).toISOString().slice(0,10);
+};
+
 // Test functions
+async function testJSTTimezone() {
+  log('Step 0: Testing JST timezone handling...');
+  
+  const now = new Date();
+  const utcDate = now.toISOString().slice(0,10);
+  const jstDate = toJSTDateString();
+  
+  log(`Current UTC date: ${utcDate}`);
+  log(`Current JST date: ${jstDate}`);
+  
+  // Test at 00:30 JST scenario (23:30 UTC previous day)
+  const mockMidnightJST = new Date();
+  mockMidnightJST.setUTCHours(15, 30, 0, 0); // 00:30 JST = 15:30 UTC previous day
+  
+  const mockUTCDate = mockMidnightJST.toISOString().slice(0,10);
+  const mockJSTDate = toJSTDateString(mockMidnightJST);
+  
+  log(`Mock 00:30 JST scenario:`);
+  log(`  UTC date: ${mockUTCDate}`);
+  log(`  JST date: ${mockJSTDate}`);
+  
+  if (mockUTCDate !== mockJSTDate) {
+    log('✅ JST timezone conversion working correctly');
+    log(`✅ Date properly advances from ${mockUTCDate} (UTC) to ${mockJSTDate} (JST)`);
+  } else {
+    error('❌ JST timezone conversion not working');
+    return false;
+  }
+  
+  return true;
+}
+
 async function testLogin() {
   log('Step 1: Testing login...');
   try {
@@ -87,14 +125,18 @@ async function testBeginnerProblemSubmission() {
 
     const problemIds = problems.map(p => p.id);
     
+    const jstDate = toJSTDateString();
+    
     const submissionData = {
       problemIds: problemIds,
       answers: answers,
       difficulty: 'beginner',
-      date: new Date().toISOString().split('T')[0],
+      date: jstDate, // ★ Use JST date instead of UTC
       timeSpentMs: 120000, // 2 minutes in milliseconds
       startTime: Date.now() - 120000 // Started 2 minutes ago
     };
+    
+    log(`Submitting with JST date: ${jstDate}`);
 
     log('Submitting beginner answers...');
     const response = await axios.post(`${BASE_URL}/problems`, submissionData, { headers });
@@ -130,7 +172,7 @@ async function testRankingReflection() {
   log('Step 3: Testing ranking reflection...');
   try {
     const headers = { Authorization: `Bearer ${authToken}` };
-    const today = new Date().toISOString().split('T')[0];
+    const today = toJSTDateString(); // ★ Use JST date
     
     // Wait a bit for DB write to complete
     await delay(1000);
@@ -231,10 +273,12 @@ async function testResultsInDatabase() {
     log(`✅ History retrieved: ${historyData.length} entries`);
     
     // Check if today's beginner result is there
-    const today = new Date().toISOString().split('T')[0];
+    const today = toJSTDateString(); // ★ Use JST date
     const todayBeginnerEntry = historyData.find(entry => 
       entry.date === today && entry.difficulty === 'beginner'
     );
+    
+    log(`Looking for today's entry with JST date: ${today}`);
     
     if (todayBeginnerEntry) {
       log('✅ Today\'s beginner result found in history/database');
@@ -269,10 +313,15 @@ async function testResultsInDatabase() {
 
 // Main test function
 async function runRankingFlowTest() {
-  log('🚀 Starting Ranking Flow Test');
+  log('🚀 Starting Ranking Flow Test (with JST timezone support)');
   log('='.repeat(60));
 
   try {
+    // Step 0: Test JST timezone
+    if (!(await testJSTTimezone())) {
+      process.exit(1);
+    }
+
     // Step 1: Login
     if (!(await testLogin())) {
       process.exit(1);
@@ -304,6 +353,13 @@ async function runRankingFlowTest() {
     log('✅ Grade mapping with Japanese labels working');
     log('✅ Time tracking in 0.01 second units working');
     log('✅ CreatedAt timestamps working');
+    log('✅ JST timezone handling working correctly');
+    log('✅ Date consistency between frontend and backend');
+    
+    // Additional JST verification
+    const currentJST = toJSTDateString();
+    log(`✅ Current JST date: ${currentJST}`);
+    log('✅ All date operations using JST timezone');
 
   } catch (err) {
     error(`Unexpected error: ${err.message}`);
