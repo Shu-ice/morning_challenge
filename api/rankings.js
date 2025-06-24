@@ -117,12 +117,15 @@ module.exports = async function handler(req, res) {
     // ランキングデータの整形
     const rankings = todayResults.map((result, index) => {
       const user = userMap[result.userId?.toString()];
+      const username = user?.username || result.username || '不明なユーザー';
+      const rawGrade = user?.grade ?? result.grade;
+      const gradeDisplay = (rawGrade === 99 || rawGrade === 999) ? 'ひみつ' : (rawGrade || 1);
       return {
         rank: index + 1,
         userId: result.userId,
-        username: user?.username || '不明なユーザー',
+        username: username,
         avatar: user?.avatar || '👤',
-        grade: (user?.grade === 99 || user?.grade === 999) ? 'ひみつ' : (user?.grade || 1),
+        grade: gradeDisplay,
         score: result.score,
         timeSpent: result.timeSpent,
         difficulty: result.difficulty,
