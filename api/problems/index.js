@@ -2,10 +2,19 @@
 // server/utils/problemGenerator.js と server/utils/timeWindow.js を活用
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const { connectMongoose, handleDatabaseError } = require('../_lib/database');
 
 // 環境変数設定
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://moutaro:moutaromoutaro@morninng.cq5xzt9.mongodb.net/?retryWrites=true&w=majority&appName=morninng';
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
+const IS_PRODUCTION = process.env.VERCEL || process.env.NODE_ENV === 'production';
+
+// Production-aware logging
+const logger = {
+  info: (...args) => !IS_PRODUCTION && console.log(...args),
+  debug: (...args) => !IS_PRODUCTION && console.debug(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args)
+};
 
 // 時間制限設定（デフォルト）
 const TIME_WINDOW = {
@@ -23,7 +32,7 @@ const isWithinTimeWindow = () => {
   
   // 開発環境での時間制限無効化
   if (process.env.NODE_ENV === 'development' || process.env.DISABLE_TIME_CHECK === 'true') {
-    console.log('⏰ Time check disabled for development');
+    logger.debug('⏰ Time check disabled for development');
     return true;
   }
   
@@ -46,24 +55,24 @@ function verifyTokenAndGetUser(authHeader) {
     const decoded = jwt.verify(token, JWT_SECRET);
     return decoded;
   } catch (error) {
-    console.error('JWT verification failed:', error.message);
+    logger.error('JWT verification failed:', error.message);
     return null;
   }
 }
 
 // 管理者チェック関数（統合版）
 const isAdmin = (req) => {
-  console.log('🔐 Admin check started');
+  logger.debug('🔐 Admin check started');
   
   const authHeader = req.headers.authorization;
   if (!authHeader) {
-    console.log('❌ No authorization header');
+    logger.debug('❌ No authorization header');
     return false;
   }
   
   const user = verifyTokenAndGetUser(authHeader);
   if (!user) {
-    console.log('❌ Invalid token');
+    logger.debug('❌ Invalid token');
     return false;
   }
   
@@ -74,7 +83,7 @@ const isAdmin = (req) => {
                      user.username === 'admin' ||
                      user.username === 'kanri';
   
-  console.log(`🔍 Admin check result: ${isAdminUser} for user ${user.email || user.username}`);
+  logger.debug(`🔍 Admin check result: ${isAdminUser} for user ${user.email || user.username}`);
   return isAdminUser;
 };
 
@@ -240,7 +249,7 @@ function generateSpecificProblem(problemType, difficulty, seed) {
     
     // バリデーション
     if (!Number.isFinite(answer) || answer < 0 || answer > params.maxResultValue) {
-      console.warn(`❌ Invalid answer: ${answer} for ${problemType}, seed: ${seed}`);
+      logger.warn(`❌ Invalid answer: ${answer} for ${problemType}, seed: ${seed}`);
       return null;
     }
     
@@ -248,7 +257,7 @@ function generateSpecificProblem(problemType, difficulty, seed) {
     
     // 最終検証
     if (!Number.isFinite(finalAnswer)) {
-      console.error(`❌ Final answer is not finite: ${finalAnswer} for ${problemType}`);
+      logger.error(`❌ Final answer is not finite: ${finalAnswer} for ${problemType}`);
       return null;
     }
     
@@ -262,7 +271,7 @@ function generateSpecificProblem(problemType, difficulty, seed) {
     };
     
   } catch (error) {
-    console.error(`Error generating ${problemType}:`, error.message);
+    logger.error(`Error generating ${problemType}:`, error.message);
     return null;
   }
 }
@@ -292,7 +301,7 @@ function generateProblemSet(difficulty) {
     }
 
     if (generated < count) {
-      console.warn(`⚠️  ${problemType} で ${count} 件中 ${generated} 件しか生成できませんでした`);
+      logger.warn(`⚠️  ${problemType} で ${count} 件中 ${generated} 件しか生成できませんでした`);
     }
   }
   
@@ -307,8 +316,8 @@ function generateProblemSet(difficulty) {
 
 // メインハンドラー関数
 const handler = async function(req, res) {
-  console.log('🎯 Problems API called:', req.method, req.url);
-  console.log('📝 Query params:', req.query);
+  logger.info('🎯 Problems API called:', req.method, req.url);
+  logger.debug('📝 Query params:', req.query);
   
   // CORS設定
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -317,18 +326,12 @@ const handler = async function(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
-    console.log('✅ OPTIONS request handled');
+    logger.debug('✅ OPTIONS request handled');
     return res.status(200).end();
   }
 
   // MongoDB接続
-  if (!mongoose.connection.readyState) {
-    await mongoose.connect(MONGODB_URI, { 
-      dbName: 'morning_challenge',
-      useNewUrlParser: true,
-      useUnifiedTopology: true 
-    });
-  }
+  await connectMongoose();
 
   // DailyProblemSetスキーマ定義
   const dailyProblemSetSchema = new mongoose.Schema({
@@ -343,7 +346,7 @@ const handler = async function(req, res) {
 
   try {
     if (req.method === 'GET') {
-      console.log('📚 Problems API called...');
+      logger.info('📚 Problems API called...');
       
       // 🔧 Step 1: 難易度バリデーション（時間制限チェックより先に実行）
       let difficulty = (req.query.difficulty || 'beginner').toString().toLowerCase();
@@ -351,7 +354,7 @@ const handler = async function(req, res) {
       // === 難易度バリデーション（時間制限チェックより先に行う） ===
       const validDifficulties = Object.values(DifficultyRank); // ['beginner', 'intermediate', ...]
       if (!validDifficulties.includes(difficulty)) {
-        console.log(`❌ Invalid difficulty: ${difficulty}. valid -> ${validDifficulties.join(', ')}`);
+        logger.warn(`❌ Invalid difficulty: ${difficulty}. valid -> ${validDifficulties.join(', ')}`);
         return res.status(400).json({
           success: false,
           error: 'Invalid difficulty level',
@@ -360,7 +363,7 @@ const handler = async function(req, res) {
         });
       }
       
-      console.log(`✅ Valid difficulty confirmed: ${difficulty}`);
+      logger.debug(`✅ Valid difficulty confirmed: ${difficulty}`);
       
       // 🔧 Step 2: 時間制限チェック（バリデーション後に実行）
       const userIsAdmin = isAdmin(req);
@@ -371,7 +374,7 @@ const handler = async function(req, res) {
                        process.env.NODE_ENV === 'development' || 
                        process.env.DISABLE_TIME_CHECK === 'true';
       
-      console.log('⏰ Access check:', {
+      logger.debug('⏰ Access check:', {
         isAdmin: userIsAdmin,
         withinTimeWindow: withinTimeWindow,
         canAccess: canAccess,
@@ -380,7 +383,7 @@ const handler = async function(req, res) {
       });
 
       if (!canAccess) {
-        console.log('❌ Access denied - outside time window');
+        logger.warn('❌ Access denied - outside time window');
         return res.status(403).json({
           success: false,
           error: 'Problems are only available between 6:30 AM and 8:00 AM',
@@ -397,7 +400,7 @@ const handler = async function(req, res) {
       
       // 🔧 Step 3: 日付とMongoDB検索
       const today = toJSTDateString(); // YYYY-MM-DD JST
-      console.log(`📚 Checking for existing problems: date=${today}, difficulty=${difficulty}`);
+      logger.debug(`📚 Checking for existing problems: date=${today}, difficulty=${difficulty}`);
       
       // MongoDB dailyproblemsets コレクションから既存問題を検索
       let existingProblemSet = await DailyProblemSet.findOne({
@@ -406,7 +409,7 @@ const handler = async function(req, res) {
       });
       
       if (existingProblemSet && existingProblemSet.problems && existingProblemSet.problems.length > 0) {
-        console.log(`✅ Found existing problem set: ${existingProblemSet.problems.length} problems`);
+        logger.info(`✅ Found existing problem set: ${existingProblemSet.problems.length} problems`);
         
         return res.status(200).json({
           success: true,
@@ -423,13 +426,13 @@ const handler = async function(req, res) {
         });
       }
       
-      console.log(`📚 No existing problems found, generating new set for difficulty=${difficulty}`);
+      logger.info(`📚 No existing problems found, generating new set for difficulty=${difficulty}`);
       
       // 問題セット生成
       const problems = generateProblemSet(difficulty);
       
       if (problems.length === 0) {
-        console.log('❌ Problem generation failed');
+        logger.error('❌ Problem generation failed');
         return res.status(500).json({
           success: false,
           error: 'Failed to generate problems',
@@ -447,13 +450,13 @@ const handler = async function(req, res) {
         });
         
         await newProblemSet.save();
-        console.log(`✅ Saved new problem set to database: ${problems.length} problems`);
+        logger.info(`✅ Saved new problem set to database: ${problems.length} problems`);
       } catch (saveError) {
-        console.error('⚠️ Failed to save problems to database:', saveError.message);
+        logger.error('⚠️ Failed to save problems to database:', saveError.message);
         // 保存に失敗しても生成した問題は返す
       }
       
-      console.log(`✅ Generated ${problems.length} problems for difficulty ${difficulty}${userIsAdmin ? ' (ADMIN ACCESS)' : ''}`);
+      logger.info(`✅ Generated ${problems.length} problems for difficulty ${difficulty}${userIsAdmin ? ' (ADMIN ACCESS)' : ''}`);
       
       return res.status(200).json({
         success: true,
@@ -471,7 +474,7 @@ const handler = async function(req, res) {
     }
 
     if (req.method === 'POST') {
-      console.log('📝 Processing answer submission...');
+      logger.info('📝 Processing answer submission...');
       
       // 時間制限チェック（管理者はバイパス）
       const userIsAdmin = isAdmin(req);
@@ -481,7 +484,7 @@ const handler = async function(req, res) {
                        process.env.DISABLE_TIME_CHECK === 'true';
       
       if (!canAccess) {
-        console.log('❌ Submission denied - outside time window');
+        logger.warn('❌ Submission denied - outside time window');
         return res.status(403).json({
           success: false,
           error: 'Answer submission is only available between 6:30 AM and 8:00 AM',
@@ -517,14 +520,14 @@ const handler = async function(req, res) {
       const timeSpentSec = Math.round(totalTimeMs / 10) / 100; // 0.01秒単位
       
       if (!answers || !Array.isArray(answers)) {
-        console.log('❌ Invalid answers array');
+        logger.warn('❌ Invalid answers array');
         return res.status(400).json({
           success: false,
           error: 'Answers array is required'
         });
       }
       
-      console.log(`📝 Submission data: difficulty=${usedDifficulty}, date=${usedDate}, problemIds=${problemIds ? problemIds.length : 'none'}`);
+      logger.debug(`📝 Submission data: difficulty=${usedDifficulty}, date=${usedDate}, problemIds=${problemIds ? problemIds.length : 'none'}`);
 
       // MongoDB から該当の問題セットを取得
       let problemSet = await DailyProblemSet.findOne({
@@ -533,7 +536,7 @@ const handler = async function(req, res) {
       });
 
       if (!problemSet || !problemSet.problems || problemSet.problems.length === 0) {
-        console.log('❌ Problem set not found for scoring');
+        logger.error('❌ Problem set not found for scoring');
         return res.status(404).json({
           success: false,
           error: 'Problem set not found',
@@ -555,12 +558,12 @@ const handler = async function(req, res) {
           if (problem) {
             orderedProblems.push(problem);
           } else {
-            console.warn(`⚠️ Problem ID ${id} not found in database`);
+            logger.warn(`⚠️ Problem ID ${id} not found in database`);
           }
         }
         
         if (orderedProblems.length === 0) {
-          console.log('❌ No matching problems found for provided IDs');
+          logger.error('❌ No matching problems found for provided IDs');
           return res.status(400).json({
             success: false,
             error: 'No matching problems found',
@@ -568,9 +571,9 @@ const handler = async function(req, res) {
           });
         }
         
-        console.log(`📝 Reordered problems based on problemIds: ${orderedProblems.length} problems`);
+        logger.debug(`📝 Reordered problems based on problemIds: ${orderedProblems.length} problems`);
       } else {
-        console.log('📝 Using original problem order (no problemIds provided)');
+        logger.debug('📝 Using original problem order (no problemIds provided)');
       }
 
       // 採点処理
@@ -604,7 +607,7 @@ const handler = async function(req, res) {
 
       const score = orderedProblems.length > 0 ? Math.round((correctCount / orderedProblems.length) * 100) : 0;
       
-      console.log(`✅ Scoring complete: ${correctCount}/${orderedProblems.length} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
+      logger.info(`✅ Scoring complete: ${correctCount}/${orderedProblems.length} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
       
       // JWT認証情報の取得
       const authHeader = req.headers.authorization;
@@ -657,9 +660,9 @@ const handler = async function(req, res) {
         const Result = mongoose.models.Result || mongoose.model('Result', ResultSchema);
         
         const savedResult = await Result.create(resultDocument);
-        console.log(`✅ Result saved to database: ID=${savedResult._id}`);
+        logger.info(`✅ Result saved to database: ID=${savedResult._id}`);
       } catch (saveError) {
-        console.error('⚠️ Failed to save result to database:', saveError.message);
+        logger.error('⚠️ Failed to save result to database:', saveError.message);
         // 保存に失敗しても結果は返す
       }
 
@@ -688,7 +691,7 @@ const handler = async function(req, res) {
     });
 
   } catch (error) {
-    console.error('💥 Problems API error:', error);
+    logger.error('💥 Problems API error:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',

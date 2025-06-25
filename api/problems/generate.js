@@ -3,7 +3,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 
 // 既存の problems モジュールを再利用
-const problemsModule = require(path.join('..', 'problems'));
+const problemsModule = require('./index');
 
 const dailyProblemSetSchema = new mongoose.Schema({
   date: { type: String, required: true },
