@@ -393,7 +393,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     logger.debug('[Problems] handleComplete called.');
     logger.debug('[Problems] Submitting with:', {
       difficulty: difficulty,
-      date: getTodayJST(),
+      date: selectedDate,
       problemIds: currentProblems.map((p: ProblemData) => p.id),
       answers: finalAnswers,
       timeSpentMs: timeTaken, 
@@ -404,7 +404,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       // problemsAPI.submitAnswers を呼び出し
       const response = await problemsAPI.submitAnswers({
         difficulty: difficulty,
-        date: getTodayJST(),
+        date: selectedDate,
         problemIds: currentProblems.map((p: ProblemData) => p.id),
         answers: finalAnswers,
         timeSpentMs: timeTaken, // timeSpent → timeSpentMs に修正

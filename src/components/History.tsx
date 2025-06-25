@@ -195,7 +195,7 @@ export const History: React.FC = () => {
                 {getDifficultyName(item.difficulty)}
               </div>
               <div className="rank-column">
-                {'-'}
+                {item.rank !== null && item.rank !== undefined ? `${item.rank}位` : '-'}
               </div>
               <div className="score-column">
                 <span className="score-text">

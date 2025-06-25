@@ -16,6 +16,9 @@ router.get('/daily', getDailyRankings);
 router.get('/weekly', getWeeklyRankings);
 router.get('/monthly', getMonthlyRankings);
 
+// 問題: /api/rankings にアクセスした場合 404 になるので日間ランキングにリダイレクト
+router.get('/', getDailyRankings);
+
 // router.get('/', getTopUsers); // 旧実装なので削除
 // router.get('/daily', (req, res) => { // 旧実装なので削除
 //   req.query.period = 'daily';
