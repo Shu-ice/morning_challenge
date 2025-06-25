@@ -4,9 +4,9 @@
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { connectMongoose } = require('../_lib/database');
 
 // 環境変数のデフォルト設定
-const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
 // MongoDBスキーマ定義
@@ -91,25 +91,7 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// MongoDB接続
-async function connectMongoDB() {
-  if (mongoose.connection.readyState === 1) {
-    return; // 既に接続済み
-  }
-
-  if (!MONGODB_URI) {
-    throw new Error('MONGODB_URI環境変数が設定されていません');
-  }
-
-  const options = {
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 20000,
-    maxPoolSize: 5
-  };
-
-  await mongoose.connect(MONGODB_URI, options);
-  console.log('✅ MongoDB Atlas connected');
-}
+// MongoDB接続は _lib/database.js の connectMongoose() を使用（キャッシュ済み）
 
 // JWT検証
 function verifyToken(token) {
@@ -147,7 +129,7 @@ async function getUserProfile(req, res) {
     }
 
     // MongoDB Atlas接続
-    await connectMongoDB();
+    await connectMongoose();
     
     // ユーザーをEmailで検索（ObjectIdではなく）
     let user = await User.findOne({ email: decoded.email }).select('-password');
@@ -223,7 +205,7 @@ async function updateUserProfile(req, res) {
     // 学年バリデーション：1-6(小学生), 7(その他), 999(ひみつ)
     if (grade !== undefined && grade !== null && grade !== '') {
       const gradeNum = parseInt(grade);
-      const validGrades = [1, 2, 3, 4, 5, 6, 7, 999];
+      const validGrades = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,99];
       if (isNaN(gradeNum) || !validGrades.includes(gradeNum)) {
         return res.status(400).json({
           success: false,
@@ -233,7 +215,7 @@ async function updateUserProfile(req, res) {
     }
 
     // MongoDB Atlas接続
-    await connectMongoDB();
+    await connectMongoose();
     
     // ユーザーをEmailで検索
     const user = await User.findOne({ email: decoded.email });

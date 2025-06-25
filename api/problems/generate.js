@@ -47,10 +47,9 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // MongoDB 接続
-    if (!mongoose.connection.readyState) {
-      await mongoose.connect(process.env.MONGODB_URI, { dbName: 'morning_challenge' });
-    }
+    // MongoDB 接続（キャッシュ済み接続を使用）
+    const { connectMongoose } = require('../_lib/database');
+    await connectMongoose();
 
     // 既存チェック
     const existing = await DailyProblemSet.findOne({ date: date || new Date().toISOString().slice(0,10), difficulty: difficultyLower });

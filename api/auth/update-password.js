@@ -4,9 +4,9 @@
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { connectMongoose } = require('../_lib/database');
 
 // 環境変数設定
-const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
 // MongoDBスキーマ定義
@@ -97,8 +97,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // MongoDB接続
-    await connectMongoDB();
+    // MongoDB接続（キャッシュ済み接続を使用）
+    await connectMongoose();
     
     // ユーザーをEmailで検索
     const user = await User.findOne({ email: decoded.email });
@@ -157,25 +157,7 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// MongoDB接続関数
-async function connectMongoDB() {
-  if (mongoose.connection.readyState === 1) {
-    return; // 既に接続済み
-  }
-
-  if (!MONGODB_URI) {
-    throw new Error('MONGODB_URI環境変数が設定されていません');
-  }
-
-  const options = {
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 20000,
-    maxPoolSize: 5
-  };
-
-  await mongoose.connect(MONGODB_URI, options);
-  console.log('✅ MongoDB Atlas connected for password update');
-}
+// MongoDB接続は _lib/database.js の connectMongoose() を使用（キャッシュ済み）
 
 // JWT検証
 function verifyToken(token) {

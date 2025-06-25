@@ -3,9 +3,9 @@ console.log('🚀 Admin Dashboard API loaded');
 
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const { connectMongoose } = require('./_lib/database');
 
 // 環境変数設定
-const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
 // MongoDBスキーマ定義
@@ -74,25 +74,7 @@ const isAdmin = (req) => {
   return false;
 };
 
-// MongoDB接続
-async function connectMongoDB() {
-  if (mongoose.connection.readyState === 1) {
-    return; // 既に接続済み
-  }
-
-  if (!MONGODB_URI) {
-    throw new Error('MONGODB_URI環境変数が設定されていません');
-  }
-
-  const options = {
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 20000,
-    maxPoolSize: 5
-  };
-
-  await mongoose.connect(MONGODB_URI, options);
-  console.log('✅ MongoDB Atlas connected for admin dashboard');
-}
+// MongoDB接続は _lib/database.js の connectMongoose() を使用（キャッシュ済み）
 
 // モックデータ生成
 const generateDashboardData = () => {
@@ -164,7 +146,7 @@ async function getUserList(req, res) {
   try {
     console.log('👥 Getting user list for admin...');
     
-    await connectMongoDB();
+    await connectMongoose();
     
     // クエリパラメータ
     const { search, grade, page = 1, limit = 20 } = req.query;
