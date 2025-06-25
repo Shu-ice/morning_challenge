@@ -154,4 +154,25 @@ export const isFutureDate = (date: Date): boolean => {
 export const getTodayJST = (): string => {
   const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
   return getFormattedDate(jst);
+};
+
+/**
+ * 学年ラベルを取得するユーティリティ関数
+ * @param g - 学年数値または文字列
+ * @returns 日本語の学年ラベル
+ */
+export const gradeLabel = (g: number | string | null | undefined): string => {
+  if (g === 99 || g === 999 || g === '99' || g === '999') return 'ひみつ';
+  
+  const gradeNum = typeof g === 'string' ? parseInt(g, 10) : g;
+  
+  if (typeof gradeNum !== 'number' || isNaN(gradeNum)) return 'その他';
+  
+  if (gradeNum >= 1 && gradeNum <= 6) return `小${gradeNum}年生`;
+  if (gradeNum >= 7 && gradeNum <= 9) return `中${gradeNum - 6}年生`;
+  if (gradeNum >= 10 && gradeNum <= 12) return `高${gradeNum - 9}年生`;
+  if (gradeNum === 13) return '大学生';
+  if (gradeNum === 14) return '社会人';
+  
+  return 'その他';
 }; 

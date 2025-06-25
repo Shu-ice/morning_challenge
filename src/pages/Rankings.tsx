@@ -7,7 +7,7 @@ import { GRADE_OPTIONS } from '@/types/grades';
 import { rankingAPI } from '../api/index';
 // date-fnsの使用を停止
 import LoadingSpinner from '../components/LoadingSpinner';
-import { formatTime } from '../utils/dateUtils';
+import { formatTime, gradeLabel } from '../utils/dateUtils';
 import { ErrorHandler } from '../utils/errorHandler';
 
 interface RankingsProps {
@@ -124,12 +124,18 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
         selectedDate // ★ selectedDateを使用
       );
       
-      if (!response || !response.success || !response.data) {
+      if (!response || !response.success) {
         throw new Error('ランキングデータの取得に失敗しました');
       }
 
-      const rankingsData = response.data.data || [];
+      // ★ data が空でも正常ケースとして処理
+      const rankingsData = response.data?.data || response.data || [];
       setRankings(rankingsData);
+      
+      // データが空の場合はエラーではなく正常状態
+      if (rankingsData.length === 0) {
+        console.log(`[ランキング] ${selectedDate} の ${selectedDifficulty} データなし - 正常`);
+      }
     } catch (err: unknown) {
       const handledError = ErrorHandler.handleApiError(err, 'ランキング取得');
       setError(ErrorHandler.getUserFriendlyMessage(handledError));
@@ -145,7 +151,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
   // formatTime は dateUtils から利用
   const formatTimeSpent = formatTime; // 後方互換のためのエイリアス
 
-  // 学年の表示処理を改善
+  // 学年の表示処理（統一ユーティリティを使用）
   const formatGrade = (grade: string | number | undefined): string => {
     if (grade === undefined || grade === null || grade === '') return '不明';
     
@@ -157,24 +163,8 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
       return gradeStr;
     }
 
-    // Fallback for numeric grades (in case backend doesn't provide labels)
-    const gradeNum = parseInt(gradeStr, 10);
-    if (!isNaN(gradeNum)) {
-      if (gradeNum >= 1 && gradeNum <= 6) return `小${gradeNum}年生`;
-      if (gradeNum >= 7 && gradeNum <= 9) return `中${gradeNum - 6}年生`;
-      if (gradeNum >= 10 && gradeNum <= 12) return `高${gradeNum - 9}年生`;
-      if (gradeNum === 13) return '大学生';
-      if (gradeNum === 14) return '社会人';
-      if (gradeNum === 99 || gradeNum === 999) return 'ひみつ';
-    }
-    
-    // GRADE_OPTIONS からラベルを探す
-    const option = GRADE_OPTIONS.find(opt => opt.value === gradeStr);
-    if (option) {
-      return option.label;
-    }
-    
-    return gradeStr;
+    // 統一ユーティリティを使用
+    return gradeLabel(grade);
   };
 
   return (

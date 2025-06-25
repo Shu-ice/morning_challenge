@@ -2,6 +2,58 @@
 const { MongoClient, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 
+// 連続日数計算関数
+function calculateStreaks(history) {
+  if (history.length === 0) {
+    return { currentStreak: 0, maxStreak: 0 };
+  }
+  
+  // 日付でグループ化（重複除去）
+  const uniqueDates = [...new Set(history.map(h => h.date))].sort((a, b) => b.localeCompare(a));
+  
+  let currentStreak = 0;
+  let maxStreak = 0;
+  let tempStreak = 0;
+  
+  // 今日の日付（JST）
+  const today = new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10);
+  
+  // 現在の連続日数を計算
+  let expectedDate = new Date(today);
+  for (const dateStr of uniqueDates) {
+    const dateToCheck = expectedDate.toISOString().slice(0,10);
+    
+    if (dateStr === dateToCheck) {
+      currentStreak++;
+      // 翌日を期待日に設定
+      expectedDate.setDate(expectedDate.getDate() - 1);
+    } else {
+      break; // 連続が終了
+    }
+  }
+  
+  // 最大連続日数を計算
+  for (let i = 0; i < uniqueDates.length; i++) {
+    tempStreak = 1;
+    
+    for (let j = i + 1; j < uniqueDates.length; j++) {
+      const currentDate = new Date(uniqueDates[j-1]);
+      const nextDate = new Date(uniqueDates[j]);
+      const dayDiff = Math.round((currentDate - nextDate) / (1000 * 60 * 60 * 24));
+      
+      if (dayDiff === 1) {
+        tempStreak++;
+      } else {
+        break;
+      }
+    }
+    
+    maxStreak = Math.max(maxStreak, tempStreak);
+  }
+  
+  return { currentStreak, maxStreak };
+}
+
 const uri = process.env.MONGODB_URI || 'mongodb+srv://moutaro:moutaromoutaro@morninng.cq5xzt9.mongodb.net/?retryWrites=true&w=majority&appName=morninng';
 
 module.exports = async function handler(req, res) {
@@ -49,7 +101,7 @@ module.exports = async function handler(req, res) {
     // ユーザーの履歴を取得（新しい順）
     const userHistory = await resultsCollection.find({
       userId: userId
-    }).sort({ date: -1 }).limit(50).toArray();
+    }).sort({ createdAt: -1, date: -1 }).limit(50).toArray();
 
     console.log('📜 取得した履歴数:', userHistory.length);
 
@@ -62,6 +114,9 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // 連続日数を計算
+    const { currentStreak, maxStreak } = calculateStreaks(userHistory);
+    
     // 履歴データの整形
     const formattedHistory = userHistory.map((result, index) => ({
       id: result._id,
@@ -69,17 +124,22 @@ module.exports = async function handler(req, res) {
       difficulty: result.difficulty,
       score: result.score,
       timeSpent: result.timeSpent,
+      totalTime: result.totalTime, // ★ totalTimeも含める
       correctAnswers: result.correctAnswers || 0,
       totalProblems: result.totalProblems || 10,
       accuracy: result.correctAnswers ? 
         Math.round((result.correctAnswers / (result.totalProblems || 10)) * 100) : 0,
-      rank: index + 1
+      rank: index + 1,
+      createdAt: result.createdAt, // ★ createdAtを含める
+      timestamp: result.createdAt || result.timestamp // ★ フォールバック用
     }));
 
     return res.status(200).json({
       success: true,
       count: formattedHistory.length,
       data: formattedHistory,
+      currentStreak: currentStreak, // ★ 現在の連続日数
+      maxStreak: maxStreak, // ★ 最大連続日数
       message: `履歴データ (${formattedHistory.length}件)`
     });
 

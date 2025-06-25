@@ -342,3 +342,199 @@ input:focus, select:focus {
   display: flex;
   align-items: center;
 }
+
+/* Mobile Navigation & Responsive Design */
+/* Apple-style Mobile Navigation */
+
+/* Typography - Responsive font sizes using clamp() */
+body {
+  font-size: clamp(14px, 2.5vw, 16px);
+  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1 {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: clamp(1.25rem, 3.5vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+  font-weight: 600;
+}
+
+/* Mobile Navigation Styles */
+.mobile-drawer {
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.mobile-drawer.open {
+  transform: translateX(0);
+}
+
+/* Backdrop blur for mobile menu */
+.mobile-backdrop {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Mobile menu animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.mobile-drawer.animate-in {
+  animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.mobile-drawer.animate-out {
+  animation: slideOutRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Button hover effects for mobile */
+@media (hover: hover) {
+  .mobile-nav-button:hover {
+    background-color: rgba(0, 122, 255, 0.1);
+    transform: translateY(-1px);
+  }
+}
+
+/* Focus states for accessibility */
+.mobile-menu-button:focus-visible,
+.mobile-nav-link:focus-visible {
+  outline: 2px solid #007AFF;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Smooth scrolling for mobile */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Touch-friendly button sizes */
+@media (max-width: 640px) {
+  button, 
+  .button,
+  .mobile-nav-link {
+    min-height: 44px; /* Apple's recommended touch target size */
+    min-width: 44px;
+  }
+  
+  /* Responsive spacing */
+  .mobile-drawer {
+    padding: clamp(16px, 4vw, 24px);
+  }
+  
+  /* Responsive text in mobile menu */
+  .mobile-nav-link {
+    font-size: clamp(16px, 4vw, 18px);
+    padding: clamp(12px, 3vw, 16px) clamp(16px, 4vw, 24px);
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .mobile-drawer {
+    border-left: 2px solid #000;
+  }
+  
+  .mobile-nav-link {
+    border: 1px solid transparent;
+  }
+  
+  .mobile-nav-link:hover,
+  .mobile-nav-link:focus {
+    border-color: #007AFF;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-drawer,
+  .mobile-backdrop,
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode support (system preference) */
+@media (prefers-color-scheme: dark) {
+  .mobile-drawer {
+    background: rgba(28, 28, 30, 0.95);
+    color: #ffffff;
+  }
+  
+  .mobile-nav-link {
+    color: #ffffff;
+  }
+  
+  .mobile-nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Safe area insets for devices with notches */
+@supports (padding: max(0px)) {
+  .mobile-drawer {
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Responsive container queries for modern browsers */
+@container (max-width: 640px) {
+  .nav-container {
+    padding: 8px 16px;
+  }
+}
+
+/* Performance optimizations */
+.mobile-drawer,
+.mobile-backdrop {
+  contain: layout style paint;
+  transform: translateZ(0); /* Force hardware acceleration */
+}
+
+/* Print styles - hide mobile menu in print */
+@media print {
+  .mobile-drawer,
+  .mobile-backdrop,
+  .mobile-menu-button {
+    display: none !important;
+  }
+}

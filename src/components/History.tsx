@@ -25,15 +25,17 @@ interface HistoryItem {
 
 interface HistoryResponse {
   success: boolean;
-  history: HistoryItem[];
+  data: HistoryItem[]; // ★ history → data に変更
   currentStreak: number;
   maxStreak: number;
+  count?: number;
+  message?: string;
 }
 
 export const History: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [currentStreak, setCurrentStreak] = useState(3);
-  const [maxStreak, setMaxStreak] = useState(7);
+  const [currentStreak, setCurrentStreak] = useState(0); // ★ デフォルトを0に
+  const [maxStreak, setMaxStreak] = useState(0); // ★ デフォルトを0に
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,8 +57,8 @@ export const History: React.FC = () => {
           logger.debug('[History] 履歴データ数:', historyData.length);
           
           setHistory(historyData);
-          setCurrentStreak(response.currentStreak || 5);
-          setMaxStreak(response.maxStreak || 12);
+          setCurrentStreak(response.currentStreak || 0); // ★ APIからの連続日数を使用
+          setMaxStreak(response.maxStreak || 0); // ★ APIからの最大連続日数を使用
           setError(null);
         } else {
           logger.warn('[History] API returned false success or empty data:', response);

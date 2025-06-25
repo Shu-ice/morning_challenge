@@ -23,7 +23,10 @@
     "server:prod": "cd server && cross-env NODE_ENV=production DISABLE_TIME_CHECK=false MONGODB_MOCK=false node server.js",
     "clean": "rimraf dist node_modules/.cache",
     "setup": "npm install && cd server && npm install",
-    "test": "echo \"テストは今後実装予定\" && exit 0",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "seed": "node scripts/update_admin_pass.js",
     "smoke": "node scripts/quick_smoke_test.js"
   },
@@ -78,6 +81,11 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.4.2",
     "vite": "^5.1.4",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^1.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "jsdom": "^23.0.0"
   }
 }
