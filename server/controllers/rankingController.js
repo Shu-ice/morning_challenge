@@ -41,9 +41,12 @@ export const getDailyRankings = async (req, res) => {
         .limit(limit)
         .lean();
       
-      // モック環境でのユーザー情報設定
-      const { getMockUsers } = await import('../config/database.js');
-      const mockUsers = getMockUsers();
+      // --- モック環境でのみユーザー情報を補完 ---
+      let mockUsers = [];
+      if (process.env.MONGODB_MOCK === 'true') {
+        const { getMockUsers } = await import('../config/database.js');
+        mockUsers = getMockUsers();
+      }
       
       rankings = rankings.map(result => {
         const resultIdStr = result.userId?.toString?.();
