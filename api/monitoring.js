@@ -128,7 +128,20 @@ async function getPerformanceStats() {
           _id: null,
           averageResponseTime: { $avg: '$timeSpent' },
           totalRequests: { $sum: 1 },
-          averageCorrectRate: { $avg: { $multiply: [{ $divide: ['$correctAnswers', '$totalProblems'] }, 100] } }
+          averageCorrectRate: { 
+            $avg: { 
+              $multiply: [
+                { 
+                  $cond: [ 
+                    { $eq: ['$totalProblems', 0] }, 
+                    0, 
+                    { $divide: ['$correctAnswers', '$totalProblems'] }
+                  ] 
+                }, 
+                100
+              ] 
+            } 
+          }
         }
       }
     ]),
