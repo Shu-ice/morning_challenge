@@ -4,7 +4,7 @@
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { connectMongoose } = require('./_lib/database');
-const { Result, User } = require('./_lib/models');
+const { Result, User, DailyProblemSet } = require('./_lib/models');
 
 // 連続日数計算関数
 function calculateStreaks(history) {
@@ -117,19 +117,35 @@ module.exports = async function handler(req, res) {
     const { currentStreak, maxStreak } = calculateStreaks(userHistory);
 
     // 履歴データの整形
-    const formattedHistory = userHistory.map(result => ({
-      id: result._id.toString(),
-      date: result.date,
-      difficulty: result.difficulty,
-      score: result.score,
-      timeSpent: result.timeSpent,
-      correctAnswers: result.correctAnswers,
-      totalProblems: result.totalProblems,
-      // 古いデータは incorrectAnswers がないため、ここで計算
-      incorrectAnswers: result.incorrectAnswers ?? (result.totalProblems - result.correctAnswers - (result.unanswered ?? 0)),
-      unanswered: result.unanswered ?? (result.totalProblems - result.correctAnswers - (result.incorrectAnswers ?? 0)),
-      createdAt: result.createdAt,
-      rank: null // ランキング機能は別途実装
+    const formattedHistory = await Promise.all(userHistory.map(async (result) => {
+      // ランキング順位を取得
+      let rank = null;
+      try {
+        const dailyProblem = await DailyProblemSet.findOne({ date: result.date }).lean();
+        if (dailyProblem && dailyProblem.rankings) {
+          const userRanking = dailyProblem.rankings.find(r => r.userId.toString() === userId.toString());
+          if (userRanking) {
+            rank = userRanking.rank;
+          }
+        }
+      } catch(e) {
+        console.error('Rank fetching failed for date:', result.date, e);
+        // エラーでも処理は継続
+      }
+
+      return {
+        id: result._id.toString(),
+        date: result.date,
+        difficulty: result.difficulty,
+        score: result.score,
+        timeSpent: result.timeSpent,
+        correctAnswers: result.correctAnswers,
+        totalProblems: result.totalProblems,
+        incorrectAnswers: result.incorrectAnswers ?? (result.totalProblems - result.correctAnswers - (result.unanswered ?? 0)),
+        unanswered: result.unanswered ?? (result.totalProblems - result.correctAnswers - (result.incorrectAnswers ?? 0)),
+        createdAt: result.createdAt,
+        rank: rank
+      };
     }));
 
     return res.status(200).json({

@@ -238,32 +238,23 @@ const UserHistory = () => {
     if (!dateString) return 'N/A';
     try {
       const date = new Date(dateString);
-      
-      // 無効な日付をチェック
       if (isNaN(date.getTime())) {
         logger.warn('[UserHistory] Invalid date string:', dateString);
-        return dateString; // 元の文字列を返す
+        return dateString;
       }
-      
-      // モバイル表示用の短い形式
-      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-      
-      if (isMobile) {
-        const options: Intl.DateTimeFormatOptions = { 
-          month: 'numeric', day: 'numeric', 
-          hour: '2-digit', minute: '2-digit' 
-        };
-        return date.toLocaleString('ja-JP', options);
-      } else {
-        const options: Intl.DateTimeFormatOptions = { 
-          year: 'numeric', month: 'short', day: 'numeric', 
-          hour: '2-digit', minute: '2-digit' 
-        };
-        return date.toLocaleString('ja-JP', options);
-      }
+      // JSTで「年/月/日 時:分:秒」形式にフォーマット
+      return new Intl.DateTimeFormat('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: 'Asia/Tokyo'
+      }).format(date);
     } catch (e) {
-      logger.error('日付フォーマットエラー:', e instanceof Error ? e : String(e));
-      return dateString || 'N/A';
+      logger.error('Date formatting failed:', e);
+      return dateString; // エラー時も元の文字列を返す
     }
   };
   
@@ -466,7 +457,7 @@ const UserHistory = () => {
                       </span>
                     </td>
                     <td role="gridcell" aria-label={`解答時間: ${formatTime(item?.totalTime || item?.timeSpent)}`}>
-                      {formatTime(item?.totalTime || item?.timeSpent)}
+                      {item.timeSpent ? `${(item.timeSpent / 1000).toFixed(2)}秒` : 'N/A'}
                     </td>
                   </tr>
                 ))}
