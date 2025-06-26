@@ -570,6 +570,7 @@ const handler = async function(req, res) {
       // 採点処理
       let correctCount = 0;
       const detailedResults = [];
+      let answeredCount = 0;
       
       answers.forEach((userAnswer, index) => {
         if (index >= orderedProblems.length) return;
@@ -577,7 +578,13 @@ const handler = async function(req, res) {
         const problem = orderedProblems[index];
         const userAnsRaw = userAnswer;
         const userAnsStr = userAnsRaw !== undefined && userAnsRaw !== null ? String(userAnsRaw).trim() : null;
-        const userAnsNum = userAnsStr !== null && userAnsStr !== '' ? parseFloat(userAnsStr) : NaN;
+        const isAnswered = userAnsStr !== null && userAnsStr !== '';
+
+        if (isAnswered) {
+          answeredCount++;
+        }
+        
+        const userAnsNum = isAnswered ? parseFloat(userAnsStr) : NaN;
 
         // ★ correctAnswer を優先し、なければ answer を使用
         const correctAnsNum = problem.correctAnswer !== undefined 
@@ -596,9 +603,12 @@ const handler = async function(req, res) {
         });
       });
 
-      const score = orderedProblems.length > 0 ? Math.round((correctCount / orderedProblems.length) * 100) : 0;
+      const totalProblemsCount = orderedProblems.length;
+      const incorrectCount = answeredCount - correctCount;
+      const unansweredCount = totalProblemsCount - answeredCount;
+      const score = totalProblemsCount > 0 ? Math.round((correctCount / totalProblemsCount) * 100) : 0;
       
-      logger.info(`✅ Scoring complete: ${correctCount}/${orderedProblems.length} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
+      logger.info(`✅ Scoring complete: ${correctCount}/${totalProblemsCount} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
       
       // JWT認証情報の取得
       const authHeader = req.headers.authorization;
@@ -624,11 +634,12 @@ const handler = async function(req, res) {
         date: usedDate,
         difficulty: usedDifficulty,
         correctAnswers: correctCount,
-        totalProblems: orderedProblems.length,
+        totalProblems: totalProblemsCount,
+        incorrectAnswers: incorrectCount,
+        unanswered: unansweredCount,
         score: score,
         totalTime: totalTimeMs,
         timeSpent: timeSpentSec,
-        results: detailedResults,
         createdAt: new Date()
       };
 
@@ -643,8 +654,9 @@ const handler = async function(req, res) {
 
       const responsePayload = {
         correctAnswers: correctCount,
-        incorrectAnswers: orderedProblems.length - correctCount,
-        totalProblems: orderedProblems.length,
+        incorrectAnswers: incorrectCount,
+        unanswered: unansweredCount,
+        totalProblems: totalProblemsCount,
         score: score,
         totalTime: totalTimeMs,
         timeSpent: timeSpentSec,
