@@ -43,7 +43,7 @@ const userSchema = new mongoose.Schema({
 // 3. Result モデル
 // ========================================
 const resultSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false, index: true },
   username: { type: String, required: true, index: true },
   grade: { type: Number, required: false, default: 0, index: true },
   difficulty: { 

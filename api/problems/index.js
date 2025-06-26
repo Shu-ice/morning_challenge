@@ -5,6 +5,7 @@
 const jwt = require('jsonwebtoken');
 const { connectMongoose, handleDatabaseError } = require('../_lib/database');
 const { DailyProblemSet, Result } = require('../_lib/models');
+const mongoose = require('mongoose');
 
 // 環境変数設定
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
@@ -628,7 +629,7 @@ const handler = async function(req, res) {
 
       // results コレクションへの保存
       const resultDocument = {
-        userId: userId,
+        userId: userId ? new mongoose.Types.ObjectId(userId) : null,
         username: username,
         grade: userGrade,
         date: usedDate,
@@ -640,7 +641,9 @@ const handler = async function(req, res) {
         score: score,
         totalTime: totalTimeMs,
         timeSpent: timeSpentSec,
-        createdAt: new Date()
+        results: detailedResults,
+        createdAt: new Date(),
+        timestamp: new Date()
       };
 
       // MongoDB に結果を保存
@@ -649,7 +652,13 @@ const handler = async function(req, res) {
         logger.info(`✅ Result saved to database: ID=${savedResult._id}`);
       } catch (saveError) {
         logger.error('⚠️ Failed to save result to database:', saveError.message);
-        // 保存に失敗しても結果は返す
+        // 保存に失敗した場合は、フロントにエラーを返す
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to save result',
+          message: '成績の保存に失敗しました。',
+          details: saveError.message
+        });
       }
 
       const responsePayload = {

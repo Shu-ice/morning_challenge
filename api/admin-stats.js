@@ -399,8 +399,8 @@ module.exports = async function handler(req, res) {
         break;
     }
 
-    return res.status(200).json({
-      success: true,
+        return res.status(200).json({
+          success: true,
       type: type || 'overview',
       data
     });
@@ -413,4 +413,4 @@ module.exports = async function handler(req, res) {
       message: error.message
     });
   }
-};
+}; 
