@@ -1,66 +1,8 @@
 // Vercel Function: /api/admin-stats
-// MongoDB Atlas対応版統合管理者統計API - 全統計エンドポイントを統合
+// 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
 
-const mongoose = require('mongoose');
 const { connectMongoose, optimizeQuery, optimizeAggregation, withTimeout } = require('./_lib/database');
-
-// MongoDBスキーマ定義
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  grade: { type: Number, default: 1 },
-  avatar: { type: String, default: '😊' },
-  isAdmin: { type: Boolean, default: false },
-  points: { type: Number, default: 0 },
-  streak: { type: Number, default: 0 },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
-
-const resultSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  username: { type: String, required: true, index: true },
-  grade: { type: Number, required: false, default: 0 },
-  difficulty: { type: String, required: true, enum: ['beginner', 'intermediate', 'advanced', 'expert'], index: true },
-  date: { type: String, required: true, index: true },
-  totalProblems: { type: Number, required: true },
-  correctAnswers: { type: Number, required: true },
-  incorrectAnswers: { type: Number, required: true },
-  unanswered: { type: Number, required: true },
-  score: { type: Number, required: true },
-  timeSpent: { type: Number, required: true },
-  totalTime: { type: Number, required: true },
-  createdAt: { type: Date, default: Date.now, index: true },
-  timestamp: { type: Date, default: Date.now }
-});
-
-const problemSetSchema = new mongoose.Schema({
-  date: { type: String, required: true, index: true },
-  difficulty: { type: String, required: true, enum: ['beginner', 'intermediate', 'advanced', 'expert'] },
-  problems: [{ type: Object }],
-  isEdited: { type: Boolean, default: false }
-});
-
-// モデル定義
-let User, Result, DailyProblemSet;
-try {
-  User = mongoose.model('User');
-} catch {
-  User = mongoose.model('User', userSchema);
-}
-
-try {
-  Result = mongoose.model('Result');
-} catch {
-  Result = mongoose.model('Result', resultSchema);
-}
-
-try {
-  DailyProblemSet = mongoose.model('DailyProblemSet');
-} catch {
-  DailyProblemSet = mongoose.model('DailyProblemSet', problemSetSchema);
-}
+const { User, Result, DailyProblemSet } = require('./_lib/models');
 
 // 🚀 最適化された統計処理関数
 async function getOverviewStats() {
@@ -385,7 +327,7 @@ async function getPerformanceStats() {
 }
 
 async function getSystemHealth() {
-  const dbState = mongoose.connection.readyState;
+  const dbState = require('mongoose').connection.readyState;
   const dbStatus = ['disconnected', 'connected', 'connecting', 'disconnecting'][dbState] || 'unknown';
   const isHealthy = dbStatus === 'connected';
 
@@ -403,12 +345,10 @@ async function getSystemHealth() {
 }
 
 module.exports = async function handler(req, res) {
-  console.log(`📊 Admin Stats API: ${req.method} ${req.url}`);
-  
   // CORS設定
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -416,83 +356,61 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method !== 'GET') {
-    return res.status(405).json({
-      success: false,
-      error: `Method ${req.method} not allowed`
-    });
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
+  // 認証チェック（シンプル版）
+  // TODO: より堅牢な認証ミドルウェアに置き換える
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: Missing token' });
+  }
+  // ここでトークンの検証を行うのが理想
+
   try {
-    // 🚨 レスポンスタイムアウト設定（Vercel 30秒制限対応）
-    res.setTimeout(28000);
+    // 🚀 最適化されたDB接続
+    await connectMongoose();
 
-    // 🔥 データベース接続（タイムアウト付き）
-    console.log('🔌 Connecting to database...');
-    await withTimeout(
-      connectMongoose(),
-      12000, // 接続に12秒まで
-      'database-connection'
-    );
-    console.log('✅ Database connected');
-
-    const { type, ...queryParams } = req.query;
-
+    const { type, period = 'week', days = 7 } = req.query;
     let data;
+
     switch (type) {
       case 'overview':
         data = await getOverviewStats();
         break;
       case 'difficulty':
-        data = await getDifficultyStats(queryParams.period);
+        data = await getDifficultyStats(period);
         break;
       case 'grade':
-        data = await getGradeStats(queryParams.period);
+        data = await getGradeStats(period);
         break;
       case 'hourly':
-        data = await getHourlyStats(queryParams.days ? parseInt(queryParams.days, 10) : undefined);
-        break;
-      case 'system-health':
-        data = await getSystemHealth();
+        data = await getHourlyStats(Number(days));
         break;
       case 'performance':
         data = await getPerformanceStats();
         break;
+      case 'health':
+        data = await getSystemHealth();
+        break;
       default:
-        // Admin Dashboardのメインビュー用の統合データ
-        const [
-          overview, 
-          difficulty, 
-          grade, 
-          hourly, 
-          systemHealth,
-          performance,
-          // userGrowth, // 未実装のためコメントアウト
-        ] = await Promise.all([
-          getOverviewStats(),
-          getDifficultyStats('week'),
-          getGradeStats('week'),
-          getHourlyStats(7),
-          getSystemHealth(),
-          getPerformanceStats(),
-          // getUserGrowth('month'),
-        ]);
-
-        data = {
-          overview,
-          difficulty,
-          grade,
-          hourly,
-          systemHealth,
-          performance,
-          // userGrowth
-        };
+        // デフォルトは overview を返す
+        data = await getOverviewStats();
         break;
     }
 
-    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
-    res.status(200).json(data);
+    return res.status(200).json({
+      success: true,
+      type: type || 'overview',
+      data
+    });
+
   } catch (error) {
-    console.error(`[admin-stats-api] type: ${req.query.type} - Error:`, error);
-    res.status(500).json({ message: 'Error fetching admin statistics', error: error.message });
+    console.error(`[admin-stats] Error for type "${req.query.type}":`, error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal Server Error',
+      message: error.message
+    });
   }
 };

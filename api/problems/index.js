@@ -1,8 +1,10 @@
 // 🔥 数学問題生成API - 完全統合版
 // server/utils/problemGenerator.js と server/utils/timeWindow.js を活用
-const mongoose = require('mongoose');
+// 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
+
 const jwt = require('jsonwebtoken');
 const { connectMongoose, handleDatabaseError } = require('../_lib/database');
+const { DailyProblemSet, Result } = require('../_lib/models');
 
 // 環境変数設定
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
@@ -333,17 +335,6 @@ const handler = async function(req, res) {
   // MongoDB接続
   await connectMongoose();
 
-  // DailyProblemSetスキーマ定義
-  const dailyProblemSetSchema = new mongoose.Schema({
-    date: { type: String, required: true },
-    difficulty: { type: String, required: true },
-    problems: { type: Array, required: true },
-    isActive: { type: Boolean, default: true }
-  }, { timestamps: true });
-
-  const DailyProblemSet = mongoose.models.DailyProblemSet || 
-    mongoose.model('DailyProblemSet', dailyProblemSetSchema);
-
   try {
     if (req.method === 'GET') {
       logger.info('📚 Problems API called...');
@@ -643,22 +634,6 @@ const handler = async function(req, res) {
 
       // MongoDB に結果を保存
       try {
-        const ResultSchema = new mongoose.Schema({
-          userId: String,
-          username: String,
-          date: String,
-          difficulty: String,
-          correctAnswers: Number,
-          totalProblems: Number,
-          score: Number,
-          totalTime: Number,
-          timeSpent: Number,
-          results: Array,
-          grade: mongoose.Schema.Types.Mixed
-        }, { timestamps: true });
-        
-        const Result = mongoose.models.Result || mongoose.model('Result', ResultSchema);
-        
         const savedResult = await Result.create(resultDocument);
         logger.info(`✅ Result saved to database: ID=${savedResult._id}`);
       } catch (saveError) {

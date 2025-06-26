@@ -1,18 +1,12 @@
 // 📦 /api/problems/generate - Problem set generator for admin tool
+// 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
+
 const path = require('path');
-const mongoose = require('mongoose');
+const { connectMongoose } = require('../_lib/database');
+const { DailyProblemSet } = require('../_lib/models');
 
 // 既存の problems モジュールを再利用
 const problemsModule = require('./index');
-
-const dailyProblemSetSchema = new mongoose.Schema({
-  date: { type: String, required: true },
-  difficulty: { type: String, required: true },
-  problems: { type: Array, required: true },
-  isEdited: { type: Boolean, default: false }
-}, { timestamps: true });
-
-const DailyProblemSet = mongoose.models.DailyProblemSet || mongoose.model('DailyProblemSet', dailyProblemSetSchema);
 
 const generateProblemSet = problemsModule.generateProblemSet || (() => []);
 
@@ -47,8 +41,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // MongoDB 接続（キャッシュ済み接続を使用）
-    const { connectMongoose } = require('../_lib/database');
+    // 🚀 最適化されたDB接続
     await connectMongoose();
 
     // 既存チェック

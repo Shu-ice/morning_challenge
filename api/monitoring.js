@@ -1,29 +1,9 @@
 // Vercel Function: /api/monitoring
 // MongoDB Atlas対応版統合監視API - ヘルスチェックとパフォーマンス統計を統合
+// 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
 
-const mongoose = require('mongoose');
 const { connectMongoose } = require('./_lib/database');
-
-// MongoDBスキーマ定義
-const resultSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  username: { type: String, required: true, index: true },
-  grade: { type: Number, required: false, default: 0 },
-  difficulty: { type: String, required: true, enum: ['beginner', 'intermediate', 'advanced', 'expert'], index: true },
-  date: { type: String, required: true, index: true },
-  totalProblems: { type: Number, required: true },
-  correctAnswers: { type: Number, required: true },
-  timeSpent: { type: Number, required: true },
-  createdAt: { type: Date, default: Date.now, index: true }
-});
-
-// モデル定義
-let Result;
-try {
-  Result = mongoose.model('Result');
-} catch {
-  Result = mongoose.model('Result', resultSchema);
-}
+const { Result } = require('./_lib/models');
 
 async function getHealthCheck() {
   const startTime = Date.now();
@@ -34,7 +14,7 @@ async function getHealthCheck() {
   try {
     const dbStartTime = Date.now();
     await connectMongoose();
-    await mongoose.connection.db.admin().ping();
+    await require('mongoose').connection.db.admin().ping();
     
     const dbResponseTime = Date.now() - dbStartTime;
     checks.database = {
@@ -199,42 +179,28 @@ async function getPerformanceStats() {
   const weeklyData = weeklyRequests[0] || { averageResponseTime: 150, totalRequests: 0 };
   const requestsPerMinute = Math.round(recentRequests / (24 * 60));
 
-  const global = {
-    totalRequests,
-    totalErrors: Math.floor(totalRequests * 0.015),
-    averageResponseTime: weeklyData.averageResponseTime || 150,
-    requestsPerMinute
-  };
-
-  let healthScore = 100;
-  if (global.averageResponseTime > 300) healthScore -= 20;
-  if (global.averageResponseTime > 500) healthScore -= 30;
-  if (requestsPerMinute < 1) healthScore -= 10;
-  if (recentRequests === 0) healthScore -= 40;
-
   return {
     timestamp: new Date().toISOString(),
-    global,
+    responseTime: `${Date.now() - startTime}ms`,
+    overview: {
+      totalRequests,
+      recentRequests,
+      requestsPerMinute,
+      averageResponseTime: Math.round(weeklyData.averageResponseTime || 0),
+      averageCorrectRate: Math.round(weeklyData.averageCorrectRate || 0)
+    },
     endpoints,
     slowestEndpoints,
     highErrorEndpoints,
-    slowQueries: formattedSlowQueries,
-    healthScore: Math.max(0, healthScore),
-    systemMetrics: {
-      memoryUsage: process.memoryUsage(),
-      uptime: process.uptime(),
-      responseTime: Date.now() - startTime
-    }
+    slowQueries: formattedSlowQueries
   };
 }
 
 module.exports = async function handler(req, res) {
-  console.log(`🔍 Monitoring API: ${req.method} ${req.url}`);
-  
   // CORS設定
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -242,45 +208,53 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method !== 'GET') {
-    return res.status(405).json({
-      success: false,
-      error: `Method ${req.method} not allowed`
-    });
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
   try {
-    const { type } = req.query;
-    let data;
-    let statusCode = 200;
+    const { type = 'health' } = req.query;
 
-    switch (type) {
-      case 'health':
-        data = await getHealthCheck();
-        statusCode = data.status === 'healthy' ? 200 : data.status === 'warning' ? 200 : 503;
-        break;
-      case 'performance':
-        data = await getPerformanceStats();
-        break;
-      default:
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid type parameter. Use: health or performance'
-        });
+    if (type === 'health') {
+      const healthData = await getHealthCheck();
+      return res.status(200).json({
+        success: true,
+        data: healthData
+      });
     }
 
-    return res.status(statusCode).json({
-      success: statusCode < 400,
-      message: `${type} monitoring data retrieved successfully`,
-      data
+    if (type === 'performance') {
+      const performanceData = await getPerformanceStats();
+      return res.status(200).json({
+        success: true,
+        data: performanceData
+      });
+    }
+
+    if (type === 'all') {
+      const [healthData, performanceData] = await Promise.all([
+        getHealthCheck(),
+        getPerformanceStats()
+      ]);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          health: healthData,
+          performance: performanceData
+        }
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid type parameter. Use: health, performance, or all'
     });
 
   } catch (error) {
-    console.error('❌ Monitoring error:', error);
+    console.error('Monitoring API error:', error);
     return res.status(500).json({
       success: false,
-      error: 'Internal server error',
-      message: '監視データの取得中にエラーが発生しました',
-      details: error.message
+      error: 'Internal server error'
     });
   }
 };

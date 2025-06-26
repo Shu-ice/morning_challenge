@@ -1,15 +1,8 @@
 // 📑 /api/problems/edit - Get or update a DailyProblemSet
-const mongoose = require('mongoose');
+// 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
 
-// --- Mongoose model 定義（重複読み込み防止）
-const dailyProblemSetSchema = new mongoose.Schema({
-  date: { type: String, required: true },
-  difficulty: { type: String, required: true },
-  problems: { type: Array, required: true },
-  isEdited: { type: Boolean, default: false }
-}, { timestamps: true });
-
-const DailyProblemSet = mongoose.models.DailyProblemSet || mongoose.model('DailyProblemSet', dailyProblemSetSchema);
+const { connectMongoose } = require('../_lib/database');
+const { DailyProblemSet } = require('../_lib/models');
 
 module.exports = async function handler(req, res) {
   // --- CORS ヘッダー ---
@@ -21,10 +14,8 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    // DB 接続
-    if (!mongoose.connection.readyState) {
-      await mongoose.connect(process.env.MONGODB_URI, { dbName: 'morning_challenge' });
-    }
+    // 🚀 最適化されたDB接続
+    await connectMongoose();
 
     if (req.method === 'GET') {
       const { date, difficulty } = req.query;
