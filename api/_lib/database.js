@@ -65,10 +65,7 @@ async function connectMongoose() {
     // 🚨 サーバーレス最適化オプション
     const opts = {
       dbName: 'morning_challenge',
-      
-      // 🔥 重要: バッファリング完全無効化
       bufferCommands: false,
-      bufferMaxEntries: 0,
       
       // 🔥 重要: プール最適化（サーバーレス向け）
       maxPoolSize: 1,

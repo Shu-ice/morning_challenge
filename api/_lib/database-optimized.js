@@ -137,7 +137,6 @@ async function connectMongoose() {
         
         // 🚨 重要：サーバーレス環境でのバッファリング無効化
         bufferCommands: false,
-        bufferMaxEntries: 0,
         
         // 🚨 重要：接続プール最適化（サーバーレスでは1接続が理想）
         maxPoolSize: 1,
