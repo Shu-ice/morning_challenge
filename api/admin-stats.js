@@ -2,7 +2,7 @@
 // MongoDB Atlas対応版統合管理者統計API - 全統計エンドポイントを統合
 
 const mongoose = require('mongoose');
-const { connectMongoose } = require('./_lib/database');
+const { connectMongoose, optimizeQuery, optimizeAggregation, withTimeout } = require('./_lib/database');
 
 // MongoDBスキーマ定義
 const userSchema = new mongoose.Schema({
@@ -62,67 +62,127 @@ try {
   DailyProblemSet = mongoose.model('DailyProblemSet', problemSetSchema);
 }
 
-// 統計処理関数
+// 🚀 最適化された統計処理関数
 async function getOverviewStats() {
   const today = new Date().toISOString().split('T')[0];
   const now = new Date();
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  const [
-    totalUsers,
-    totalChallenges,
-    challengesToday,
-    problemSetsCount,
-    recentActivity,
-    weeklyStats
-  ] = await Promise.all([
-    User.countDocuments({}),
-    Result.countDocuments({}),
-    Result.countDocuments({ date: today }),
-    DailyProblemSet.countDocuments({}),
-    Result.find({ createdAt: { $gte: yesterday } }).sort({ createdAt: -1 }).limit(20).lean(),
-    Result.aggregate([
-      { $match: { createdAt: { $gte: weekAgo } } },
-      {
-        $group: {
-          _id: '$date',
-          totalChallenges: { $sum: 1 },
-          averageCorrectRate: { $avg: { $multiply: [{ $divide: ['$correctAnswers', '$totalProblems'] }, 100] } },
-          uniqueUsers: { $addToSet: '$userId' }
-        }
-      },
-      { $addFields: { uniqueUsers: { $size: '$uniqueUsers' } } },
-      { $sort: { _id: 1 } }
-    ])
-  ]);
+  try {
+    // 🔥 Step 1: 基本統計（軽量クエリ）を並列実行
+    const basicStats = await withTimeout(
+      Promise.all([
+        User.countDocuments({}).maxTimeMS(5000),
+        Result.countDocuments({}).maxTimeMS(5000),
+        Result.countDocuments({ date: today }).maxTimeMS(5000),
+        DailyProblemSet.countDocuments({}).maxTimeMS(5000),
+        Result.distinct('userId', { date: today }).maxTimeMS(5000)
+      ]),
+      12000, // 12秒でタイムアウト
+      'basic-stats'
+    );
 
-  const activeUsersToday = await Result.distinct('userId', { date: today });
+    const [totalUsers, totalChallenges, challengesToday, problemSetsCount, activeUsersToday] = basicStats;
 
-  return {
-    totalUsers,
-    activeUsersToday: activeUsersToday.length,
-    totalChallenges,
-    challengesToday,
-    problemSetsCount,
-    weeklyStats: weeklyStats.map(stat => ({
-      date: stat._id,
-      totalChallenges: stat.totalChallenges,
-      averageCorrectRate: Math.round(stat.averageCorrectRate || 0),
-      uniqueUsers: stat.uniqueUsers
-    })),
-    recentActivity: recentActivity.map(activity => ({
-      id: activity._id.toString(),
-      username: activity.username,
-      grade: activity.grade,
-      difficulty: activity.difficulty,
-      correctAnswers: activity.correctAnswers,
-      totalProblems: activity.totalProblems,
-      timeSpent: activity.timeSpent,
-      date: activity.date,
-      createdAt: activity.createdAt.toISOString()
-    }))
-  };
+    // 🔥 Step 2: 最近のアクティビティ（制限付き）
+    let recentActivity = [];
+    try {
+      const recentResults = await withTimeout(
+        optimizeQuery(
+          Result.find({ createdAt: { $gte: yesterday } })
+            .select('username grade difficulty correctAnswers totalProblems timeSpent date createdAt')
+            .sort({ createdAt: -1 }),
+          { maxTimeMS: 8000, lean: true, maxDocs: 20 }
+        ),
+        10000,
+        'recent-activity'
+      );
+      recentActivity = recentResults;
+    } catch (activityError) {
+      console.warn('Recent activity query failed, using fallback:', activityError.message);
+      // 空配列でフォールバック
+    }
+
+    // 🔥 Step 3: 週間統計（重い集計）- フォールバック付き
+    let weeklyStats = [];
+    try {
+      weeklyStats = await withTimeout(
+        optimizeAggregation(Result, [
+          { $match: { createdAt: { $gte: weekAgo } } },
+          {
+            $group: {
+              _id: '$date',
+              totalChallenges: { $sum: 1 },
+              averageCorrectRate: { 
+                $avg: { 
+                  $cond: [
+                    { $eq: ['$totalProblems', 0] },
+                    0,
+                    { $multiply: [{ $divide: ['$correctAnswers', '$totalProblems'] }, 100] }
+                  ]
+                } 
+              },
+              uniqueUsers: { $addToSet: '$userId' }
+            }
+          },
+          { $addFields: { uniqueUsers: { $size: '$uniqueUsers' } } },
+          { $sort: { _id: 1 } },
+          { $limit: 7 } // 結果セット制限
+        ], { maxTimeMS: 15000 }),
+        18000,
+        'weekly-stats'
+      );
+    } catch (weeklyError) {
+      console.warn('Weekly stats aggregation failed, using fallback:', weeklyError.message);
+      // フォールバック：基本統計のみ
+      weeklyStats = [{
+        _id: today,
+        totalChallenges: challengesToday,
+        averageCorrectRate: 0,
+        uniqueUsers: activeUsersToday.length
+      }];
+    }
+
+    return {
+      totalUsers,
+      activeUsersToday: activeUsersToday.length,
+      totalChallenges,
+      challengesToday,
+      problemSetsCount,
+      weeklyStats: weeklyStats.map(stat => ({
+        date: stat._id,
+        totalChallenges: stat.totalChallenges,
+        averageCorrectRate: Math.round(stat.averageCorrectRate || 0),
+        uniqueUsers: stat.uniqueUsers
+      })),
+      recentActivity: recentActivity.map(activity => ({
+        id: activity._id.toString(),
+        username: activity.username,
+        grade: activity.grade,
+        difficulty: activity.difficulty,
+        correctAnswers: activity.correctAnswers,
+        totalProblems: activity.totalProblems,
+        timeSpent: activity.timeSpent,
+        date: activity.date,
+        createdAt: activity.createdAt.toISOString()
+      }))
+    };
+
+  } catch (error) {
+    console.error('Overview stats error:', error);
+    // 🔥 フォールバック：基本的なデータのみ返す
+    return {
+      totalUsers: 0,
+      activeUsersToday: 0,
+      totalChallenges: 0,
+      challengesToday: 0,
+      problemSetsCount: 0,
+      weeklyStats: [],
+      recentActivity: [],
+      _error: error.message
+    };
+  }
 }
 
 async function getDifficultyStats(period = 'week') {
@@ -363,10 +423,18 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // タイムアウトを30秒に延長
-    res.setMaxListeners(30);
+    // 🚨 レスポンスタイムアウト設定（Vercel 30秒制限対応）
+    res.setTimeout(28000);
 
-    await connectMongoose();
+    // 🔥 データベース接続（タイムアウト付き）
+    console.log('🔌 Connecting to database...');
+    await withTimeout(
+      connectMongoose(),
+      12000, // 接続に12秒まで
+      'database-connection'
+    );
+    console.log('✅ Database connected');
+
     const { type, ...queryParams } = req.query;
 
     let data;
