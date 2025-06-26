@@ -136,6 +136,8 @@ module.exports = async function handler(req, res) {
       // 対策：API側で表示用のデータを生成する
       const timeInSeconds = result.timeSpent ? (result.timeSpent / 1000).toFixed(2) : '0.00';
       const executionTime = new Intl.DateTimeFormat('ja-JP', {
+        month: 'numeric',
+        day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
         timeZone: 'Asia/Tokyo'
@@ -152,7 +154,7 @@ module.exports = async function handler(req, res) {
         incorrectAnswers: result.incorrectAnswers ?? (result.totalProblems - result.correctAnswers),
         unanswered: result.unanswered ?? 0,
         createdAt: result.createdAt, // 元データも残す
-        executionTime: executionTime, // 整形済みの時:分
+        executionTime: executionTime, // 整形済みの「月/日 時:分」
         rank: rank
       };
     }));

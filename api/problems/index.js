@@ -507,8 +507,7 @@ const handler = async function(req, res) {
       const usedDate = date ? date.replace(/\//g, '-') : toJSTDateString();
       
       // 時間計算の改善
-      const totalTimeMs = timeSpentMs ?? (timeToComplete ? timeToComplete : 
-        (Date.now() - (startTime || Date.now())));
+      const totalTimeMs = Math.max(0, Date.now() - req.body.startTime);
       const timeSpentSec = Math.round(totalTimeMs / 10) / 100; // 0.01秒単位
       
       if (!answers || !Array.isArray(answers)) {

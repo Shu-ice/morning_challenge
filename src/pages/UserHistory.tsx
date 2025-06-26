@@ -392,13 +392,21 @@ const UserHistory = () => {
                 </tr>
               </thead>
               <tbody>
-                {history.map((item) => (
-                  <tr key={item._id}>
-                    <td>{item.executionTime || new Date(item.date).toLocaleDateString()}</td>
-                    <td><span className={`difficulty-badge difficulty-${item.difficulty}`}>{difficultyToJapanese(item.difficulty)}</span></td>
-                    <td>{item.rank !== null && item.rank !== undefined ? `${item.rank}位` : '-'}</td>
-                    <td>{`${item.correctAnswers} / ${item.totalProblems}`}</td>
-                    <td>{`${item.timeSpent}秒`}</td>
+                {history.map((item, index) => (
+                  <tr 
+                    key={item._id || `history-${index}`} 
+                    className="history-row"
+                    role="row"
+                  >
+                    <td role="gridcell">{item.executionTime}</td>
+                    <td role="gridcell">
+                      <span className={`difficulty-badge difficulty-${item.difficulty}`}>
+                        {difficultyToJapanese(item.difficulty)}
+                      </span>
+                    </td>
+                    <td role="gridcell">{item.rank ? `${item.rank}位` : '-'}</td>
+                    <td role="gridcell">{`${item.correctAnswers} / ${item.totalProblems}`}</td>
+                    <td role="gridcell">{`${item.timeSpent}秒`}</td>
                   </tr>
                 ))}
               </tbody>
