@@ -15,8 +15,10 @@ interface HistoryItem {
   totalProblems: number;
   correctAnswers: number;
   score: number;
-  timeSpent: number;
+  timeSpent: string;
   timestamp: string;
+  createdAt: string;
+  executionTime: string;
   rank?: number;
   username?: string;
   userId?: string;
@@ -233,33 +235,6 @@ const UserHistory = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // 日付をフォーマットする関数
-  const formatDate = (dateString: string | undefined): string => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        logger.warn('[UserHistory] Invalid date string:', dateString);
-        return dateString;
-      }
-      // JSTで「年/月/日 時:分:秒」形式にフォーマット
-      return new Intl.DateTimeFormat('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        timeZone: 'Asia/Tokyo'
-      }).format(date);
-    } catch (e) {
-      logger.error('Date formatting failed:', e);
-      return dateString; // エラー時も元の文字列を返す
-    }
-  };
-  
-  // formatTime は dateUtils から利用
-
   // 手動リロードボタン
   const handleRefresh = () => {
     fetchHistory();
@@ -417,48 +392,13 @@ const UserHistory = () => {
                 </tr>
               </thead>
               <tbody>
-                {history.map((item, index) => (
-                  <tr 
-                    key={item._id || `history-${index}`} 
-                    className="history-row"
-                    role="row"
-                    aria-rowindex={index + 2}
-                    tabIndex={0}
-                    aria-label={`${index + 1}件目の履歴: ${formatDate(item.timestamp)}, 難易度${difficultyToJapanese(item.difficulty as DifficultyRank)}, ${item.rank ? `${item.rank}位` : '順位なし'}, ${item.correctAnswers ?? '?'}/${item.totalProblems ?? 10}問正解, ${formatTime(item.totalTime || item.timeSpent)}`}
-                  >
-                    <td role="gridcell" aria-label={`実施日時: ${formatDate(item?.timestamp || item?.date)}`}>
-                      {formatDate(item?.timestamp || item?.date)}
-                    </td>
-                    <td role="gridcell" aria-label={`難易度: ${difficultyToJapanese((item?.difficulty || 'beginner') as DifficultyRank)}`}>
-                      <span 
-                        className={`difficulty-badge difficulty-${item?.difficulty || 'beginner'}`}
-                        role="img"
-                        aria-label={`難易度: ${difficultyToJapanese((item?.difficulty || 'beginner') as DifficultyRank)}`}
-                      >
-                        {difficultyToJapanese((item?.difficulty || 'beginner') as DifficultyRank)}
-                      </span>
-                    </td>
-                    <td role="gridcell" aria-label={item?.rank ? `順位: ${item.rank}位` : '順位: 記録なし'}>
-                      {item?.rank ? (
-                        <span 
-                          className={`rank-badge ${item.rank <= 3 ? `rank-${item.rank}` : ''}`}
-                          role="img"
-                          aria-label={`${item.rank}位`}
-                        >
-                          {item.rank}<ruby>位<rt>い</rt></ruby>
-                        </span>
-                      ) : (
-                        <span aria-label="順位記録なし">-</span>
-                      )}
-                    </td>
-                    <td role="gridcell" aria-label={`正解数: ${item?.correctAnswers ?? '?'}問中${item?.totalProblems ?? 10}問`}>
-                      <span className="score-display">
-                        {item?.correctAnswers ?? '?'} / {item?.totalProblems ?? 10}
-                      </span>
-                    </td>
-                    <td role="gridcell" aria-label={`解答時間: ${formatTime(item?.totalTime || item?.timeSpent)}`}>
-                      {item.timeSpent ? `${(item.timeSpent / 1000).toFixed(2)}秒` : 'N/A'}
-                    </td>
+                {history.map((item) => (
+                  <tr key={item._id}>
+                    <td>{item.executionTime || new Date(item.date).toLocaleDateString()}</td>
+                    <td><span className={`difficulty-badge difficulty-${item.difficulty}`}>{difficultyToJapanese(item.difficulty)}</span></td>
+                    <td>{item.rank !== null && item.rank !== undefined ? `${item.rank}位` : '-'}</td>
+                    <td>{`${item.correctAnswers} / ${item.totalProblems}`}</td>
+                    <td>{`${item.timeSpent}秒`}</td>
                   </tr>
                 ))}
               </tbody>

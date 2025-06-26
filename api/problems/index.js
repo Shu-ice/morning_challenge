@@ -640,7 +640,7 @@ const handler = async function(req, res) {
         unanswered: unansweredCount,
         score: score,
         totalTime: totalTimeMs,
-        timeSpent: timeSpentSec,
+        timeSpent: timeSpentSec * 1000,
         results: detailedResults,
         createdAt: new Date(),
         timestamp: new Date()

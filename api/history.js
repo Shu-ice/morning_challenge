@@ -118,10 +118,11 @@ module.exports = async function handler(req, res) {
 
     // 履歴データの整形
     const formattedHistory = await Promise.all(userHistory.map(async (result) => {
-      // ランキング順位を取得
       let rank = null;
       try {
-        const dailyProblem = await DailyProblemSet.findOne({ date: result.date }).lean();
+        // 対策：日付文字列を確実に一致させる
+        const problemDate = new Date(result.date).toISOString().split('T')[0];
+        const dailyProblem = await DailyProblemSet.findOne({ date: problemDate }).lean();
         if (dailyProblem && dailyProblem.rankings) {
           const userRanking = dailyProblem.rankings.find(r => r.userId.toString() === userId.toString());
           if (userRanking) {
@@ -130,20 +131,28 @@ module.exports = async function handler(req, res) {
         }
       } catch(e) {
         console.error('Rank fetching failed for date:', result.date, e);
-        // エラーでも処理は継続
       }
+
+      // 対策：API側で表示用のデータを生成する
+      const timeInSeconds = result.timeSpent ? (result.timeSpent / 1000).toFixed(2) : '0.00';
+      const executionTime = new Intl.DateTimeFormat('ja-JP', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Tokyo'
+      }).format(new Date(result.createdAt));
 
       return {
         id: result._id.toString(),
         date: result.date,
         difficulty: result.difficulty,
         score: result.score,
-        timeSpent: result.timeSpent,
+        timeSpent: timeInSeconds, // 整形済みの秒
         correctAnswers: result.correctAnswers,
         totalProblems: result.totalProblems,
-        incorrectAnswers: result.incorrectAnswers ?? (result.totalProblems - result.correctAnswers - (result.unanswered ?? 0)),
-        unanswered: result.unanswered ?? (result.totalProblems - result.correctAnswers - (result.incorrectAnswers ?? 0)),
-        createdAt: result.createdAt,
+        incorrectAnswers: result.incorrectAnswers ?? (result.totalProblems - result.correctAnswers),
+        unanswered: result.unanswered ?? 0,
+        createdAt: result.createdAt, // 元データも残す
+        executionTime: executionTime, // 整形済みの時:分
         rank: rank
       };
     }));
