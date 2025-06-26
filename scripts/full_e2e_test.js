@@ -198,8 +198,38 @@ async function runFullE2ETest() {
     recordTest('ランキング取得', false, rankingResult.error);
   }
   
-  // === Phase 5: エラーハンドリングテスト ===
-  console.log('\n=== 🔍 Phase 5: エラーハンドリングテスト ===');
+  // === Phase 4.5: 回答提出テスト ===
+  console.log('\n=== 📝 Phase 4.5: 回答提出テスト ===');
+  
+  // Get problems for answer submission test
+  const submitTestResult = await testAPI('/api/problems?difficulty=beginner', 'GET', null, authHeaders);
+  if (submitTestResult.success && submitTestResult.data.problems) {
+    const problems = submitTestResult.data.problems;
+    const answers = problems.map(p => p.answer); // Use correct answers
+    const problemIds = problems.map(p => p.id);
+    
+    const submissionData = {
+      answers: answers,
+      difficulty: 'beginner',
+      date: new Date().toISOString().split('T')[0],
+      problemIds: problemIds,
+      timeSpentMs: 60000, // 1 minute
+      startTime: Date.now() - 60000
+    };
+    
+    const answerResult = await testAPI('/api/problems', 'POST', submissionData, authHeaders);
+    if (answerResult.success && answerResult.data.success) {
+      const results = answerResult.data.results;
+      recordTest('回答提出', true, `スコア: ${results.score}%, 正解: ${results.correctAnswers}/${results.totalProblems}`);
+    } else {
+      recordTest('回答提出', false, answerResult.error || '提出失敗');
+    }
+  } else {
+    recordTest('回答提出', false, '問題取得失敗のため回答提出テストをスキップ');
+  }
+  
+  // === Phase 6: エラーハンドリングテスト ===
+  console.log('\n=== 🔍 Phase 6: エラーハンドリングテスト ===');
   
   // 不正な難易度テスト
   const invalidDifficultyResult = await testAPI('/api/problems?difficulty=invalid', 'GET', null, authHeaders, 400);

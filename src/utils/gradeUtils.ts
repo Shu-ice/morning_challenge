@@ -13,7 +13,7 @@ export const getGradeDisplayName = (grade: number | string | undefined | null): 
   switch (num) {
     case 7:
       return 'その他';
-    case 999:
+    case 99:
       return 'ひみつ';
     default:
       return `${num}年生`;
@@ -33,7 +33,7 @@ export const getGradeColor = (grade: number | string): string => {
       return '#45B7D1'; // 高学年 - 青系
     case 7:
       return '#96CEB4'; // その他 - 緑系
-    case 999:
+    case 99:
       return '#FFEAA7'; // ひみつ - 黄系
     default:
       return '#007AFF'; // デフォルト

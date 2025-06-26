@@ -84,4 +84,8 @@ module.exports = async function handler(req, res) {
     console.error('[generate] Error:', error);
     return res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
+};
+
+module.exports.config = {
+  schedule: '0 15 * * *'
 }; 

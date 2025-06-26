@@ -202,7 +202,7 @@ async function updateUserProfile(req, res) {
       });
     }
 
-    // 学年バリデーション：1-6(小学生), 7(その他), 999(ひみつ)
+    // 学年バリデーション：1-15(詳細区分), 99(ひみつ)
     if (grade !== undefined && grade !== null && grade !== '') {
       const gradeNum = parseInt(grade);
       const validGrades = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,99];

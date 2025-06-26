@@ -1,8 +1,15 @@
 // 🏆 ランキングAPI - Vercel対応
-const { MongoClient, ObjectId } = require('mongodb');
-const { getGradeLabel, normalizeGrade } = require('../server/constants/gradeMapping');
+const { ObjectId } = require('mongodb');
+const { getGradeLabel, normalizeGrade } = require('./_lib/gradeMapping');
+const { getDatabase, handleDatabaseError } = require('./_lib/database');
 
-const uri = process.env.MONGODB_URI || 'mongodb+srv://moutaro:moutaromoutaro@morninng.cq5xzt9.mongodb.net/?retryWrites=true&w=majority&appName=morninng';
+const IS_PRODUCTION = process.env.VERCEL || process.env.NODE_ENV === 'production';
+const logger = {
+  info: (...args) => !IS_PRODUCTION && console.log(...args),
+  debug: (...args) => !IS_PRODUCTION && console.debug(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args)
+};
 
 module.exports = async function handler(req, res) {
   // CORS設定
@@ -18,13 +25,8 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  let client;
-
   try {
-    client = new MongoClient(uri);
-    await client.connect();
-    
-    const db = client.db('morning_challenge');
+    const db = await getDatabase();
     const resultsCollection = db.collection('results');
     const usersCollection = db.collection('users');
 
@@ -41,7 +43,7 @@ module.exports = async function handler(req, res) {
       queryDate = today.toISOString().split('T')[0]; // YYYY-MM-DD形式
     }
 
-    console.log('📊 ランキング取得中...', { queryDate, difficulty });
+    logger.debug('📊 ランキング取得中...', { queryDate, difficulty });
 
     // Mongo クエリ条件（文字列として日付を検索）
     const query = {
@@ -60,7 +62,7 @@ module.exports = async function handler(req, res) {
 
     // ★ 文字列日付で結果が見つからない場合、createdAt による日付範囲検索も試行
     if (todayResults.length === 0) {
-      console.log('⚠️ 文字列日付での結果が見つからないため、createdAt範囲検索を試行');
+      logger.debug('⚠️ 文字列日付での結果が見つからないため、createdAt範囲検索を試行');
       const startDate = new Date(queryDate + 'T00:00:00');
       const endDate = new Date(queryDate + 'T23:59:59');
       
@@ -80,10 +82,10 @@ module.exports = async function handler(req, res) {
         .limit(parseInt(limit, 10) || 100)
         .toArray();
         
-      console.log('📊 createdAt範囲検索での結果数:', todayResults.length);
+      logger.debug('📊 createdAt範囲検索での結果数:', todayResults.length);
     }
 
-    console.log('📊 取得した結果数:', todayResults.length);
+    logger.debug('📊 取得した結果数:', todayResults.length);
 
     if (todayResults.length === 0) {
       return res.status(200).json({
@@ -99,7 +101,7 @@ module.exports = async function handler(req, res) {
       try {
         return ObjectId.isValid(result.userId) ? new ObjectId(result.userId) : null;
       } catch (error) {
-        console.log('⚠️ ObjectId変換エラー:', result.userId);
+        logger.warn('⚠️ ObjectId変換エラー:', result.userId);
         return null;
       }
     }).filter(Boolean);
@@ -146,16 +148,7 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ ランキング取得エラー:', error);
-    
-    return res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      message: 'ランキングの取得に失敗しました'
-    });
-  } finally {
-    if (client) {
-      await client.close();
-    }
+    const errorResponse = handleDatabaseError(error, 'ランキング取得');
+    return res.status(500).json(errorResponse);
   }
 }; 

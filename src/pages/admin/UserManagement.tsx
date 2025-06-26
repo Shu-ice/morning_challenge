@@ -3,6 +3,7 @@ import { adminAPI } from '../../api/index';
 import { logger } from '../../utils/logger';
 import { getGradeDisplayName, getGradeColor } from '../../utils/gradeUtils';
 import type { AdminUser, UserListResponse } from '../../types/admin';
+import { GRADE_OPTIONS } from '../../types/grades';
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -178,11 +179,9 @@ const UserManagement: React.FC = () => {
               }}
             >
               <option value="">全ての学年</option>
-              {[1, 2, 3, 4, 5, 6].map(grade => (
-                <option key={grade} value={grade}>{grade}年生</option>
+              {GRADE_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
-              <option value={7}>その他</option>
-              <option value={999}>ひみつ</option>
             </select>
           </div>
 

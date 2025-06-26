@@ -81,6 +81,16 @@ export class ErrorHandler {
    * ユーザーフレンドリーなエラーメッセージを取得
    */
   static getUserFriendlyMessage(error: ApplicationError): string {
+    // サーバーから詳細メッセージが渡されていれば最優先で表示
+    if (typeof error === 'object' && 'response' in error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const errAny = error as any;
+      const serverMessage = errAny.response?.data?.message || errAny.response?.data?.error;
+      if (serverMessage && typeof serverMessage === 'string') {
+        return serverMessage;
+      }
+    }
+
     const message = extractErrorMessage(error);
     
     // 特定のエラーコードに基づくカスタマイズ

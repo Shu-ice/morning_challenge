@@ -452,7 +452,30 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     } catch (error) {
       const handledError = ErrorHandler.handleApiError(error, '回答送信');
       logger.error('[Problems] Error submitting answers:', ErrorHandler.getUserFriendlyMessage(handledError));
-      alert(`回答の送信に失敗しました: ${ErrorHandler.getUserFriendlyMessage(handledError)}`);
+      
+      // 409エラー（日次制限）の特別処理
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response?.status === 409 || 
+            (axiosError.response?.data?.isAlreadyCompleted)) {
+          logger.warn('[Problems] 日次チャレンジ制限で提出拒否');
+          alert('本日は既にチャレンジを完了しています。ホームに戻ります。');
+          onBack();
+          return;
+        }
+      }
+      
+      // メッセージをチェックして409エラーを検出
+      const errorMessage = ErrorHandler.getUserFriendlyMessage(handledError);
+      if (errorMessage.includes('本日は既にチャレンジを完了') ||
+          errorMessage.includes('isAlreadyCompleted')) {
+        logger.warn('[Problems] Daily challenge already completed message detected in submit');
+        alert('本日は既にチャレンジを完了しています。ホームに戻ります。');
+        onBack();
+        return;
+      }
+      
+      alert(`回答の送信に失敗しました: ${errorMessage}`);
     }
   };
 
@@ -551,6 +574,28 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         }
       } catch (error) {
         logger.error('[Problems] Failed to load problems:', error instanceof Error ? error : String(error));
+        
+        // 409エラー（日次制限）の特別処理
+        if (error instanceof Error && 'response' in error) {
+          const axiosError = error as any;
+          if (axiosError.response?.status === 409 || 
+              (axiosError.response?.data?.isAlreadyCompleted)) {
+            logger.warn('[Problems] 日次チャレンジ制限でアクセス拒否');
+            // ホームへリダイレクトするために onBack を呼び出す
+            onBack();
+            return;
+          }
+        }
+        
+        // メッセージをチェックして409エラーを検出
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('本日は既にチャレンジを完了') ||
+            errorMessage.includes('isAlreadyCompleted')) {
+          logger.warn('[Problems] Daily challenge already completed message detected');
+          onBack();
+          return;
+        }
+        
         setCurrentProblems([]);
       } finally {
         setIsLoading(false);

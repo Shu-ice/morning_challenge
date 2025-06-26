@@ -30,10 +30,17 @@ const UserSchema = new mongoose.Schema({
     required: [true, '学年は必須です'],
     validate: {
       validator: function(value) {
-        const validGrades = [1, 2, 3, 4, 5, 6, 7, 999];
+        const validGrades = [
+          1, 2, 3, 4, 5, 6,      // 小学生
+          7, 8, 9, 10,           // 中学生
+          11, 12, 13,            // 高校生
+          14,                    // 大学生
+          15,                    // 社会人
+          99                     // ひみつ
+        ];
         return validGrades.includes(value);
       },
-      message: '学年は1-6、7(その他)、または999(ひみつ)である必要があります'
+      message: '学年は1-15、または99(ひみつ)である必要があります'
     },
     default: 1
   },

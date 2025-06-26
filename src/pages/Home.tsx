@@ -60,6 +60,26 @@ const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid, defaultDiffic
         </div>
       </section>
 
+      {/* ルール説明セクション */}
+      <section className="rules-section" style={{ margin: '0.5rem auto', width: '100%', maxWidth: '820px' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #F5F7FA 0%, #E2E8F0 100%)',
+          borderRadius: '16px',
+          padding: '1.5rem 2rem',
+          boxShadow: '0 6px 14px rgba(0,0,0,0.08)',
+          border: '1px solid #ECEFF5'
+        }}>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            チャレンジルール
+          </h2>
+          <ul style={{ listStyle: 'none', paddingLeft: 0, lineHeight: 1.7, color: '#333' }}>
+            <li>⏰ チャレンジ<ruby>可能<rt>かのう</rt></ruby><ruby>時間<rt>じかん</rt></ruby>は <strong><ruby>朝<rt>あさ</rt></ruby> 6:30–8:00</strong> だけ！</li>
+            <li>🏅 1 <ruby>日<rt>にち</rt></ruby>につき <strong>チャレンジは 1 <ruby>回<rt>かい</rt></ruby></strong> <ruby>限<rt>かぎ</rt></ruby>りです。</li>
+            <li>📈 <ruby>回答<rt>かいとう</rt></ruby>を<ruby>送信<rt>そうしん</rt></ruby>すると<ruby>結果<rt>けっか</rt></ruby>が<ruby>保存<rt>ほぞん</rt></ruby>され、<ruby>その日<rt>そのひ</rt></ruby>の<ruby>間<rt>あいだ</rt></ruby>は<ruby>再挑戦<rt>さいちょうせん</rt></ruby>できません。</li>
+          </ul>
+        </div>
+      </section>
+
       {/* チャレンジ開始カード */}
       <div className="start-challenge-card">
         <div className="grade-selector">

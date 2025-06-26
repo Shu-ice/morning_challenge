@@ -23,7 +23,14 @@
       "Bash(npm install:*)",
       "Bash(git push:*)",
       "Bash(vercel:*)",
-      "Bash(npm run smoke:*)"
+      "Bash(npm run smoke:*)",
+      "Bash(mv:*)",
+      "Bash(ls:*)",
+      "Bash(git rm:*)",
+      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true node --check server.js)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

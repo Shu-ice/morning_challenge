@@ -85,7 +85,7 @@ let mockDailyProblemSets = [];
 const initializeMockData = async () => {
   logger.info('🔥🔥🔥 [initializeMockData] モックデータ初期化開始！');
   
-  // デフォルトユーザーの作成
+  // デフォルトユーザーの作成（新学年システム対応：1-15, 99）
   mockUsers = [
     {
       _id: '1',
@@ -117,6 +117,61 @@ const initializeMockData = async () => {
       grade: 3,
       isAdmin: false,
       avatar: '🎓',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      _id: '4',
+      username: 'junior',
+      email: 'junior@example.com',
+      password: bcrypt.hashSync('junior123', 10),
+      grade: 8, // 中学1年生
+      isAdmin: false,
+      avatar: '📚',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      _id: '5',
+      username: 'senior',
+      email: 'senior@example.com',
+      password: bcrypt.hashSync('senior123', 10),
+      grade: 12, // 高校3年生
+      isAdmin: false,
+      avatar: '🎒',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      _id: '6',
+      username: 'college',
+      email: 'college@example.com',
+      password: bcrypt.hashSync('college123', 10),
+      grade: 14, // 大学生
+      isAdmin: false,
+      avatar: '🎓',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      _id: '7',
+      username: 'worker',
+      email: 'worker@example.com',
+      password: bcrypt.hashSync('worker123', 10),
+      grade: 15, // 社会人
+      isAdmin: false,
+      avatar: '💼',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      _id: '8',
+      username: 'mystery',
+      email: 'mystery@example.com',
+      password: bcrypt.hashSync('mystery123', 10),
+      grade: 99, // ひみつ
+      isAdmin: false,
+      avatar: '❓',
       createdAt: new Date(),
       updatedAt: new Date()
     }
@@ -194,6 +249,86 @@ const initializeMockData = async () => {
       timeSpent: 520, // 秒単位
       totalTime: 520000, // ミリ秒単位
       grade: 3,
+      createdAt: dayjs().subtract(1, 'day').toDate(),
+      updatedAt: dayjs().subtract(1, 'day').toDate()
+    },
+    {
+      _id: '5',
+      userId: '4', // juniorユーザー (中学1年生:8)
+      date: today,
+      difficulty: 'intermediate',
+      correctAnswers: 8,
+      incorrectAnswers: 2,
+      unanswered: 0,
+      totalProblems: 10,
+      score: 80,
+      timeSpent: 340, // 秒単位
+      totalTime: 340000, // ミリ秒単位
+      grade: 8,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      _id: '6',
+      userId: '5', // seniorユーザー (高校3年生:12)
+      date: today,
+      difficulty: 'advanced',
+      correctAnswers: 9,
+      incorrectAnswers: 1,
+      unanswered: 0,
+      totalProblems: 10,
+      score: 90,
+      timeSpent: 280, // 秒単位
+      totalTime: 280000, // ミリ秒単位
+      grade: 12,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      _id: '7',
+      userId: '6', // collegeユーザー (大学生:14)
+      date: yesterday,
+      difficulty: 'expert',
+      correctAnswers: 10,
+      incorrectAnswers: 0,
+      unanswered: 0,
+      totalProblems: 10,
+      score: 100,
+      timeSpent: 240, // 秒単位
+      totalTime: 240000, // ミリ秒単位
+      grade: 14,
+      createdAt: dayjs().subtract(1, 'day').toDate(),
+      updatedAt: dayjs().subtract(1, 'day').toDate()
+    },
+    {
+      _id: '8',
+      userId: '7', // workerユーザー (社会人:15)
+      date: today,
+      difficulty: 'advanced',
+      correctAnswers: 8,
+      incorrectAnswers: 1,
+      unanswered: 1,
+      totalProblems: 10,
+      score: 80,
+      timeSpent: 300, // 秒単位
+      totalTime: 300000, // ミリ秒単位
+      grade: 15,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      _id: '9',
+      userId: '8', // mysteryユーザー (ひみつ:99)
+      date: yesterday,
+      difficulty: 'beginner',
+      correctAnswers: 7,
+      incorrectAnswers: 2,
+      unanswered: 1,
+      totalProblems: 10,
+      score: 70,
+      timeSpent: 450, // 秒単位
+      totalTime: 450000, // ミリ秒単位
+      grade: 99,
       createdAt: dayjs().subtract(1, 'day').toDate(),
       updatedAt: dayjs().subtract(1, 'day').toDate()
     }
@@ -411,6 +546,59 @@ const connectDB = async () => {
   return await connectMongoDB();
 };
 
+// Simple mock data getters
+function getMockUsers() {
+  return mockUsers;
+}
+
+function getMockResults() {
+  return mockResults;
+}
+
+function getMockDailyProblemSets() {
+  return mockDailyProblemSets;
+}
+
+// Simple mock data manipulators
+function addMockUser(user) {
+  user._id = user._id || String(mockUsers.length + 1);
+  mockUsers.push(user);
+  return user;
+}
+
+function addMockResult(result) {
+  result._id = result._id || String(mockResults.length + 1);
+  mockResults.push(result);
+  return result;
+}
+
+function findMockUser(query) {
+  return mockUsers.find(user => {
+    return Object.keys(query).every(key => user[key] === query[key]);
+  }) || null;
+}
+
+function updateMockUser(id, updates) {
+  const userIndex = mockUsers.findIndex(user => user._id === id);
+  if (userIndex !== -1) {
+    mockUsers[userIndex] = { ...mockUsers[userIndex], ...updates, updatedAt: new Date() };
+    return mockUsers[userIndex];
+  }
+  return null;
+}
+
+function addMockDailyProblemSet(problemSet) {
+  problemSet._id = problemSet._id || String(mockDailyProblemSets.length + 1);
+  mockDailyProblemSets.push(problemSet);
+  return problemSet;
+}
+
+function findMockDailyProblemSet(query) {
+  return mockDailyProblemSets.find(set => {
+    return Object.keys(query).every(key => set[key] === query[key]);
+  }) || null;
+}
+
 export { 
   connectDB,
   connectMongoDB,
@@ -423,9 +611,7 @@ export {
   updateMockUser,
   addMockDailyProblemSet,
   findMockDailyProblemSet,
-  /* ユーザーの学年変更に伴い Result の grade を一括更新 */
   updateGradeForUserResults,
-  /* 統一されたモックデータ操作関数 */
   getMockUserUnified,
   updateMockUserUnified,
   persistMockData

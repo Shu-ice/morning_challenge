@@ -169,10 +169,11 @@ export const gradeLabel = (g: number | string | null | undefined): string => {
   if (typeof gradeNum !== 'number' || isNaN(gradeNum)) return 'その他';
   
   if (gradeNum >= 1 && gradeNum <= 6) return `小${gradeNum}年生`;
-  if (gradeNum >= 7 && gradeNum <= 9) return `中${gradeNum - 6}年生`;
-  if (gradeNum >= 10 && gradeNum <= 12) return `高${gradeNum - 9}年生`;
-  if (gradeNum === 13) return '大学生';
-  if (gradeNum === 14) return '社会人';
+  if (gradeNum === 7) return 'その他';
+  if (gradeNum >= 8 && gradeNum <= 10) return `中${gradeNum - 7}年生`;
+  if (gradeNum >= 11 && gradeNum <= 13) return `高${gradeNum - 10}年生`;
+  if (gradeNum === 14) return '大学生';
+  if (gradeNum === 15) return '社会人';
   
   return 'その他';
 }; 

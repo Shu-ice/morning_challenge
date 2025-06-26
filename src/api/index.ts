@@ -279,8 +279,21 @@ const problemsAPI = {
       if ('response' in err && typeof (err as AxiosError).response === 'object') {
         // サーバーからのエラーレスポンス
         const response = (err as AxiosError).response;
-        errorMessage = (response?.data as { message?: string; error?: string })?.message || 
-                       (response?.data as { message?: string; error?: string })?.error || 
+        const responseData = response?.data as { message?: string; error?: string; isAlreadyCompleted?: boolean };
+        
+        // 409エラー（日次制限）の特別処理
+        if (response?.status === 409 && responseData?.isAlreadyCompleted) {
+          return {
+            success: false,
+            message: responseData.message || '本日は既にチャレンジを完了しています。',
+            problems: [],
+            isAlreadyCompleted: true,
+            shouldRedirectHome: true
+          };
+        }
+        
+        errorMessage = responseData?.message || 
+                       responseData?.error || 
                        `サーバーエラー (${response?.status})`;
       } else if ('request' in err) {
         // リクエストは送信されたが、レスポンスがない
@@ -363,7 +376,20 @@ const problemsAPI = {
       
       if ('response' in err && typeof (err as AxiosError).response === 'object') {
         const response = (err as AxiosError).response;
-        errorMsg = (response?.data as { message?: string })?.message || errorMsg;
+        const responseData = response?.data as { message?: string; isAlreadyCompleted?: boolean };
+        
+        // 409エラー（日次制限）の特別処理
+        if (response?.status === 409 && responseData?.isAlreadyCompleted) {
+          return {
+            success: false,
+            message: responseData.message || '本日は既にチャレンジを完了しています。',
+            results: null,
+            isAlreadyCompleted: true,
+            shouldRedirectHome: true
+          };
+        }
+        
+        errorMsg = responseData?.message || errorMsg;
       } else {
         errorMsg = err.message || errorMsg;
       }
@@ -455,7 +481,7 @@ const rankingAPI = {
         logger.warn('[API] 認証トークンがありません。ランキング取得に失敗する可能性があります。');
       }
       
-      const response = await API.get(`/rankings/daily?${params.toString()}`);
+      const response = await API.get(`/rankings?${params.toString()}`);
       logger.debug(`[API] ランキング取得レスポンス:`, response.data);
       
       if (!response.data) {
@@ -498,11 +524,11 @@ const rankingAPI = {
 
 // 管理者API
 const adminAPI = {
-  // システム統計
-  getOverview: () => API.get('/admin/stats/overview'),
-  getDifficultyStats: (period = 'week') => API.get(`/admin/stats/difficulty?period=${period}`),
-  getGradeStats: (period = 'week') => API.get(`/admin/stats/grade?period=${period}`),
-  getHourlyStats: (days = 7) => API.get(`/admin/stats/hourly?days=${days}`),
+  // システム統計 - 統合エンドポイント使用
+  getOverview: () => API.get('/admin-stats?type=overview'),
+  getDifficultyStats: (period = 'week') => API.get(`/admin-stats?type=difficulty&period=${period}`),
+  getGradeStats: (period = 'week') => API.get(`/admin-stats?type=grade&period=${period}`),
+  getHourlyStats: (days = 7) => API.get(`/admin-stats?type=hourly&days=${days}`),
   getProblemSetStats: () => API.get('/admin/stats/problemsets'),
   
   // ユーザー管理
@@ -552,11 +578,11 @@ const adminAPI = {
 
 // 監視・パフォーマンスAPI
 const monitoringAPI = {
-  // パフォーマンス統計
-  getPerformanceStats: () => API.get('/monitoring/performance'),
+  // パフォーマンス統計 - 統合エンドポイント使用
+  getPerformanceStats: () => API.get('/monitoring?type=performance'),
   
-  // システムヘルスチェック
-  getSystemHealth: () => API.get('/monitoring/health'),
+  // システムヘルスチェック - 統合エンドポイント使用
+  getSystemHealth: () => API.get('/monitoring?type=health'),
   
   // 詳細システム情報（管理者のみ）
   getSystemInfo: () => API.get('/monitoring/system'),
@@ -616,15 +642,13 @@ const historyAPI = {
 // 必要なものだけを最後にまとめてエクスポート
 export { API, authAPI, userAPI, problemsAPI, rankingAPI, historyAPI, adminAPI, monitoringAPI, testBackendConnection };
 
-// 管理者統計関連のAPI関数
-export const getOverview = () => API.get('/admin/stats/overview');
-export const getDifficultyStats = (period: string = 'week') => API.get(`/admin/stats/difficulty?period=${period}`);
-export const getGradeStats = (period: string = 'week') => API.get(`/admin/stats/grade?period=${period}`);
-export const getHourlyStats = (days: number = 7) => API.get(`/admin/stats/hourly?days=${days}`);
+// 管理者統計関連のAPI関数 - 統合エンドポイント使用
+export const getOverview = () => API.get('/admin-stats?type=overview');
+export const getDifficultyStats = (period: string = 'week') => API.get(`/admin-stats?type=difficulty&period=${period}`);
+export const getGradeStats = (period: string = 'week') => API.get(`/admin-stats?type=grade&period=${period}`);
+export const getHourlyStats = (days: number = 7) => API.get(`/admin-stats?type=hourly&days=${days}`);
 
-// 管理者ダッシュボード専用API（新規追加）
-export const getDashboardData = () => API.get('/admin-dashboard');
 
-// システム監視関連
-export const getSystemHealth = () => API.get('/monitoring/health');
-export const getPerformanceStats = () => API.get('/monitoring/performance'); 
+// システム監視関連 - 統合エンドポイント使用
+export const getSystemHealth = () => API.get('/monitoring?type=health');
+export const getPerformanceStats = () => API.get('/monitoring?type=performance'); 

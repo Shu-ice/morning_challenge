@@ -557,7 +557,7 @@ export const getGradeStats = async (req, res) => {
         const user = mockUsers.find(u => u._id === result.userId);
         return {
           ...result,
-          userGrade: user ? user.grade : 999 // 不明な場合は999（ひみつ）
+          userGrade: user ? user.grade : 99 // 不明な場合は99（ひみつ）
         };
       });
       
@@ -593,7 +593,7 @@ export const getGradeStats = async (req, res) => {
         }, {});
         
         return {
-          grade: parseInt(grade),
+          grade: parseInt(grade), // 数値で統一（8-15, 99含む）
           totalChallenges,
           averageCorrectRate,
           averageTime,
@@ -602,10 +602,10 @@ export const getGradeStats = async (req, res) => {
         };
       });
       
-      // 学年順にソート（数値順、999は最後）
+      // 学年順にソート（数値順、99は最後）
       const sortedStats = mockStats.sort((a, b) => {
-        if (a.grade === 999) return 1;
-        if (b.grade === 999) return -1;
+        if (a.grade === 99) return 1;
+        if (b.grade === 99) return -1;
         return a.grade - b.grade;
       });
 

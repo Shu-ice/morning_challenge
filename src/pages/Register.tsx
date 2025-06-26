@@ -33,8 +33,8 @@ function Register({ onRegister, onLogin }: RegisterProps) {
       return;
     }
     const gradeNum = parseInt(grade, 10);
-    // 有効な学年: 1-6(小学生), 7(その他), 999(ひみつ)
-    const validGrades = [1, 2, 3, 4, 5, 6, 7, 999];
+    // 有効な学年一覧を GRADE_OPTIONS から動的生成
+    const validGrades = GRADE_OPTIONS.map(opt => parseInt(opt.value, 10));
     if (isNaN(gradeNum) || !validGrades.includes(gradeNum)) {
       setError('有効な学年を選択してください');
       return;
@@ -51,17 +51,19 @@ function Register({ onRegister, onLogin }: RegisterProps) {
 
       console.log('[Register] 登録成功:', response);
       
-      if (response.token && response._id) {
-        const token = response.token;
+      const token = response.token;
+      const userPayload = response.user || response; // ユーザー情報がuserキー内か直下かを両対応
+
+      if (token && userPayload && userPayload._id) {
         const userDataFromResponse: UserData = {
-          _id: response._id,
-          username: response.username,
-          email: response.email,
-          grade: response.grade,
-          avatar: response.avatar || '😊',
+          _id: userPayload._id,
+          username: userPayload.username,
+          email: userPayload.email,
+          grade: userPayload.grade,
+          avatar: userPayload.avatar || '😊',
           isLoggedIn: true,
           loginTime: new Date().toISOString(),
-          isAdmin: response.isAdmin || false,
+          isAdmin: userPayload.isAdmin || false,
         };
         
         console.log('[Register] 自動ログイン実行中...', userDataFromResponse);
@@ -73,8 +75,8 @@ function Register({ onRegister, onLogin }: RegisterProps) {
         }, 1000);
       } else {
         let errorMessage = '登録レスポンスの形式が無効です。';
-        if (!response.token) errorMessage += ' トークンがありません。';
-        if (!response._id) errorMessage += ' ユーザーIDがありません。';
+        if (!token) errorMessage += ' トークンがありません。';
+        if (!userPayload?._id) errorMessage += ' ユーザーIDがありません。';
         console.error('[Register] Invalid response structure:', response);
         throw new Error(errorMessage);
       }

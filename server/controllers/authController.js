@@ -22,7 +22,8 @@ const generateToken = (userId, userInfo = {}) => {
 // @access  Public
 const registerUser = async (req, res, next) => {
   logger.debug('registerUser function started');
-  const { username, email, password, grade, avatar } = req.body;
+  const { username, password, grade, avatar } = req.body;
+  const email = (req.body.email || '').trim().toLowerCase();
 
   try {
     // メールアドレスが既に存在するか確認（モック環境対応）
@@ -91,7 +92,8 @@ const registerUser = async (req, res, next) => {
 const loginUser = async (req, res, next) => {
   const startTime = Date.now();
   logger.debug('loginUser function started');
-  const { email, password } = req.body;
+  let { email, password } = req.body;
+  email = (email || '').trim().toLowerCase();
   logger.info(`Login attempt for email: ${email}`);
   logger.debug(`Request body keys: ${Object.keys(req.body)}`);
   logger.debug(`Email provided: ${!!email}, Password provided: ${!!password}`);
@@ -108,10 +110,10 @@ const loginUser = async (req, res, next) => {
     logger.debug(`Environment: MONGODB_MOCK=${process.env.MONGODB_MOCK}`);
     
     // 🔥 緊急修正: モック環境でのfindOne処理
-    const userQuery = User.findOne({ email });
-    logger.debug(`User query created: ${typeof userQuery}`);
+    const userFindQuery = User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+    logger.debug(`User query created: ${typeof userFindQuery}`);
     
-    const user = await (userQuery.select ? userQuery.select('+password') : userQuery);
+    const user = await (userFindQuery.select ? userFindQuery.select('+password') : userFindQuery);
     logger.debug(`User search result: ${JSON.stringify(user ? { username: user.username, email: user.email, hasPassword: !!user.password, isAdmin: user.isAdmin } : null)}`);
     
     const userSearchTime = Date.now();

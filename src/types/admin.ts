@@ -6,8 +6,11 @@ export interface SystemOverview {
   totalChallenges: number;
   challengesToday: number;
   problemSetsCount: number;
-  weeklyStats: WeeklyStats[];
-  recentActivity: RecentActivity[];
+  weeklyStats?: WeeklyStats[];
+  recentActivity?: RecentActivity[];
+  difficultyStats?: DifficultyStats[];
+  gradeStats?: GradeStats[];
+  hourlyStats?: HourlyStats[];
 }
 
 export interface WeeklyStats {

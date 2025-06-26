@@ -278,7 +278,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
                     </span>
                   </div>
                 <div className="time-column">
-                  {formatTimeSpent(ranking.timeSpent)}
+                  {formatTimeSpent(ranking.totalTime ?? ranking.timeSpent * 1000)}
                 </div>
               </div>
             );
@@ -309,7 +309,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
               <div className="stat-item">
                 <div className="stat-label"><ruby>平均時間<rt>へいきんじかん</rt></ruby></div>
                 <div className="stat-value">
-                  <span className="number">{(rankings.reduce((acc, r) => acc + r.timeSpent, 0) / rankings.length).toFixed(2)}</span>
+                  <span className="number">{(rankings.reduce((acc, r) => acc + (r.totalTime ?? r.timeSpent*1000), 0) / rankings.length / 1000).toFixed(2)}</span>
                   <span className="stat-unit">秒</span>
                 </div>
               </div>

@@ -62,7 +62,7 @@ export const useRankings = (date: string, difficulty?: DifficultyRank) => {
       
       if (difficulty) {
         // 特定の難易度のみ
-        const response = await fetch(`/api/rankings/daily?limit=50&difficulty=${difficulty}&date=${date}`, {
+        const response = await fetch(`/api/rankings?limit=50&difficulty=${difficulty}&date=${date}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -73,7 +73,7 @@ export const useRankings = (date: string, difficulty?: DifficultyRank) => {
       } else {
         // 全難易度を並列取得
         const promises = difficulties.map(async (diff) => {
-          const response = await fetch(`/api/rankings/daily?limit=50&difficulty=${diff}&date=${date}`, {
+          const response = await fetch(`/api/rankings?limit=50&difficulty=${diff}&date=${date}`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`,
               'Content-Type': 'application/json',
@@ -171,7 +171,7 @@ export const usePrefetchData = () => {
       queryFn: async () => {
         const difficulties: DifficultyRank[] = ['beginner', 'intermediate', 'advanced', 'expert']
         const promises = difficulties.map(async (diff) => {
-          const response = await fetch(`/api/rankings/daily?limit=50&difficulty=${diff}&date=${date}`, {
+          const response = await fetch(`/api/rankings?limit=50&difficulty=${diff}&date=${date}`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`,
               'Content-Type': 'application/json',

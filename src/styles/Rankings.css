@@ -598,3 +598,42 @@
     font-size: 1em;
   }
 }
+
+/* モバイル横スクロール対応 */
+@media (max-width: 600px) {
+  .ranking-stats .stats-grid {
+    display: flex;
+    gap: var(--spacing-md);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--spacing-md);
+  }
+
+  .ranking-stats .stat-item {
+    flex: 0 0 220px; /* カード幅を固定しつつ縮まない */
+  }
+
+  /* ランキングリスト横スクロール */
+  .rankings-list {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rankings-header,
+  .ranking-item {
+    min-width: 540px; /* 列が詰まり過ぎないよう余裕を持たせる */
+  }
+
+  /* ヘッダとセルを同じレイアウト方式に統一し、ズレを防ぐ */
+  .rankings-header,
+  .ranking-item {
+    display: grid;
+    grid-template-columns: 60px 1fr 90px 90px 100px; /* 順位,ユーザー,学年,正解数,時間 */
+  }
+
+  .rankings-header > div,
+  .ranking-item > div {
+    padding: 0.25rem 0.5rem;
+    box-sizing: border-box;
+  }
+}

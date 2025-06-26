@@ -114,6 +114,20 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // ユニークな (date,difficulty) 組み合わせを抽出し、各組み合わせでランキングを取得して順位マップを作成
+    const rankLookup = {};
+    const uniqueKeys = [...new Set(userHistory.map(r => `${r.date}__${r.difficulty}`))];
+    for (const key of uniqueKeys) {
+      const [d, diff] = key.split('__');
+      const rankingDocs = await resultsCollection.find({ date: d, difficulty: diff })
+        .sort({ score: -1, timeSpent: 1, createdAt: 1 })
+        .project({ _id: 1 })
+        .toArray();
+      rankingDocs.forEach((doc, idx) => {
+        rankLookup[doc._id.toString()] = idx + 1;
+      });
+    }
+
     // 連続日数を計算
     const { currentStreak, maxStreak } = calculateStreaks(userHistory);
     
@@ -129,7 +143,7 @@ module.exports = async function handler(req, res) {
       totalProblems: result.totalProblems || 10,
       accuracy: result.correctAnswers ? 
         Math.round((result.correctAnswers / (result.totalProblems || 10)) * 100) : 0,
-      rank: index + 1,
+      rank: rankLookup[result._id.toString()] || null,
       createdAt: result.createdAt, // ★ createdAtを含める
       timestamp: result.createdAt || result.timestamp // ★ フォールバック用
     }));
@@ -156,4 +170,9 @@ module.exports = async function handler(req, res) {
       await client.close();
     }
   }
-}; 
+};
+
+// JST 今日の日付を YYYY-MM-DD で取得
+function queryDateToday() {
+  return new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10);
+} 

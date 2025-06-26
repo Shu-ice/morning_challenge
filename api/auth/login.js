@@ -60,7 +60,9 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+    // 入力を正規化して大小・前後空白の差異による認証失敗を防ぐ
+    email = (email || '').trim().toLowerCase();
     console.log(`🚀 Login request for: ${email}`);
 
     // バリデーション
@@ -74,8 +76,8 @@ module.exports = async function handler(req, res) {
     // MongoDB接続（キャッシュ済み接続を使用）
     await connectMongoose();
     
-    // MongoDB内でユーザーを検索
-    const user = await User.findOne({ email: email.trim() });
+    // MongoDB内でユーザーを検索（正規化済みメールアドレス、既存データとの大文字小文字差異を吸収）
+    const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
     
     if (!user) {
       console.log(`❌ User not found: ${email}`);

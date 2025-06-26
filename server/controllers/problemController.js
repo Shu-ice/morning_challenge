@@ -18,6 +18,54 @@ const isMongoMock = () => {
   return isMock;
 };
 
+// 日次チャレンジ制限チェック
+const checkDailyChallengeLimit = async (userId, date, isAdmin) => {
+  // 管理者は制限なし
+  if (isAdmin) {
+    logger.debug(`[DailyLimit] 管理者のため日次制限をスキップ: userId=${userId}`);
+    return null;
+  }
+  
+  // テスト環境では制限なし
+  if (process.env.DISABLE_TIME_CHECK === 'true') {
+    logger.debug(`[DailyLimit] DISABLE_TIME_CHECK=true のため日次制限をスキップ`);
+    return null;
+  }
+  
+  try {
+    let existingResult = null;
+    
+    if (isMongoMock()) {
+      // モック環境での既存結果チェック
+      const mockResults = getMockResults();
+      existingResult = mockResults.find(result => 
+        result.userId === userId && result.date === date
+      );
+    } else {
+      // MongoDB環境での既存結果チェック
+      existingResult = await Result.findOne({ userId, date });
+    }
+    
+    if (existingResult) {
+      logger.warn(`[DailyLimit] 既に本日挑戦済み: userId=${userId}, date=${date}`);
+      return {
+        status: 409,
+        success: false,
+        message: '本日は既にチャレンジを完了しています。明日の挑戦をお待ちしています！',
+        isAlreadyCompleted: true,
+        completedAt: existingResult.createdAt || existingResult.updatedAt
+      };
+    }
+    
+    logger.debug(`[DailyLimit] 日次制限チェック通過: userId=${userId}, date=${date}`);
+    return null; // 制限なし
+  } catch (error) {
+    logger.error(`[DailyLimit] チェック中にエラー:`, error);
+    // エラー時は制限をかけない（安全側に倒す）
+    return null;
+  }
+};
+
 // @desc    問題の生成
 // @route   GET /api/problems
 // @access  Private
@@ -90,6 +138,20 @@ export const getProblems = async (req, res) => {
     }
     
     const targetDate = date || new Date().toISOString().split('T')[0];
+    
+    // 日次チャレンジ制限チェック
+    if (userId) {
+      const dailyLimitResult = await checkDailyChallengeLimit(
+        userId, 
+        targetDate, 
+        req.user && req.user.isAdmin
+      );
+      
+      if (dailyLimitResult) {
+        logger.warn(`[getProblems] 日次制限によりアクセス拒否: userId=${userId}, date=${targetDate}`);
+        return res.status(dailyLimitResult.status).json(dailyLimitResult);
+      }
+    }
     
       if (!['beginner', 'intermediate', 'advanced', 'expert'].includes(difficulty)) {
         return res.status(400).json({
@@ -416,6 +478,18 @@ export const submitAnswers = async (req, res) => {
       success: false, 
       message: '有効な難易度と回答が必要です' 
     });
+  }
+  
+  // 日次チャレンジ制限チェック
+  const dailyLimitResult = await checkDailyChallengeLimit(
+    userId, 
+    date, 
+    req.user && req.user.isAdmin
+  );
+  
+  if (dailyLimitResult) {
+    logger.warn(`[submitAnswers] 日次制限により提出拒否: userId=${userId}, date=${date}`);
+    return res.status(dailyLimitResult.status).json(dailyLimitResult);
   }
 
   try {

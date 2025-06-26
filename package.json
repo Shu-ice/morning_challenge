@@ -28,7 +28,9 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "seed": "node scripts/update_admin_pass.js",
-    "smoke": "node scripts/quick_smoke_test.js"
+    "smoke": "node scripts/quick_smoke_test.js",
+    "lowercase-emails": "node server/scripts/lowercaseEmails.js",
+    "migrate-users": "node server/scripts/migrateUsersFromTest.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.79.0",

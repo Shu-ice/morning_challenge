@@ -224,4 +224,159 @@ describe('Problems API Tests', () => {
       expect(response.body.errors).toBeDefined();
     });
   });
+
+  describe('Daily Challenge Limit', () => {
+    test('should allow first challenge of the day', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // 最初のアクセスは成功するべき
+      const response = await request(app)
+        .get('/api/problems')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({
+          difficulty: 'beginner',
+          date: today
+        })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.problems).toBeDefined();
+    });
+
+    test('should prevent second challenge attempt on same day', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // 最初の提出
+      const submissionData = {
+        answers: ['5', '3', '12'],
+        startTime: Date.now() - 60000,
+        endTime: Date.now(),
+        difficulty: 'beginner',
+        date: today
+      };
+
+      await request(app)
+        .post('/api/problems/submit')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(submissionData)
+        .expect(200);
+      
+      // 2回目のアクセスは409で拒否されるべき
+      const secondAccessResponse = await request(app)
+        .get('/api/problems')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({
+          difficulty: 'beginner',
+          date: today
+        })
+        .expect(409);
+
+      expect(secondAccessResponse.body.success).toBe(false);
+      expect(secondAccessResponse.body.message).toContain('本日は既にチャレンジを完了');
+      expect(secondAccessResponse.body.isAlreadyCompleted).toBe(true);
+    });
+
+    test('should prevent second submission attempt on same day', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const submissionData = {
+        answers: ['5', '3', '12'],
+        startTime: Date.now() - 60000,
+        endTime: Date.now(),
+        difficulty: 'beginner',
+        date: today
+      };
+
+      // 最初の提出
+      await request(app)
+        .post('/api/problems/submit')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(submissionData)
+        .expect(200);
+      
+      // 2回目の提出は409で拒否されるべき
+      const secondSubmissionResponse = await request(app)
+        .post('/api/problems/submit')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(submissionData)
+        .expect(409);
+
+      expect(secondSubmissionResponse.body.success).toBe(false);
+      expect(secondSubmissionResponse.body.message).toContain('本日は既にチャレンジを完了');
+      expect(secondSubmissionResponse.body.isAlreadyCompleted).toBe(true);
+    });
+
+    test('should allow admin to bypass daily limit', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // ユーザーを管理者に変更
+      await User.findByIdAndUpdate(userId, { isAdmin: true });
+      
+      const submissionData = {
+        answers: ['5', '3', '12'],
+        startTime: Date.now() - 60000,
+        endTime: Date.now(),
+        difficulty: 'beginner',
+        date: today
+      };
+
+      // 最初の提出
+      await request(app)
+        .post('/api/problems/submit')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(submissionData)
+        .expect(200);
+      
+      // 管理者は2回目もアクセスできるべき
+      const secondAccessResponse = await request(app)
+        .get('/api/problems')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({
+          difficulty: 'beginner',
+          date: today
+        })
+        .expect(200);
+
+      expect(secondAccessResponse.body.success).toBe(true);
+      expect(secondAccessResponse.body.problems).toBeDefined();
+    });
+
+    test('should allow multiple attempts when DISABLE_TIME_CHECK is true', async () => {
+      // テスト環境ではDISABLE_TIME_CHECK=trueのことが多いので
+      // このテストは環境変数に依存する
+      const today = new Date().toISOString().split('T')[0];
+      
+      const submissionData = {
+        answers: ['5', '3', '12'],
+        startTime: Date.now() - 60000,
+        endTime: Date.now(),
+        difficulty: 'beginner',
+        date: today
+      };
+
+      if (process.env.DISABLE_TIME_CHECK === 'true') {
+        // 最初の提出
+        await request(app)
+          .post('/api/problems/submit')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send(submissionData)
+          .expect(200);
+        
+        // DISABLE_TIME_CHECK=trueの場合は2回目も成功するべき
+        const secondAccessResponse = await request(app)
+          .get('/api/problems')
+          .set('Authorization', `Bearer ${authToken}`)
+          .query({
+            difficulty: 'beginner',
+            date: today
+          })
+          .expect(200);
+
+        expect(secondAccessResponse.body.success).toBe(true);
+      } else {
+        // DISABLE_TIME_CHECKがfalseの場合は通常の制限が適用される
+        console.log('DISABLE_TIME_CHECK is false, skipping this test scenario');
+      }
+    });
+  });
 });
