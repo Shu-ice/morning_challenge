@@ -506,9 +506,9 @@ const handler = async function(req, res) {
       const usedDifficulty = difficulty || 'beginner';
       const usedDate = date ? date.replace(/\//g, '-') : toJSTDateString();
       
-      // 時間計算の改善
-      const totalTimeMs = Math.max(0, Date.now() - req.body.startTime);
-      const timeSpentSec = Math.round(totalTimeMs / 10) / 100; // 0.01秒単位
+      // 時間計算の修正 - 正確なミリ秒計算
+      const totalTimeMs = req.body.startTime ? Math.max(0, Date.now() - req.body.startTime) : 0;
+      const timeSpentSec = totalTimeMs / 1000; // 正確な秒変換
       
       if (!answers || !Array.isArray(answers)) {
         logger.warn('❌ Invalid answers array');
@@ -610,7 +610,7 @@ const handler = async function(req, res) {
       
       logger.info(`✅ Scoring complete: ${correctCount}/${totalProblemsCount} (${score}%)${userIsAdmin ? ' (ADMIN)' : ''}`);
       
-      // JWT認証情報の取得
+      // JWT認証情報の取得（エラー処理強化）
       const authHeader = req.headers.authorization;
       let userId = null;
       let username = 'anonymous';
@@ -623,12 +623,42 @@ const handler = async function(req, res) {
           if (userId && typeof userId !== 'string') userId = String(userId);
           username = user.username || user.email || 'user';
           userGrade = user.grade ?? null;
+          logger.debug(`✅ User authenticated: ${username} (ID: ${userId})`);
+        } else {
+          logger.warn('❌ Token verification failed');
         }
+      } else {
+        logger.warn('❌ No authorization header provided');
+      }
+
+      // 認証が必要な場合のチェック
+      if (!userId) {
+        logger.error('❌ User authentication failed: currentUser or currentUser.id is missing');
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+          message: '成績の保存にはログインが必要です。'
+        });
+      }
+
+      // ObjectId変換の安全処理
+      let userObjectId = null;
+      try {
+        if (userId) {
+          userObjectId = new mongoose.Types.ObjectId(userId);
+        }
+      } catch (objectIdError) {
+        logger.error('❌ Invalid ObjectId format:', userId, objectIdError.message);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid user ID format',
+          message: 'ユーザーIDの形式が正しくありません。'
+        });
       }
 
       // results コレクションへの保存
       const resultDocument = {
-        userId: userId ? new mongoose.Types.ObjectId(userId) : null,
+        userId: userObjectId,
         username: username,
         grade: userGrade,
         date: usedDate,
@@ -639,7 +669,7 @@ const handler = async function(req, res) {
         unanswered: unansweredCount,
         score: score,
         totalTime: totalTimeMs,
-        timeSpent: timeSpentSec * 1000,
+        timeSpent: totalTimeMs, // ミリ秒で統一保存
         results: detailedResults,
         createdAt: new Date(),
         timestamp: new Date()

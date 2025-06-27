@@ -120,20 +120,52 @@ module.exports = async function handler(req, res) {
     const formattedHistory = await Promise.all(userHistory.map(async (result) => {
       let rank = null;
       try {
-        // 対策：日付文字列を確実に一致させる
-        const problemDate = new Date(result.date).toISOString().split('T')[0];
-        const dailyProblem = await DailyProblemSet.findOne({ date: problemDate }).lean();
+        // 順位取得の改良版 - より柔軟な検索
+        const searchDate = result.date; // まず元のdateで検索
+        let dailyProblem = await DailyProblemSet.findOne({ 
+          date: searchDate,
+          difficulty: result.difficulty 
+        }).lean();
+
+        // フォールバック: 日付フォーマット変換して再検索
+        if (!dailyProblem && result.date) {
+          const formattedDate = new Date(result.date).toISOString().split('T')[0];
+          dailyProblem = await DailyProblemSet.findOne({ 
+            date: formattedDate,
+            difficulty: result.difficulty 
+          }).lean();
+        }
+
+        // ランキング情報から順位を取得
         if (dailyProblem && dailyProblem.rankings) {
-          const userRanking = dailyProblem.rankings.find(r => r.userId.toString() === userId.toString());
+          const userRanking = dailyProblem.rankings.find(r => 
+            r.userId && (r.userId.toString() === userId.toString() || r.userId.toString() === result.userId?.toString())
+          );
           if (userRanking) {
             rank = userRanking.rank;
+          }
+        }
+
+        // さらなるフォールバック: その日の全結果から順位を動的計算
+        if (rank === null) {
+          const sameDay = await Result.find({ 
+            date: result.date, 
+            difficulty: result.difficulty 
+          }).sort({ score: -1, timeSpent: 1 }).lean();
+          
+          const userIndex = sameDay.findIndex(r => 
+            r.userId?.toString() === userId.toString()
+          );
+          
+          if (userIndex !== -1) {
+            rank = userIndex + 1;
           }
         }
       } catch(e) {
         console.error('Rank fetching failed for date:', result.date, e);
       }
 
-      // 対策：API側で表示用のデータを生成する
+      // 修正：表示用のデータを生成する
       const timeInSeconds = result.timeSpent ? (result.timeSpent / 1000).toFixed(2) : '0.00';
       const executionTime = new Intl.DateTimeFormat('ja-JP', {
         month: 'numeric',
@@ -141,7 +173,7 @@ module.exports = async function handler(req, res) {
         hour: '2-digit',
         minute: '2-digit',
         timeZone: 'Asia/Tokyo'
-      }).format(new Date(result.createdAt));
+      }).format(new Date(result.createdAt)).replace(/\//g, '/');
 
       return {
         id: result._id.toString(),
