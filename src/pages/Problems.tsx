@@ -159,6 +159,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   const inputRef = useRef<HTMLInputElement>(null);
   const [showStart, setShowStart] = useState(false);
   const [isCountingDown, setIsCountingDown] = useState(false); // ★ カウントダウン中 state 追加
+  const [isSubmitting, setIsSubmitting] = useState(false); // ★ 二重送信防止フラグ
   const [selectedDate, setSelectedDate] = useState<string>(() => getFormattedDate(new Date())); // ★ より確実に今日の日付を初期化
   // ★ 初期値の確認ログを追加
   useEffect(() => {
@@ -369,6 +370,15 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   // ★ handleComplete をサーバー送信ロジックに変更
   const handleComplete = async (finalAnswers: string[]) => {
+    // ★ 二重送信防止
+    if (isSubmitting) {
+      logger.warn('[Problems] Submission already in progress, skipping.');
+      return;
+    }
+    setIsSubmitting(true);
+    
+    // 画面操作を無効にするなどのUI制御をここに追加しても良い
+
     if (timerRef.current) clearInterval(timerRef.current);
     
     // 解答時間をミリ秒で計算
@@ -416,6 +426,9 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       // 例: setErrorState(handledError.userFriendlyMessage);
       // 現状はコンソールにエラーを表示するに留める
       console.error('解答送信プロセスでエラーが発生しました:', handledError.message);
+    } finally {
+      // ★ 成功・失敗にかかわらずフラグを解除
+      setIsSubmitting(false);
     }
   };
 

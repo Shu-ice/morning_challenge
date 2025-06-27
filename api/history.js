@@ -152,18 +152,25 @@ module.exports = async function handler(req, res) {
 
         // 2. フォールバック: その日の全結果から動的計算
         if (rank === null) {
-          const sameDay = await Result.find({ 
+          console.log(`[History API] Rank not found in DailyProblemSet for date: ${result.date}, difficulty: ${result.difficulty}. Falling back to dynamic calculation.`);
+          const sameDayResults = await Result.find({ 
             date: result.date, 
             difficulty: result.difficulty 
           }).sort({ score: -1, timeSpent: 1 }).lean();
           
-          const userIndex = sameDay.findIndex(r => 
-            r.userId?.toString() === userId.toString() || 
-            r.userId?.toString() === result.userId?.toString()
-          );
+          // console.log(`[History API] Found ${sameDayResults.length} results for dynamic ranking.`);
           
+          // 修正：userIdではなく、ユニークなresult._idで順位を特定する
+          const userIndex = sameDayResults.findIndex(r => r._id.toString() === result._id.toString());
+          
+          if (userIndex === -1) {
+            // このログは通常は出ないはずだが、万が一のために残す
+            console.warn(`[History API] Could not find specific result in sameDayResults. ResultID: ${result._id.toString()}`);
+          }
+
           if (userIndex !== -1) {
             rank = userIndex + 1;
+            // console.log(`[History API] Dynamic rank calculated: ${rank}`);
           }
         }
       } catch(e) {
