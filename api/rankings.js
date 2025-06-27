@@ -131,7 +131,8 @@ module.exports = async function handler(req, res) {
         grade: gradeLabel,
         gradeNum: normalizeGrade(gradeNum), // 元の数値も保持
         score: result.score,
-        timeSpent: result.timeSpent, // 0.01秒単位でそのまま表示
+        timeSpent: result.timeSpent, // ミリ秒で保存されている値
+        totalTime: result.totalTime || result.timeSpent, // 互換性のため
         difficulty: result.difficulty,
         date: result.date,
         createdAt: result.createdAt, // 日時列表示用

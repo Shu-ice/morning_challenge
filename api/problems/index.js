@@ -505,9 +505,14 @@ const handler = async function(req, res) {
       const usedDifficulty = difficulty || 'beginner';
       const usedDate = date ? date.replace(/\//g, '-') : toJSTDateString();
       
-      // 時間計算の修正 - 正確なミリ秒計算
-      const totalTimeMs = req.body.startTime ? Math.max(0, Date.now() - req.body.startTime) : 0;
-      const timeSpentSec = totalTimeMs / 1000; // 正確な秒変換
+      // 時間計算の修正 - フロントエンドからのtimeSpentMsを優先、フォールバックでサーバー計算
+      let totalTimeMs = 0;
+      if (timeSpentMs && timeSpentMs > 0) {
+        totalTimeMs = timeSpentMs;
+      } else if (startTime) {
+        totalTimeMs = Math.max(0, Date.now() - startTime);
+      }
+      const timeSpentSec = totalTimeMs / 1000;
       
       if (!answers || !Array.isArray(answers)) {
         logger.warn('❌ Invalid answers array');
@@ -668,7 +673,7 @@ const handler = async function(req, res) {
         unanswered: unansweredCount,
         score: score,
         totalTime: totalTimeMs,
-        timeSpent: timeSpentMs, // ミリ秒で統一保存
+        timeSpent: totalTimeMs, // ミリ秒で統一保存
         results: detailedResults,
         createdAt: new Date(),
         timestamp: new Date()

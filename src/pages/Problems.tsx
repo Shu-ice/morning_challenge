@@ -35,7 +35,7 @@ interface CompletionItem {
 
 interface ProblemsProps {
   difficulty: DifficultyRank;
-  onComplete: (results: Results) => void;
+  onComplete: () => void;
   onBack: () => void;
 }
 
@@ -390,19 +390,32 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       const response = await problemsAPI.submitAnswers(submissionData);
 
       if (response.success && response.results) {
-        // ApiResult を Results に変換
-        const resultsForDisplay: Results = {
-          ...response.results,
-          timeSpent: response.results.timeSpent / 1000, // msから秒へ
-          problems: response.results.results, // キー名を合わせる
-        };
-        onComplete(resultsForDisplay);
+        // 1. APIからの結果を取得
+        const apiResult = response.results;
+        const detailedResults = apiResult.results || []; // ProblemResult[]
+        
+        // 2. グローバルなセッション状態を更新
+        finalizeSession(detailedResults, apiResult);
+        
+        // 3. ローカルストレージに完了情報を保存
+        saveCompletionData(difficulty, currentUser);
+
+        // 4. 関連クエリを無効化して、履歴やランキングを再取得させる
+        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.history, currentUser._id] });
+        await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.rankings] });
+
+        // 5. 結果ページへ遷移 (引数なし)
+        onComplete(); 
+
       } else {
-        throw new Error(response.message || '回答の送信に失敗しました。');
+        throw new Error(response.message || '解答の送信に失敗しました');
       }
     } catch (error) {
-      const handledError = ErrorHandler.handleApiError(error, '回答送信');
-      // エラー処理
+      // ErrorHandlerが内部でログを記録するため、ここではUIへの通知に専念
+      const handledError = ErrorHandler.handleApiError(error, '解答送信');
+      // 例: setErrorState(handledError.userFriendlyMessage);
+      // 現状はコンソールにエラーを表示するに留める
+      console.error('解答送信プロセスでエラーが発生しました:', handledError.message);
     }
   };
 
