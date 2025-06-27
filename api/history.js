@@ -120,45 +120,16 @@ module.exports = async function handler(req, res) {
     const formattedHistory = await Promise.all(userHistory.map(async (result) => {
       let rank = null;
       try {
-        // 順位取得の改良版 - より柔軟な検索
-        const searchDate = result.date; // まず元のdateで検索
-        let dailyProblem = await DailyProblemSet.findOne({ 
-          date: searchDate,
+        // ★ シンプルで確実なランキング取得ロジック
+        const dailyProblem = await DailyProblemSet.findOne({ 
+          date: result.date,
           difficulty: result.difficulty 
         }).lean();
 
-        // フォールバック: 日付フォーマット変換して再検索
-        if (!dailyProblem && result.date) {
-          const formattedDate = new Date(result.date).toISOString().split('T')[0];
-          dailyProblem = await DailyProblemSet.findOne({ 
-            date: formattedDate,
-            difficulty: result.difficulty 
-          }).lean();
-        }
-
-        // ランキング情報から順位を取得
         if (dailyProblem && dailyProblem.rankings) {
-          const userRanking = dailyProblem.rankings.find(r => 
-            r.userId && (r.userId.toString() === userId.toString() || r.userId.toString() === result.userId?.toString())
-          );
+          const userRanking = dailyProblem.rankings.find(r => r.userId && r.userId.toString() === result.userId?.toString());
           if (userRanking) {
             rank = userRanking.rank;
-          }
-        }
-
-        // さらなるフォールバック: その日の全結果から順位を動的計算
-        if (rank === null) {
-          const sameDay = await Result.find({ 
-            date: result.date, 
-            difficulty: result.difficulty 
-          }).sort({ score: -1, timeSpent: 1 }).lean();
-          
-          const userIndex = sameDay.findIndex(r => 
-            r.userId?.toString() === userId.toString()
-          );
-          
-          if (userIndex !== -1) {
-            rank = userIndex + 1;
           }
         }
       } catch(e) {

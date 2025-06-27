@@ -497,7 +497,6 @@ const handler = async function(req, res) {
         answers, 
         difficulty, 
         date, 
-        timeToComplete,
         timeSpentMs,
         startTime
       } = req.body;
@@ -669,7 +668,7 @@ const handler = async function(req, res) {
         unanswered: unansweredCount,
         score: score,
         totalTime: totalTimeMs,
-        timeSpent: totalTimeMs, // ミリ秒で統一保存
+        timeSpent: timeSpentMs, // ミリ秒で統一保存
         results: detailedResults,
         createdAt: new Date(),
         timestamp: new Date()

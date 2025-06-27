@@ -30,7 +30,10 @@
       "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true node --check server.js)",
       "Bash(npm run:*)",
       "Bash(npm test:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm outdated)"
     ],
     "deny": []
   }

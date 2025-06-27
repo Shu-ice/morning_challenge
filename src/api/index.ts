@@ -314,93 +314,14 @@ const problemsAPI = {
     }
   },
   
-  submitAnswers: async (payload: SubmitAnswersRequest) => {
+  submitAnswers: async (data: SubmitAnswersRequest) => {
     try {
-      logger.info('[API] 回答送信リクエスト (submitAnswers):', payload);
-      
-      // problemIds を取得するためにローカルストレージまたはセッションからproblems配列を取得
-      let problemIds: string[] = [];
-      
-      if (payload.problemIds && Array.isArray(payload.problemIds)) {
-        // payload に problemIds が含まれている場合はそれを使用
-        problemIds = payload.problemIds;
-      } else {
-        // セッションストレージから問題IDを取得する試行
-        try {
-          const storedProblems = sessionStorage.getItem('currentProblems');
-          if (storedProblems) {
-            const problems = JSON.parse(storedProblems);
-            if (Array.isArray(problems)) {
-              problemIds = problems.map((p: { id: string }) => p.id);
-              logger.debug('[API] ProblemIds extracted from session storage:', problemIds);
-            }
-          }
-        } catch (e) {
-          logger.debug('[API] Failed to extract problemIds from session storage');
-        }
-      }
-      
-      // 送信するデータから userId を除外 (トークンから取得するため)
-      const { userId, ...submissionData } = payload; 
-      
-      // problemIds を追加
-      const enrichedSubmissionData = {
-        ...submissionData,
-        problemIds: problemIds.length > 0 ? problemIds : undefined,
-        date: submissionData.date || new Date().toISOString().split('T')[0], // 日付がない場合は今日を設定
-        difficulty: submissionData.difficulty || 'beginner' // デフォルト難易度
-      };
-      
-      logger.debug(`[API] 送信データ (submitAnswers):`, enrichedSubmissionData);
-      
-      // ★ API.post の第二引数は enrichedSubmissionData を使う
-      const response = await API.post('/problems', enrichedSubmissionData); 
-      logger.debug(`[API] 回答提出レスポンス (submitAnswers):`, response);
-      
-      if (response.data.data && !response.data.success) {
-        return {
-          success: true,
-          message: response.data.message || '回答を提出しました',
-          results: response.data.data
-        };
-      }
-      
-      return response.data;
-    } catch (error: unknown) {
-      logger.error(`[API] Submit answers error:`, error as Error);
-      
-      const err = error as Error;
-      
-      // エラーレスポンスを整形して返す
-      let errorMsg = '回答の提出に失敗しました';
-      
-      if ('response' in err && typeof (err as AxiosError).response === 'object') {
-        const response = (err as AxiosError).response;
-        const responseData = response?.data as { message?: string; isAlreadyCompleted?: boolean };
-        
-        // 409エラー（日次制限）の特別処理
-        if (response?.status === 409 && responseData?.isAlreadyCompleted) {
-          return {
-            success: false,
-            message: responseData.message || '本日は既にチャレンジを完了しています。',
-            results: null,
-            isAlreadyCompleted: true,
-            shouldRedirectHome: true
-          };
-        }
-        
-        errorMsg = responseData?.message || errorMsg;
-      } else {
-        errorMsg = err.message || errorMsg;
-      }
-      
-      logger.error(`[API] エラーメッセージ: ${errorMsg}`);
-      
-      return {
-        success: false,
-        message: errorMsg,
-        results: null
-      };
+      logger.info('[API] 回答送信リクエスト');
+      const response = await API.post('/problems', data);
+      return response.data as SubmitAnswersApiResponse;
+    } catch (error) {
+      logger.error('[API] 回答送信エラー:', (error as Error).message);
+      throw error;
     }
   },
   

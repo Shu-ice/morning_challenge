@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import '../styles/Problems.css';
 // import { useNavigate, useLocation } from 'react-router-dom'; // useNavigate を削除
 // import { useAuth } from '@/contexts/AuthContext'; // Use localStorage instead for now
-import type { Problem, ProblemResult, Results, UserData, ApiResult } from '../types/index'; // Results をインポート
+import type { Problem, ProblemResult, Results, UserData, ApiResult, SubmitAnswersRequest } from '../types/index'; // Results をインポート
 import { problemsAPI } from '../api/index'; // ★ パスに index を明示的に含める
 // import { generateProblems } from '@/utils/problemGenerator'; // フロントエンド生成は不要に
 import { DifficultyRank, difficultyToJapanese } from '../types/difficulty'; // 相対パスに変更
@@ -23,6 +23,7 @@ interface ProblemData {
   id: string;
   question: string;
   type?: string;
+  answer?: string;
 }
 
 interface CompletionItem {
@@ -368,114 +369,40 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   // ★ handleComplete をサーバー送信ロジックに変更
   const handleComplete = async (finalAnswers: string[]) => {
-    logger.debug('[Problems] handleComplete CALLED. startTime:', startTime, 'isStarted:', isStarted); // ★デバッグログ追加
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    const endTime = Date.now();
-    const safeStartTime = startTime ?? endTime; // startTimeがnullならendTimeで補完
-    const timeTaken = safeStartTime ? endTime - safeStartTime : 0;
-
-    // ユーザー情報を取得（ローカルストレージから）
-    const storedUser = localStorage.getItem('user');
-    let userId = 'unknown_user';
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser) as UserData;
-        userId = parsedUser?._id || 'unknown_user';
-      } catch (error) {
-        logger.error('[Problems] Failed to parse stored user data:', error instanceof Error ? error : String(error));
-        userId = 'unknown_user';
-      }
-    }
-
-    // デバッグログ
-    logger.debug('[Problems] handleComplete called.');
-    logger.debug('[Problems] Submitting with:', {
-      difficulty: difficulty,
-      date: selectedDate,
-      problemIds: currentProblems.map((p: ProblemData) => p.id),
-      answers: finalAnswers,
-      timeSpentMs: timeTaken, 
-      userId: userId
-    });
+    if (timerRef.current) clearInterval(timerRef.current);
+    
+    // 解答時間をミリ秒で計算
+    const timeTakenMs = startTime ? Date.now() - startTime : 0;
 
     try {
-      // problemsAPI.submitAnswers を呼び出し
-      const response = await problemsAPI.submitAnswers({
+      if (!currentUser?._id) throw new Error("ユーザー情報が見つかりません。");
+
+      // SubmitAnswersRequest 型に準拠したデータを作成
+      const submissionData: SubmitAnswersRequest = {
         difficulty: difficulty,
         date: selectedDate,
-        problemIds: currentProblems.map((p: ProblemData) => p.id),
+        problemIds: currentProblems.map(p => p.id),
         answers: finalAnswers,
-        timeSpentMs: timeTaken, // timeSpent → timeSpentMs に修正
-        userId: userId
-      });
-      
-      logger.debug('[Problems] API submitAnswers response:', typeof response === 'object' ? JSON.stringify(response) : String(response));
+        timeSpentMs: timeTakenMs,
+        userId: currentUser._id,
+      };
 
-      if (response?.success && response.results) { // ★ .result を .results に変更
-        // サーバーからの実績値を取得
-        const apiResultFromServer = response.results; // ★ .result を .results に変更
+      const response = await problemsAPI.submitAnswers(submissionData);
 
-        // ★★★ デバッグログ追加: APIレスポンス全体と、Resultsに渡すデータ ★★★
-        logger.debug('[Problems.tsx] Full API response:', typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response));
-        logger.debug('[Problems.tsx] Data passed to onComplete (apiResultFromServer):', typeof apiResultFromServer === 'object' ? JSON.stringify(apiResultFromServer, null, 2) : String(apiResultFromServer));
-        // ★★★ デバッグログここまで ★★★
-
-        // ProblemContext の finalizeSession を呼び出し、サーバーからの結果を渡す
-        // apiResultFromServer は ApiResultData 型と想定される。
-        // ApiResultData には problems というフィールドがあり、これが ProblemResult[] 型。
-        // finalizeSession の第一引数は ProblemResult[] を期待している。
-        const problems = apiResultFromServer?.results || apiResultFromServer?.problems || [];
-        if (problems.length > 0) {
-          finalizeSession(problems, apiResultFromServer);
-        } else {
-          logger.warn('[Problems] No problems found in API response for finalizeSession');
-        }
-
-        // ローカルストレージに完了情報を保存
-        saveCompletionData(difficulty, currentUser);
-        
-        // ランキングと履歴のキャッシュを無効化（結果→ランキング遷移時の即時反映のため）
-        logger.info('[Problems] Invalidating rankings and history cache after answer submission');
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.rankings] });
-        queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.history] });
-        
-        onComplete(response.results); // onComplete には response.results (結果データ本体) を渡す
+      if (response.success && response.results) {
+        // ApiResult を Results に変換
+        const resultsForDisplay: Results = {
+          ...response.results,
+          timeSpent: response.results.timeSpent / 1000, // msから秒へ
+          problems: response.results.results, // キー名を合わせる
+        };
+        onComplete(resultsForDisplay);
       } else {
-        logger.error('[Problems] Answer submission failed or unexpected response:', response);
-        logger.error(response?.message || '回答の送信に失敗しました。データ形式を確認してください。');
-        // finalizeSession を呼ぶべきか検討。エラー時は呼ばない方が良いかもしれない。
-        // あるいは、エラー用のセッション終了処理を設ける。
-        // ここでは、エラー時は古い endSession のような形で、フロントエンド時間でセッションを終了する想定はしない。
+        throw new Error(response.message || '回答の送信に失敗しました。');
       }
     } catch (error) {
       const handledError = ErrorHandler.handleApiError(error, '回答送信');
-      logger.error('[Problems] Error submitting answers:', ErrorHandler.getUserFriendlyMessage(handledError));
-      
-      // 409エラー（日次制限）の特別処理
-      if (error instanceof Error && 'response' in error) {
-        const axiosError = error as any;
-        if (axiosError.response?.status === 409 || 
-            (axiosError.response?.data?.isAlreadyCompleted)) {
-          logger.warn('[Problems] 日次チャレンジ制限で提出拒否');
-          alert('本日は既にチャレンジを完了しています。ホームに戻ります。');
-          onBack();
-          return;
-        }
-      }
-      
-      // メッセージをチェックして409エラーを検出
-      const errorMessage = ErrorHandler.getUserFriendlyMessage(handledError);
-      if (errorMessage.includes('本日は既にチャレンジを完了') ||
-          errorMessage.includes('isAlreadyCompleted')) {
-        logger.warn('[Problems] Daily challenge already completed message detected in submit');
-        alert('本日は既にチャレンジを完了しています。ホームに戻ります。');
-        onBack();
-        return;
-      }
-      
-      alert(`回答の送信に失敗しました: ${errorMessage}`);
+      // エラー処理
     }
   };
 
