@@ -39,19 +39,29 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   const spinner = (
     <div className={`${getSizeClasses()} relative`}>
       {/* メインスピナー */}
-      <div className={`
-        ${getSizeClasses()} 
-        border-4 border-gray-200 border-t-blue-600 
-        rounded-full animate-spin
-      `}></div>
+      <div 
+        className={`
+          ${getSizeClasses()} 
+          border-4 border-gray-200 border-t-blue-600 
+          rounded-full animate-spin
+          motion-reduce:animate-pulse motion-reduce:border-solid
+        `}
+        role="status"
+        aria-label="読み込み中"
+      ></div>
       
       {/* リトライ中の場合は追加のインジケーター */}
       {retryCount > 0 && (
-        <div className={`
-          absolute inset-0 ${getSizeClasses()}
-          border-2 border-orange-300 border-r-orange-600
-          rounded-full animate-pulse
-        `}></div>
+        <div 
+          className={`
+            absolute inset-0 ${getSizeClasses()}
+            border-2 border-orange-300 border-r-orange-600
+            rounded-full animate-pulse
+            motion-reduce:animate-none motion-reduce:opacity-75
+          `}
+          role="status"
+          aria-label="再試行中"
+        ></div>
       )}
     </div>
   );
@@ -82,7 +92,11 @@ export const InlineSpinner: React.FC<{ className?: string }> = ({
   className = '' 
 }) => (
   <div className={`inline-block w-4 h-4 ${className}`}>
-    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+    <div 
+      className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin motion-reduce:animate-pulse motion-reduce:border-solid" 
+      role="status"
+      aria-label="読み込み中"
+    ></div>
   </div>
 );
 
@@ -91,7 +105,11 @@ export const ButtonSpinner: React.FC<{ className?: string }> = ({
   className = '' 
 }) => (
   <div className={`inline-block w-4 h-4 mr-2 ${className}`}>
-    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+    <div 
+      className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin motion-reduce:animate-pulse motion-reduce:border-solid" 
+      role="status"
+      aria-label="読み込み中"
+    ></div>
   </div>
 );
 

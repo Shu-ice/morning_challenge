@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
 
-// 環境別設定ファイル読み込み
+// 環境別設定ファイル読み込み（既存の環境変数を上書きしない）
 const nodeEnv = process.env.NODE_ENV || 'development';
 const envFiles = [
   `.env.${nodeEnv}.local`,
@@ -23,12 +23,12 @@ const envFiles = [
   '.env'
 ];
 
-// .env ファイルを順番に読み込み
+// .env ファイルを順番に読み込み（既存の環境変数を上書きしない）
 for (const envFile of envFiles) {
   const envPath = join(rootDir, envFile);
   if (existsSync(envPath)) {
     console.log(`📋 Loading environment from: ${envFile}`);
-    config({ path: envPath });
+    config({ path: envPath, override: false }); // 既存の環境変数を保持
   }
 }
 
@@ -75,7 +75,12 @@ const PRODUCTION_REQUIRED_VARS = {
   'ADMIN_EMAIL': {
     required: true,
     description: '管理者メールアドレス',
-    validator: (value) => value && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value),
+    validator: (value) => {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const isValid = value && emailRegex.test(value);
+      console.log(`DEBUG - Email validation: "${value}" -> ${isValid}`);
+      return isValid;
+    },
     errorMessage: 'ADMIN_EMAIL must be a valid email address'
   },
   'ADMIN_DEFAULT_PASSWORD': {
@@ -101,6 +106,11 @@ function validateEnvironment() {
   
   for (const [varName, config] of Object.entries(varsToCheck)) {
     const value = process.env[varName];
+    
+    // デバッグ出力
+    if (varName === 'ADMIN_EMAIL') {
+      console.log(`DEBUG - ${varName}: "${value}" (type: ${typeof value})`);
+    }
     
     // 必須チェック
     if (config.required && !value) {

@@ -29,22 +29,54 @@ export const AnswerInput: React.FC<AnswerInputProps> = ({
     }
   }, [autoFocus]);
 
+  // Handle numeric input only
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow only digits
+    if (/^\d*$/.test(value)) {
+      onChange(value);
+    }
+  };
+
+  // Prevent non-numeric keys
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Allow: backspace, delete, tab, escape, enter, arrow keys
+    const allowedKeys = [
+      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'
+    ];
+    
+    // Allow numeric keys (0-9) and numpad keys
+    const isNumeric = (e.key >= '0' && e.key <= '9') || 
+                     (e.code >= 'Numpad0' && e.code <= 'Numpad9');
+    
+    if (!allowedKeys.includes(e.key) && !isNumeric) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div className={`mb-6 ${className}`}>
       <div className="relative">
         <input
           ref={inputRef}
-          type="text"
+          type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
           onKeyPress={onKeyPress}
           placeholder={placeholder}
           className="w-full px-6 py-4 text-2xl text-center border-2 border-gray-300 rounded-xl 
                      focus:border-blue-500 focus:ring-4 focus:ring-blue-200 
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400
                      transition-all duration-200 ease-in-out
                      placeholder-gray-400 font-mono"
           autoComplete="off"
           spellCheck={false}
+          role="textbox"
+          aria-label="答えを入力"
         />
         
         {value && (

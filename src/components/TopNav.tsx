@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { DarkModeToggle } from './DarkModeToggle';
 
 export const TopNav: React.FC = () => {
   const { user, logout } = useAuth();
@@ -246,6 +247,9 @@ export const TopNav: React.FC = () => {
                   {user.username}
                 </span>
                 
+                {/* Dark Mode Toggle */}
+                <DarkModeToggle className="ml-4" />
+                
                 <button
                   onClick={logout}
                   style={{
@@ -277,6 +281,9 @@ export const TopNav: React.FC = () => {
                 <Link to="/register" style={navLinkStyle} className="hover:text-blue-600 hover:bg-blue-50">
                   <ruby>新規登録<rt>しんきとうろく</rt></ruby>
                 </Link>
+                
+                {/* Dark Mode Toggle */}
+                <DarkModeToggle className="ml-4" />
               </>
             )}
           </div>

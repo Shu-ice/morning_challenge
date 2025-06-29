@@ -270,7 +270,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8 text-center">
-          <h1 className="text-4xl font-bold text-gray-800 mb-6">
+          <h1 className="text-4xl font-bold text-gray-800 mb-6" aria-label={`${DIFFICULTY_INFO[difficulty].reading}レベル`}>
             <ruby>
               {DIFFICULTY_INFO[difficulty].title}
               <rt>{DIFFICULTY_INFO[difficulty].reading}</rt>

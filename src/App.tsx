@@ -111,6 +111,7 @@ const AppRoutes: React.FC = () => {
   const { startSession, currentSession } = useProblem();
   const navigate = useNavigate();
   const location = useLocation();
+  const [lastResults, setLastResults] = React.useState<ApiResult | null>(null);
 
   // AuthContext のローディングが完了するまで待機
   if (loading) {
@@ -188,7 +189,10 @@ const AppRoutes: React.FC = () => {
             <ProtectedRoute>
               <Problems
                 difficulty={currentSession?.difficulty || 'beginner'}
-                onComplete={() => navigate('/results')}
+                onComplete={(apiResult) => {
+                  setLastResults(apiResult);
+                  navigate('/results');
+                }}
                 onBack={() => navigate('/')}
               />
             </ProtectedRoute>
@@ -199,7 +203,7 @@ const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute>
               <ResultsPage
-                results={currentSession as unknown as ApiResult}
+                results={lastResults}
                 onViewRankings={() => {
                   // 難易度をランキングページに渡すためにstateを使用
                   navigate('/rankings', { 
