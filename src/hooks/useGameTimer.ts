@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export const useGameTimer = () => {
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0); // milliseconds
   const [isRunning, setIsRunning] = useState(false);
   const startTimeRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -14,6 +14,14 @@ export const useGameTimer = () => {
   }, [isRunning, elapsedTime]);
 
   const pauseTimer = useCallback(() => {
+    setIsRunning(false);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  const stopTimer = useCallback(() => {
     setIsRunning(false);
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -35,10 +43,10 @@ export const useGameTimer = () => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
         if (startTimeRef.current) {
-          const newElapsedTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
+          const newElapsedTime = Date.now() - startTimeRef.current;
           setElapsedTime(newElapsedTime);
         }
-      }, 1000);
+      }, 100);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -51,16 +59,18 @@ export const useGameTimer = () => {
     };
   }, [isRunning]);
 
-  const formatTime = useCallback((seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const formatTime = useCallback((milliseconds: number) => {
+    const totalSeconds = milliseconds / 1000;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = (totalSeconds % 60).toFixed(2).padStart(5, '0'); // ss.ss
+    return `${minutes}:${seconds}`;
   }, []);
 
   return {
     elapsedTime,
     isRunning,
     startTimer,
+    stopTimer,
     pauseTimer,
     resetTimer,
     formatTime

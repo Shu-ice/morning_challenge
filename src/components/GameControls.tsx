@@ -27,12 +27,8 @@ export const GameControls: React.FC<GameControlsProps> = ({
   return (
     <div className={`flex justify-between items-center gap-4 ${className}`}>
       {/* Back to Menu Button */}
-      <button
-        onClick={onBack}
-        className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg 
-                   hover:bg-gray-50 transition-colors duration-200"
-      >
-        ← メニューに戻る
+      <button onClick={onBack} className="button button-secondary">
+        ← <ruby>メニュー<rt>めにゅー</rt></ruby>に<ruby>戻<rt>もど</rt></ruby>る
       </button>
 
       {/* Navigation Controls */}
@@ -41,11 +37,9 @@ export const GameControls: React.FC<GameControlsProps> = ({
         <button
           onClick={onPrevious}
           disabled={isFirstProblem}
-          className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold
-                     hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed
-                     transition-all duration-200"
+          className="button button-secondary disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          ← 前の問題
+          ← <ruby>前<rt>まえ</rt></ruby>の<ruby>問題<rt>もんだい</rt></ruby>
         </button>
 
         {/* Next/Complete Button */}
@@ -53,20 +47,17 @@ export const GameControls: React.FC<GameControlsProps> = ({
           <button
             onClick={onComplete}
             disabled={!isComplete}
-            className="px-8 py-3 bg-green-600 text-white rounded-lg font-bold text-lg
-                       hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-all duration-200 transform hover:scale-105
-                       disabled:transform-none"
+            className="button button-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isComplete ? '完了して提出' : '全問題に回答してください'}
+            {isComplete ? (
+              <>完了して<ruby>提出<rt>ていしゅつ</rt></ruby></>
+            ) : (
+              <>全<ruby>問題<rt>もんだい</rt></ruby>に<ruby>回答<rt>かいとう</rt></ruby>してください</>
+            )}
           </button>
         ) : (
-          <button
-            onClick={onNext}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold
-                       hover:bg-blue-700 transition-all duration-200"
-          >
-            次の問題 →
+          <button onClick={onNext} className="button button-primary">
+            <ruby>次<rt>つぎ</rt></ruby>の<ruby>問題<rt>もんだい</rt></ruby> →
           </button>
         )}
       </div>

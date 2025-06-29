@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import '../styles/Problems.css';
 import type { Problem, ProblemResult, Results, UserData, ApiResult, SubmitAnswersRequest } from '../types/index';
 import { problemsAPI } from '../api/index';
-import { DifficultyRank, difficultyToJapanese } from '../types/difficulty';
+import { DifficultyRank, difficultyToJapanese, DIFFICULTY_INFO } from '../types/difficulty';
 import { useProblem } from '../contexts/ProblemContext';
 import axios, { isAxiosError } from 'axios';
 
@@ -26,7 +26,7 @@ import { getTodayJST } from '@/utils/dateUtils';
 
 interface ProblemsProps {
   difficulty: DifficultyRank;
-  onComplete: () => void;
+  onComplete: (apiResult: ApiResult) => void;
   onBack: () => void;
 }
 
@@ -89,7 +89,7 @@ const saveCompletionData = (difficulty: DifficultyRank, user: UserData | null) =
 const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) => {
   // Hooks
   const queryClient = useQueryClient();
-  const { elapsedTime, startTimer, resetTimer, formatTime } = useGameTimer();
+  const { elapsedTime, startTimer, stopTimer, resetTimer, formatTime } = useGameTimer();
   const { gameState, startGame, resetGame, setCurrentProblem, nextProblem, previousProblem, setAnswer, isComplete, progress } = useGameState({
     difficulty,
     totalProblems: TOTAL_PROBLEMS
@@ -160,6 +160,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
     try {
       setIsSubmitting(true);
+      stopTimer();
       const userData = getUserData();
       
       if (!userData) {
@@ -200,9 +201,9 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       };
 
       // Submit to API
-      const response = await problemsAPI.submitAnswers(submitData);
+      const apiResult = await problemsAPI.submitAnswers(submitData);
       
-      if (response) {
+      if (apiResult) {
         // Save completion data
         saveCompletionData(difficulty, userData);
         
@@ -210,7 +211,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.history] });
         
         logger.info('[handleComplete] Results submitted successfully');
-        onComplete();
+        onComplete(apiResult);
       }
     } catch (err) {
       const handledError = ErrorHandler.handleApiError(err, 'handleComplete');
@@ -219,7 +220,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     } finally {
       setIsSubmitting(false);
     }
-  }, [isComplete, problems, gameState.answers, elapsedTime, difficulty, queryClient, onComplete]);
+  }, [isComplete, problems, gameState.answers, elapsedTime, difficulty, queryClient, onComplete, stopTimer]);
 
   // --------------- キー入力処理 ---------------
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
@@ -270,26 +271,24 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8 text-center">
           <h1 className="text-4xl font-bold text-gray-800 mb-6">
-            {difficultyToJapanese(difficulty)}レベル
+            <ruby>
+              {DIFFICULTY_INFO[difficulty].title}
+              <rt>{DIFFICULTY_INFO[difficulty].reading}</rt>
+            </ruby>
+            レベル
           </h1>
           <div className="text-lg text-gray-600 mb-8">
-            <p className="mb-4">計算問題 {TOTAL_PROBLEMS} 問に挑戦します</p>
+            <p className="mb-4"><ruby>計算<rt>けいさん</rt></ruby>問題 {TOTAL_PROBLEMS} 問に<ruby>挑戦<rt>ちょうせん</rt></ruby>します</p>
             <p className="text-sm text-gray-500">
-              すべての問題に答えて、あなたの計算スキルを試してみましょう！
+               すべての問題に答えて、あなたの<ruby>計算<rt>けいさん</rt></ruby>スキルを試してみましょう！
             </p>
           </div>
           
           <div className="flex gap-4 justify-center">
-            <button 
-              onClick={onBack}
-              className="px-6 py-3 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
+            <button onClick={onBack} className="button button-secondary">
               戻る
             </button>
-            <button 
-              onClick={handleStartGame}
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
-            >
+            <button onClick={handleStartGame} className="button button-primary">
               ゲーム開始
             </button>
           </div>
