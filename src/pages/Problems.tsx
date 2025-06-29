@@ -211,7 +211,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.history] });
         
         logger.info('[handleComplete] Results submitted successfully');
-        onComplete(apiResult);
+        onComplete(apiResult.results);
       }
     } catch (err) {
       const handledError = ErrorHandler.handleApiError(err, 'handleComplete');
