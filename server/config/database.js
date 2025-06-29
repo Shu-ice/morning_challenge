@@ -456,35 +456,70 @@ const isMongoMock = () => {
   return isMock;
 };
 
-// MongoDB Atlas接続
+// MongoDB Atlas接続 (Serverless最適化)
 const connectMongoDB = async () => {
   try {
+    // Serverless環境での接続再利用チェック
+    if (global.mongooseConn && mongoose.connection.readyState === 1) {
+      logger.info('[Database] 既存のMongoDB接続を再利用 (Serverless最適化)');
+      return true;
+    }
+
     const mongoURI = process.env.MONGODB_URI;
     if (!mongoURI) {
       throw new Error('MONGODB_URI環境変数が設定されていません');
     }
     
-    logger.info(`[Database] MongoDB Atlas接続開始...`);
+    logger.info('[Database] MongoDB Atlas接続開始 (Serverless最適化)...');
     
-    // Vercel環境用の接続設定
+    // Vercel Serverless & MongoDB Atlas最適化設定
     const options = {
-      serverSelectionTimeoutMS: 10000, // 10秒
-      socketTimeoutMS: 20000, // 20秒
-      maxPoolSize: 5, // Vercelでは小さなプールサイズ
-      bufferMaxEntries: 0
+      serverSelectionTimeoutMS: 5000, // 5秒 (Vercel function timeout対策)
+      socketTimeoutMS: 10000, // 10秒 (短縮)
+      connectTimeoutMS: 5000, // 5秒 (短縮)
+      maxPoolSize: 1, // Serverlessでは1接続のみ
+      minPoolSize: 0, // 未使用時は切断
+      maxIdleTimeMS: 10000, // 10秒でアイドル切断
+      heartbeatFrequencyMS: 10000, // ハートビート頻度
+      bufferCommands: false, // バッファリング完全無効
+      bufferMaxEntries: 0, // バッファエントリ無効
+      // Atlas Serverless専用設定
+      retryWrites: true,
+      w: 'majority',
+      family: 4 // IPv4強制 (Atlas接続安定化)
     };
     
+    // 接続実行
     await mongoose.connect(mongoURI, options);
-    logger.info('✅ MongoDB Atlas接続成功');
     
-    // Vercel環境では管理者ユーザー作成を非同期で実行（エラーでも続行）
-    createAdminUsersIfNeeded().catch(err => {
-      logger.warn('[Database] 管理者ユーザー作成は遅延実行:', err.message);
+    // Serverless環境でのコネクション管理
+    global.mongooseConn = mongoose.connection;
+    global.mongooseConnectedAt = Date.now();
+    
+    // 接続状態監視
+    mongoose.connection.on('error', (err) => {
+      logger.error('[Database] MongoDB接続エラー:', err.message);
+      global.mongooseConn = null; // 再接続トリガー
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      logger.warn('[Database] MongoDB切断検出 (再接続準備)');
+      global.mongooseConn = null; // 再接続トリガー
+    });
+    
+    logger.info('✅ MongoDB Atlas接続成功 (Serverless最適化完了)');
+    
+    // 管理者ユーザー作成 (非同期・エラー無視)
+    setImmediate(() => {
+      createAdminUsersIfNeeded().catch(err => {
+        logger.warn('[Database] 管理者ユーザー作成スキップ:', err.message);
+      });
     });
     
     return true;
   } catch (error) {
-    logger.error('[Database] MongoDB Atlas接続エラー:', error.message);
+    logger.error('[Database] MongoDB Atlas接続失敗:', error.message);
+    global.mongooseConn = null; // 失敗時はリセット
     throw error;
   }
 };
@@ -543,8 +578,19 @@ const createAdminUsersIfNeeded = async () => {
 
 // メイン接続関数
 const connectDB = async () => {
+  // MOCKモードの場合は、MongoDB接続をスキップ
+  if (process.env.MONGODB_MOCK === 'true') {
+    logger.info('🧪 MONGODB_MOCK=trueのため、実際のMongoDB接続をスキップします');
+    logger.info('✅ モックデータベース初期化完了');
+    
+    // モックデータの初期化
+    initializeMockData();
+    return true;
+  }
+  
   return await connectMongoDB();
 };
+
 
 // Simple mock data getters
 function getMockUsers() {

@@ -1,12 +1,34 @@
 {
   "version": 2,
+  "name": "morning-math-challenge",
   "installCommand": "npm install --legacy-peer-deps --include=dev",
+  "buildCommand": "npm run build:production",
+  "outputDirectory": "dist",
+  "builds": [
+    {
+      "src": "server/server.js",
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 30
+      }
+    }
+  ],
   "functions": {
-    "api/**/*.js": {
+    "server/server.js": {
       "memory": 512,
       "maxDuration": 30
     }
   },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/server/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/$1"
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!api/).*)",
@@ -16,5 +38,13 @@
       "source": "/api/rankings/daily",
       "destination": "/api/rankings"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "MONGODB_MOCK": "false"
+  },
+  "regions": ["nrt1"],
+  "github": {
+    "autoAlias": false
+  }
 } 

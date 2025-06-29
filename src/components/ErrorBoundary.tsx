@@ -94,7 +94,7 @@ class ErrorBoundary extends Component<Props, State> {
           logger.error('[ErrorBoundary] Failed to report error:', reportErr);
         });
       } catch (reportError) {
-        logger.error('[ErrorBoundary] Error in error reporting:', reportError);
+        logger.error('[ErrorBoundary] Error in error reporting:', reportError instanceof Error ? reportError : String(reportError));
       }
     }
   };

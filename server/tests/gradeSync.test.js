@@ -1,12 +1,12 @@
-const request = require('supertest');
-const app = require('../server');
-const { 
+import request from 'supertest';
+import app from '../server.js';
+import { 
   addMockResult, 
   addMockUser, 
   updateGradeForUserResults,
   getMockUsers,
   getMockResults
-} = require('../config/database');
+} from '../config/database.js';
 
 describe('[Grade Sync] 学年同期テスト', () => {
   

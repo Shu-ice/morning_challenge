@@ -48,4 +48,307 @@ const setViewportSize = (width: number, height: number) => {
 
 // Helper function to render TopNav with providers
 const renderTopNav = () => {
-  return render(\n    <BrowserRouter>\n      <AuthProvider>\n        <TopNav />\n      </AuthProvider>\n    </BrowserRouter>\n  );\n};\n\ndescribe('TopNav Mobile Responsive Behavior', () => {\n  beforeEach(() => {\n    // Reset mocks\n    vi.clearAllMocks();\n    \n    // Set default desktop viewport\n    setViewportSize(1024, 768);\n  });\n  \n  afterEach(() => {\n    // Clean up any open modals or side effects\n    document.body.innerHTML = '';\n  });\n\n  describe('Desktop Viewport (≥640px)', () => {\n    it('should show navigation links and hide burger menu on desktop', () => {\n      setViewportSize(1024, 768);\n      renderTopNav();\n      \n      // Desktop navigation links should be visible\n      expect(screen.getByRole('link', { name: /ホーム/i })).toBeInTheDocument();\n      expect(screen.getByRole('link', { name: /ランキング/i })).toBeInTheDocument();\n      expect(screen.getByRole('link', { name: /履歴/i })).toBeInTheDocument();\n      expect(screen.getByRole('link', { name: /マイページ/i })).toBeInTheDocument();\n      \n      // Burger menu button should not be visible (hidden by CSS)\n      const burgerButton = screen.queryByLabelText(/メニューを開く/i);\n      if (burgerButton) {\n        expect(burgerButton).toHaveClass('sm:hidden');\n      }\n    });\n\n    it('should show username and logout button on desktop', () => {\n      setViewportSize(1024, 768);\n      renderTopNav();\n      \n      expect(screen.getByText('testuser')).toBeInTheDocument();\n      expect(screen.getByRole('button', { name: /ログアウト/i })).toBeInTheDocument();\n    });\n  });\n\n  describe('Mobile Viewport (<640px)', () => {\n    it('should hide navigation links and show burger menu on mobile (375px)', () => {\n      setViewportSize(375, 667); // iPhone SE dimensions\n      renderTopNav();\n      \n      // Mobile burger button should be present\n      const burgerButton = screen.getByLabelText(/メニューを開く/i);\n      expect(burgerButton).toBeInTheDocument();\n      \n      // Desktop navigation links should be hidden by CSS classes\n      const desktopNav = screen.getByText('ホーム').closest('.hidden.sm\\\\:flex, .sm\\\\:flex');\n      if (desktopNav) {\n        expect(desktopNav).toHaveClass('hidden', 'sm:flex');\n      }\n    });\n\n    it('should show mobile username but compact layout', () => {\n      setViewportSize(375, 667);\n      renderTopNav();\n      \n      // Username should still be visible but in mobile format\n      expect(screen.getByText('testuser')).toBeInTheDocument();\n      \n      // Check burger menu button is present\n      expect(screen.getByLabelText(/メニューを開く/i)).toBeInTheDocument();\n    });\n\n    it('should open mobile drawer when burger menu is clicked', () => {\n      setViewportSize(375, 667);\n      renderTopNav();\n      \n      const burgerButton = screen.getByLabelText(/メニューを開く/i);\n      \n      // Initially, mobile drawer should not be visible\n      expect(screen.queryByRole('link', { name: /🏠 ホーム/i })).not.toBeInTheDocument();\n      \n      // Click burger menu\n      act(() => {\n        fireEvent.click(burgerButton);\n      });\n      \n      // Mobile navigation links should now be visible\n      expect(screen.getByRole('link', { name: /🏠 ホーム/i })).toBeInTheDocument();\n      expect(screen.getByRole('link', { name: /🏆 ランキング/i })).toBeInTheDocument();\n      expect(screen.getByRole('link', { name: /📊 履歴/i })).toBeInTheDocument();\n      expect(screen.getByRole('link', { name: /👤 マイページ/i })).toBeInTheDocument();\n    });\n\n    it('should close mobile drawer when backdrop is clicked', () => {\n      setViewportSize(375, 667);\n      renderTopNav();\n      \n      const burgerButton = screen.getByLabelText(/メニューを開く/i);\n      \n      // Open mobile menu\n      act(() => {\n        fireEvent.click(burgerButton);\n      });\n      \n      // Verify menu is open\n      expect(screen.getByRole('link', { name: /🏠 ホーム/i })).toBeInTheDocument();\n      \n      // Find and click backdrop\n      const backdrop = document.querySelector('.fixed.inset-0.bg-black');\n      expect(backdrop).toBeInTheDocument();\n      \n      act(() => {\n        fireEvent.click(backdrop as Element);\n      });\n      \n      // Menu should be closed (links should not be visible)\n      expect(screen.queryByRole('link', { name: /🏠 ホーム/i })).not.toBeInTheDocument();\n    });\n\n    it('should close mobile drawer when escape key is pressed', () => {\n      setViewportSize(375, 667);\n      renderTopNav();\n      \n      const burgerButton = screen.getByLabelText(/メニューを開く/i);\n      \n      // Open mobile menu\n      act(() => {\n        fireEvent.click(burgerButton);\n      });\n      \n      // Verify menu is open\n      expect(screen.getByRole('link', { name: /🏠 ホーム/i })).toBeInTheDocument();\n      \n      // Press escape key\n      act(() => {\n        fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });\n      });\n      \n      // Menu should be closed\n      expect(screen.queryByRole('link', { name: /🏠 ホーム/i })).not.toBeInTheDocument();\n    });\n\n    it('should handle logout from mobile menu', () => {\n      setViewportSize(375, 667);\n      renderTopNav();\n      \n      const burgerButton = screen.getByLabelText(/メニューを開く/i);\n      \n      // Open mobile menu\n      act(() => {\n        fireEvent.click(burgerButton);\n      });\n      \n      // Find and click logout button in mobile menu\n      const logoutButton = screen.getByRole('button', { name: /🚪 ログアウト/i });\n      expect(logoutButton).toBeInTheDocument();\n      \n      act(() => {\n        fireEvent.click(logoutButton);\n      });\n      \n      // Verify logout was called\n      expect(mockLogout).toHaveBeenCalledTimes(1);\n    });\n  });\n\n  describe('Tablet Viewport (640px - edge case)', () => {\n    it('should show desktop layout at 640px breakpoint', () => {\n      setViewportSize(640, 768);\n      renderTopNav();\n      \n      // At exactly 640px, should show desktop layout\n      expect(screen.getByRole('link', { name: /ホーム/i })).toBeInTheDocument();\n      expect(screen.getByRole('link', { name: /ランキング/i })).toBeInTheDocument();\n    });\n\n    it('should show mobile layout just below 640px', () => {\n      setViewportSize(639, 768);\n      renderTopNav();\n      \n      // Just below 640px should show mobile layout\n      expect(screen.getByLabelText(/メニューを開く/i)).toBeInTheDocument();\n    });\n  });\n\n  describe('Admin User Mobile Behavior', () => {\n    beforeEach(() => {\n      // Mock admin user\n      vi.mocked(vi.importActual('../../contexts/AuthContext')).useAuth = () => ({\n        user: { ...mockUser, isAdmin: true },\n        logout: mockLogout,\n        loading: false\n      });\n    });\n\n    it('should show admin menu items in mobile drawer for admin users', () => {\n      setViewportSize(375, 667);\n      renderTopNav();\n      \n      const burgerButton = screen.getByLabelText(/メニューを開く/i);\n      \n      // Open mobile menu\n      act(() => {\n        fireEvent.click(burgerButton);\n      });\n      \n      // Should show admin section\n      expect(screen.getByText(/管理者メニュー/i)).toBeInTheDocument();\n      expect(screen.getByRole('link', { name: /📊 ダッシュボード/i })).toBeInTheDocument();\n      expect(screen.getByRole('link', { name: /⚡ 問題生成/i })).toBeInTheDocument();\n    });\n  });\n\n  describe('Accessibility', () => {\n    it('should have proper ARIA attributes for mobile menu', () => {\n      setViewportSize(375, 667);\n      renderTopNav();\n      \n      const burgerButton = screen.getByLabelText(/メニューを開く/i);\n      \n      // Check initial ARIA state\n      expect(burgerButton).toHaveAttribute('aria-expanded', 'false');\n      expect(burgerButton).toHaveAttribute('aria-label', 'メニューを開く');\n      \n      // Open menu\n      act(() => {\n        fireEvent.click(burgerButton);\n      });\n      \n      // Check expanded state\n      expect(burgerButton).toHaveAttribute('aria-expanded', 'true');\n    });\n\n    it('should support keyboard navigation in mobile menu', () => {\n      setViewportSize(375, 667);\n      renderTopNav();\n      \n      const burgerButton = screen.getByLabelText(/メニューを開く/i);\n      \n      // Open menu with Enter key\n      act(() => {\n        fireEvent.keyDown(burgerButton, { key: 'Enter' });\n        fireEvent.click(burgerButton); // Simulate actual click since keyDown alone won't trigger onClick\n      });\n      \n      // Should be able to tab through menu items\n      const homeLink = screen.getByRole('link', { name: /🏠 ホーム/i });\n      expect(homeLink).toBeInTheDocument();\n      \n      // Focus should be manageable\n      act(() => {\n        homeLink.focus();\n      });\n      \n      expect(document.activeElement).toBe(homeLink);\n    });\n  });\n\n  describe('Performance and Animations', () => {\n    it('should handle rapid menu open/close without issues', () => {\n      setViewportSize(375, 667);\n      renderTopNav();\n      \n      const burgerButton = screen.getByLabelText(/メニューを開く/i);\n      \n      // Rapidly open and close menu multiple times\n      for (let i = 0; i < 5; i++) {\n        act(() => {\n          fireEvent.click(burgerButton);\n        });\n        act(() => {\n          fireEvent.click(burgerButton);\n        });\n      }\n      \n      // Should still be functional\n      expect(burgerButton).toBeInTheDocument();\n      expect(screen.queryByRole('link', { name: /🏠 ホーム/i })).not.toBeInTheDocument();\n    });\n  });\n});\n\n// Additional test for CSS class verification\ndescribe('TopNav CSS Classes', () => {\n  it('should apply correct responsive classes', () => {\n    renderTopNav();\n    \n    // Find desktop navigation container\n    const desktopNav = screen.getByText('ホーム').closest('div');\n    expect(desktopNav).toHaveClass('hidden', 'sm:flex');\n    \n    // Find mobile menu button container\n    const mobileButtonContainer = screen.getByLabelText(/メニューを開く/i).closest('div');\n    expect(mobileButtonContainer).toHaveClass('sm:hidden');\n  });\n});
+  return render(
+    <BrowserRouter>
+      <AuthProvider>
+        <TopNav />
+      </AuthProvider>
+    </BrowserRouter>
+  );
+};
+
+describe('TopNav Mobile Responsive Behavior', () => {
+  beforeEach(() => {
+    // Reset mocks
+    vi.clearAllMocks();
+    
+    // Set default desktop viewport
+    setViewportSize(1024, 768);
+  });
+  
+  afterEach(() => {
+    // Clean up any open modals or side effects
+    document.body.innerHTML = '';
+  });
+
+  describe('Desktop Viewport (≥640px)', () => {
+    it('should show navigation links and hide burger menu on desktop', () => {
+      setViewportSize(1024, 768);
+      renderTopNav();
+      
+      // Desktop navigation links should be visible
+      expect(screen.getByRole('link', { name: /ホーム/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /ランキング/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /履歴/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /マイページ/i })).toBeInTheDocument();
+      
+      // Burger menu button should be hidden on desktop
+      const burgerButton = screen.queryByLabelText(/メニューを開く/i);
+      if (burgerButton) {
+        // Check if the parent container has sm:hidden class instead
+        const parentContainer = burgerButton.closest('.sm\\:hidden');
+        expect(parentContainer).toBeInTheDocument();
+      }
+    });
+
+    it('should show username and logout button on desktop', () => {
+      setViewportSize(1024, 768);
+      renderTopNav();
+      
+      expect(screen.getAllByText('testuser')[0]).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /ログアウト/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('Mobile Viewport (<640px)', () => {
+    it('should hide navigation links and show burger menu on mobile (375px)', () => {
+      setViewportSize(375, 667); // iPhone SE dimensions
+      renderTopNav();
+      
+      // Mobile burger button should be present
+      const burgerButton = screen.getByLabelText(/メニューを開く/i);
+      expect(burgerButton).toBeInTheDocument();
+      
+      // Desktop navigation links should be hidden by CSS classes
+      const desktopNav = screen.getByText('ホーム').closest('.hidden.sm\\:flex, .sm\\:flex');
+      if (desktopNav) {
+        expect(desktopNav).toHaveClass('hidden', 'sm:flex');
+      }
+    });
+
+    it('should show mobile username but compact layout', () => {
+      setViewportSize(375, 667);
+      renderTopNav();
+      
+      // Username should still be visible but in mobile format
+      expect(screen.getAllByText('testuser')[0]).toBeInTheDocument();
+      
+      // Check burger menu button is present
+      expect(screen.getByLabelText(/メニューを開く/i)).toBeInTheDocument();
+    });
+
+    it('should open mobile drawer when burger menu is clicked', () => {
+      setViewportSize(375, 667);
+      renderTopNav();
+      
+      const burgerButton = screen.getByLabelText(/メニューを開く/i);
+      
+      // Initially, mobile drawer should not be visible
+      expect(screen.queryByRole('link', { name: /🏠 ホーム/i })).not.toBeInTheDocument();
+      
+      // Click burger menu
+      act(() => {
+        fireEvent.click(burgerButton);
+      });
+      
+      // Mobile navigation links should now be visible
+      expect(screen.getByRole('link', { name: /🏠 ホーム/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /🏆 ランキング/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /📊 履歴/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /👤 マイページ/i })).toBeInTheDocument();
+    });
+
+    it('should close mobile drawer when backdrop is clicked', () => {
+      setViewportSize(375, 667);
+      renderTopNav();
+      
+      const burgerButton = screen.getByLabelText(/メニューを開く/i);
+      
+      // Open mobile menu
+      act(() => {
+        fireEvent.click(burgerButton);
+      });
+      
+      // Verify menu is open
+      expect(screen.getByRole('link', { name: /🏠 ホーム/i })).toBeInTheDocument();
+      
+      // Find and click backdrop
+      const backdrop = document.querySelector('.fixed.inset-0.bg-black');
+      expect(backdrop).toBeInTheDocument();
+      
+      act(() => {
+        fireEvent.click(backdrop as Element);
+      });
+      
+      // Menu should be closed (links should not be visible)
+      expect(screen.queryByRole('link', { name: /🏠 ホーム/i })).not.toBeInTheDocument();
+    });
+
+    it('should close mobile drawer when escape key is pressed', () => {
+      setViewportSize(375, 667);
+      renderTopNav();
+      
+      const burgerButton = screen.getByLabelText(/メニューを開く/i);
+      
+      // Open mobile menu
+      act(() => {
+        fireEvent.click(burgerButton);
+      });
+      
+      // Verify menu is open
+      expect(screen.getByRole('link', { name: /🏠 ホーム/i })).toBeInTheDocument();
+      
+      // Press escape key
+      act(() => {
+        fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
+      });
+      
+      // Menu should be closed
+      expect(screen.queryByRole('link', { name: /🏠 ホーム/i })).not.toBeInTheDocument();
+    });
+
+    it('should handle logout from mobile menu', () => {
+      setViewportSize(375, 667);
+      renderTopNav();
+      
+      const burgerButton = screen.getByLabelText(/メニューを開く/i);
+      
+      // Open mobile menu
+      act(() => {
+        fireEvent.click(burgerButton);
+      });
+      
+      // Find and click logout button in mobile menu
+      const logoutButton = screen.getByRole('button', { name: /🚪 ログアウト/i });
+      expect(logoutButton).toBeInTheDocument();
+      
+      act(() => {
+        fireEvent.click(logoutButton);
+      });
+      
+      // Verify logout was called
+      expect(mockLogout).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Tablet Viewport (640px - edge case)', () => {
+    it('should show desktop layout at 640px breakpoint', () => {
+      setViewportSize(640, 768);
+      renderTopNav();
+      
+      // At exactly 640px, should show desktop layout
+      expect(screen.getByRole('link', { name: /ホーム/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /ランキング/i })).toBeInTheDocument();
+    });
+
+    it('should show mobile layout just below 640px', () => {
+      setViewportSize(639, 768);
+      renderTopNav();
+      
+      // Just below 640px should show mobile layout
+      expect(screen.getByLabelText(/メニューを開く/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Admin User Mobile Behavior', () => {
+    beforeEach(() => {
+      // Mock admin user - simplified approach
+      mockUser.isAdmin = true;
+    });
+    
+    afterEach(() => {
+      // Reset admin status
+      mockUser.isAdmin = false;
+    });
+
+    it('should show admin menu items in mobile drawer for admin users', () => {
+      setViewportSize(375, 667);
+      renderTopNav();
+      
+      const burgerButton = screen.getByLabelText(/メニューを開く/i);
+      
+      // Open mobile menu
+      act(() => {
+        fireEvent.click(burgerButton);
+      });
+      
+      // Should show admin section
+      expect(screen.getByText(/管理者メニュー/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /📊 ダッシュボード/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /⚡ 問題生成/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('Accessibility', () => {
+    it('should have proper ARIA attributes for mobile menu', () => {
+      setViewportSize(375, 667);
+      renderTopNav();
+      
+      const burgerButton = screen.getByLabelText(/メニューを開く/i);
+      
+      // Check initial ARIA state
+      expect(burgerButton).toHaveAttribute('aria-expanded', 'false');
+      expect(burgerButton).toHaveAttribute('aria-label', 'メニューを開く');
+      
+      // Open menu
+      act(() => {
+        fireEvent.click(burgerButton);
+      });
+      
+      // Check expanded state
+      expect(burgerButton).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('should support keyboard navigation in mobile menu', () => {
+      setViewportSize(375, 667);
+      renderTopNav();
+      
+      const burgerButton = screen.getByLabelText(/メニューを開く/i);
+      
+      // Open menu with Enter key
+      act(() => {
+        fireEvent.keyDown(burgerButton, { key: 'Enter' });
+        fireEvent.click(burgerButton); // Simulate actual click since keyDown alone won't trigger onClick
+      });
+      
+      // Should be able to tab through menu items
+      const homeLink = screen.getByRole('link', { name: /🏠 ホーム/i });
+      expect(homeLink).toBeInTheDocument();
+      
+      // Focus should be manageable
+      act(() => {
+        homeLink.focus();
+      });
+      
+      expect(document.activeElement).toBe(homeLink);
+    });
+  });
+
+  describe('Performance and Animations', () => {
+    it('should handle rapid menu open/close without issues', () => {
+      setViewportSize(375, 667);
+      renderTopNav();
+      
+      const burgerButton = screen.getByLabelText(/メニューを開く/i);
+      
+      // Rapidly open and close menu multiple times
+      for (let i = 0; i < 5; i++) {
+        act(() => {
+          fireEvent.click(burgerButton);
+        });
+        act(() => {
+          fireEvent.click(burgerButton);
+        });
+      }
+      
+      // Should still be functional
+      expect(burgerButton).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /🏠 ホーム/i })).not.toBeInTheDocument();
+    });
+  });
+});
+
+// Additional test for CSS class verification
+describe('TopNav CSS Classes', () => {
+  it('should apply correct responsive classes', () => {
+    renderTopNav();
+    
+    // Find desktop navigation container
+    const desktopNav = screen.getByText('ホーム').closest('div');
+    expect(desktopNav).toHaveClass('hidden', 'sm:flex');
+    
+    // Find mobile menu button container
+    const mobileButtonContainer = screen.getByLabelText(/メニューを開く/i).closest('div');
+    expect(mobileButtonContainer).toHaveClass('sm:hidden');
+  });
+});

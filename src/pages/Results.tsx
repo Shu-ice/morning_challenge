@@ -83,7 +83,7 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
   // ★ APIレスポンスの results.totalTime (ミリ秒単位) を直接使用する
   const timeSpentInMilliseconds = results.totalTime !== undefined ? results.totalTime : 0;
 
-  const score = results.score !== undefined ? results.score : 0;
+  const score = (results as any)?.score !== undefined ? (results as any).score : Math.round((correctAnswers / totalProblems) * 100);
   const problems = results.results; // ★ problems から results に変更 (実質的な問題配列への参照)
   const difficulty = results.difficulty;
   const rank = results.rank; // rankもAPIから取得
