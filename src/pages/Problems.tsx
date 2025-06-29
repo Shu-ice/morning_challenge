@@ -47,13 +47,18 @@ const getJSTDateString = () => {
 };
 
 const getUserData = (): UserData | null => {
-  try {
-    const userData = localStorage.getItem('userData');
-    return userData ? JSON.parse(userData) : null;
-  } catch (error) {
-    logger.error('Failed to get user data:', error instanceof Error ? error : String(error));
-    return null;
+  const possibleKeys = ['userData', 'user', 'currentUser'];
+  for (const key of possibleKeys) {
+    try {
+      const str = localStorage.getItem(key);
+      if (str) {
+        return JSON.parse(str) as UserData;
+      }
+    } catch (e) {
+      logger.error(`[getUserData] Failed to parse ${key}:`, e instanceof Error ? e.message : String(e));
+    }
   }
+  return null;
 };
 
 const saveCompletionData = (difficulty: DifficultyRank, user: UserData | null) => {
@@ -149,26 +154,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     setAnswer(gameState.currentProblemIndex, value);
   }, [gameState.currentProblemIndex, setAnswer]);
 
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && currentAnswer.trim()) {
-      if (gameState.currentProblemIndex < TOTAL_PROBLEMS - 1) {
-        nextProblem();
-      }
-    }
-  }, [currentAnswer, gameState.currentProblemIndex, nextProblem]);
-
-  const handleNext = useCallback(() => {
-    if (gameState.currentProblemIndex < TOTAL_PROBLEMS - 1) {
-      nextProblem();
-    }
-  }, [gameState.currentProblemIndex, nextProblem]);
-
-  const handlePrevious = useCallback(() => {
-    if (gameState.currentProblemIndex > 0) {
-      previousProblem();
-    }
-  }, [gameState.currentProblemIndex, previousProblem]);
-
+  // --------------- 完了処理 ---------------
   const handleComplete = useCallback(async () => {
     if (!isComplete) return;
 
@@ -234,6 +220,17 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       setIsSubmitting(false);
     }
   }, [isComplete, problems, gameState.answers, elapsedTime, difficulty, queryClient, onComplete]);
+
+  // --------------- キー入力処理 ---------------
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' || !currentAnswer.trim()) return;
+
+    if (gameState.currentProblemIndex < TOTAL_PROBLEMS - 1) {
+      nextProblem();
+    } else {
+      handleComplete();
+    }
+  }, [currentAnswer, gameState.currentProblemIndex, nextProblem, handleComplete]);
 
   // Loading state
   if (isLoading) {
@@ -343,8 +340,8 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           currentProblem={gameState.currentProblemIndex}
           totalProblems={TOTAL_PROBLEMS}
           isComplete={isComplete}
-          onPrevious={handlePrevious}
-          onNext={handleNext}
+          onPrevious={previousProblem}
+          onNext={nextProblem}
           onComplete={handleComplete}
           onBack={onBack}
         />
