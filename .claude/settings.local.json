@@ -56,7 +56,10 @@
       "Bash(bash:*)",
       "Bash(touch:*)",
       "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true node --check server/config/database.js)",
-      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true npm run build:production)"
+      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true npm run build:production)",
+      "Bash(git checkout:*)",
+      "Bash(NODE_ENV=test JWT_SECRET=test-jwt-secret-minimum-32-characters-long-for-security MONGODB_URI=mongodb://localhost:27017/test MONGODB_MOCK=true node scripts/validate_env.mjs)",
+      "Bash(NODE_ENV=production JWT_SECRET=production-jwt-secret-minimum-32-characters-long-for-security MONGODB_URI=mongodb+srv://test:test@cluster.mongodb.net/morning_challenge MONGODB_MOCK=false npm run build:production)"
     ],
     "deny": []
   }

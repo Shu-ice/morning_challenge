@@ -11,6 +11,7 @@
     "dev:backend": "cross-env NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true node server/server.js",
     "dev:prod": "concurrently \"npm run dev:frontend\" \"npm run dev:backend:prod\"",
     "dev:backend:prod": "cd server && cross-env NODE_ENV=production DISABLE_TIME_CHECK=true MONGODB_MOCK=false node server.js",
+    "prebuild": "node scripts/validate_env.mjs",
     "build": "vite build",
     "build:production": "cross-env NODE_ENV=production npm run build",
     "preview": "vite preview",

@@ -38,12 +38,21 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // ユーザー検索
-    const user = await User.findOne({ email: email.toLowerCase() });
+    // ユーザー検索（パスワードフィールドを明示的に取得）
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
     if (!user) {
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials'
+      });
+    }
+
+    // パスワード存在チェック
+    if (!user.password) {
+      console.error('Password field missing for user:', user.email);
+      return res.status(500).json({
+        success: false,
+        error: 'Authentication system error'
       });
     }
 
@@ -69,19 +78,23 @@ module.exports = async function handler(req, res) {
       { expiresIn: JWT_EXPIRES_IN }
     );
 
+    // セキュリティ: パスワードフィールドを削除してからレスポンス
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
     // レスポンス
     return res.status(200).json({
       success: true,
       token,
       user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        grade: user.grade,
-        avatar: user.avatar,
-        isAdmin: user.isAdmin,
-        points: user.points,
-        streak: user.streak
+        _id: userResponse._id,
+        username: userResponse.username,
+        email: userResponse.email,
+        grade: userResponse.grade,
+        avatar: userResponse.avatar,
+        isAdmin: userResponse.isAdmin,
+        points: userResponse.points,
+        streak: userResponse.streak
       }
     });
 

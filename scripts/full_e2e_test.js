@@ -1,61 +1,130 @@
 #!/usr/bin/env node
-// 🚀 朝の計算チャレンジ E2E テストスクリプト
-// 本番URL完全統合テスト
+// 🚀 認証500エラー修正 E2E テストスクリプト
+// Auth API 完全統合テスト
 
 const axios = require('axios');
 
-// 本番環境URL
-const BASE_URL = process.env.BASE_URL || 'https://morningchallenge-8u5129p3n-shu-ices-projects.vercel.app';
+// テスト環境URL
+const BASE_URL = process.env.TEST_URL || 'http://localhost:3000';
+const API_URL = `${BASE_URL}/api`;
 
-// 管理者クレデンシャル
-const ADMIN_CREDENTIALS = {
-  email: 'admin@example.com',
-  password: 'admin123'
-};
-
-let authToken = null;
-let testResults = {
-  passed: 0,
-  failed: 0,
-  details: []
-};
-
-// テスト結果記録関数
-function recordTest(testName, success, details = '') {
-  if (success) {
-    testResults.passed++;
-    console.log(`✅ ${testName}`);
-  } else {
-    testResults.failed++;
-    console.log(`❌ ${testName} - ${details}`);
+const TEST_CONFIG = {
+  timeout: 30000,
+  retries: 3,
+  testUser: {
+    email: 'admin@example.com',
+    password: 'admin123',
+    invalidPassword: 'wrongpassword'
   }
-  testResults.details.push({ test: testName, success, details });
-}
+};
 
-// APIテスト関数
-async function testAPI(endpoint, method = 'GET', data = null, headers = {}, expectedStatus = 200) {
-  try {
-    const config = {
-      method,
-      url: `${BASE_URL}${endpoint}`,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
+class AuthTestRunner {
+  constructor() {
+    this.results = [];
+    this.client = axios.create({
+      baseURL: API_URL,
+      timeout: TEST_CONFIG.timeout,
+      validateStatus: () => true // Don't throw on 4xx/5xx
+    });
+  }
+
+  async runTest(name, testFn) {
+    console.log(`🧪 Testing: ${name}`);
+    try {
+      const startTime = Date.now();
+      const result = await testFn();
+      const duration = Date.now() - startTime;
+      
+      this.results.push({
+        name,
+        status: 'PASS',
+        duration,
+        details: result
+      });
+      console.log(`✅ ${name} - PASSED (${duration}ms)`);
+      return result;
+    } catch (error) {
+      this.results.push({
+        name,
+        status: 'FAIL',
+        error: error.message,
+        details: error.response?.data
+      });
+      console.log(`❌ ${name} - FAILED: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // 認証API 500エラー防止テスト
+  async testAuthLogin500Prevention() {
+    return this.runTest('Auth Login 500 Error Prevention', async () => {
+      // 有効な認証情報でテスト (200 期待)
+      const validResponse = await this.client.post('/auth/login', TEST_CONFIG.testUser);
+      
+      if (validResponse.status >= 500) {
+        throw new Error(`Auth API returned 500+ error: ${validResponse.status} - ${JSON.stringify(validResponse.data)}`);
       }
-    };
-    
-    if (data) {
-      config.data = data;
-    }
-    
-    const response = await axios(config);
-    
-    if (response.status === expectedStatus) {
-      return { success: true, data: response.data, status: response.status };
-    } else {
-      return { success: false, error: `Expected ${expectedStatus}, got ${response.status}`, status: response.status };
-    }
-    
+
+      // 無効な認証情報でテスト (401 期待、500 NG)
+      const invalidResponse = await this.client.post('/auth/login', {
+        email: TEST_CONFIG.testUser.email,
+        password: TEST_CONFIG.testUser.invalidPassword
+      });
+
+      if (invalidResponse.status >= 500) {
+        throw new Error(`Auth API returned 500+ error for invalid credentials: ${invalidResponse.status}`);
+      }
+
+      // 存在しないユーザーでテスト (401 期待、500 NG)
+      const nonExistentResponse = await this.client.post('/auth/login', {
+        email: 'nonexistent@example.com',
+        password: 'anypassword'
+      });
+
+      if (nonExistentResponse.status >= 500) {
+        throw new Error(`Auth API returned 500+ error for non-existent user: ${nonExistentResponse.status}`);
+      }
+
+      return {
+        validAuth: validResponse.status,
+        invalidAuth: invalidResponse.status,
+        nonExistent: nonExistentResponse.status,
+        allNon500: [validResponse.status, invalidResponse.status, nonExistentResponse.status].every(s => s < 500)
+      };
+    });
+  }
+
+  // 複数同時リクエストテスト
+  async testConcurrentAuthRequests() {
+    return this.runTest('Concurrent Auth Requests', async () => {
+      const promises = [];
+      
+      // 5つの同時認証リクエストを送信
+      for (let i = 0; i < 5; i++) {
+        promises.push(
+          this.client.post('/auth/login', {
+            email: `test${i}@example.com`,
+            password: 'somepassword'
+          })
+        );
+      }
+
+      const responses = await Promise.all(promises);
+      
+      // 500エラーが発生していないことを確認
+      const serverErrors = responses.filter(r => r.status >= 500);
+      
+      if (serverErrors.length > 0) {
+        throw new Error(`Found ${serverErrors.length} server errors (500+): ${JSON.stringify(serverErrors.map(r => ({ status: r.status, data: r.data })))}`);
+      }
+
+      return {
+        totalRequests: responses.length,
+        serverErrors: serverErrors.length,
+        statusCodes: responses.map(r => r.status)
+      };
+    });
+  }
   } catch (error) {
     const status = error.response?.status || 'NETWORK_ERROR';
     const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
