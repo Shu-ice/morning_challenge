@@ -61,12 +61,14 @@ export interface LoginResponseData {
 export interface Results {
   difficulty: DifficultyRank;
   totalProblems: number;
+  totalQuestions: number; // totalProblemsと同様だが、別名でアクセスされる場合に対応
   correctAnswers: number;
   incorrectAnswers: number;
   unanswered: number;
   totalTime: number; // ミリ秒
   timeSpent: number; // 秒
   problems: ProblemResult[]; // 各問題の結果
+  results: ProblemResult[]; // problemsと同じだが、別名でアクセスされる場合に対応
   grade?: number | string; // ユーザーの学年
   rank?: number; // ランキング (あれば)
   date?: string; // YYYY-MM-DD 形式の日付
@@ -91,6 +93,7 @@ export interface ApiResult {
   startTime?: number; // サーバーで計算された開始時刻 (ミリ秒タイムスタンプ)
   endTime?: number;   // サーバーで計算された終了時刻 (ミリ秒タイムスタンプ)
   rank?: number;
+  score?: number; // スコア情報を追加
 }
 
 // API共通レスポンス型

@@ -77,14 +77,14 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
   
   // results オブジェクトから直接値を取得 (apiResults 中間変数は不要に)
   console.log('[Results.tsx] Received results prop:', JSON.stringify(results, null, 2)); // ★ デバッグログ追加
-  const correctAnswers = results.results.filter(p => p.isCorrect).length; // ★ problems から results に変更
-  const totalProblems = results.results.length; // ★ problems から results に変更
+  const problemArray = Array.isArray((results as any).results?.results) ? (results as any).results.results : (results as any).results;
+  const correctAnswers = problemArray.filter((p: any) => p.isCorrect).length;
+  const totalProblems = problemArray.length;
   
-  // ★ APIレスポンスの results.totalTime (ミリ秒単位) を直接使用する
-  const timeSpentInMilliseconds = results.totalTime !== undefined ? results.totalTime : 0;
+  const timeSpentInMilliseconds = (results as any).totalTime ?? ((results as any).results?.totalTime ?? 0);
 
-  const score = results.score !== undefined ? results.score : 0;
-  const problems = results.results; // ★ problems から results に変更 (実質的な問題配列への参照)
+  const score = (results as any)?.score ?? Math.round((correctAnswers / totalProblems) * 100);
+  const problems = problemArray;
   const difficulty = results.difficulty;
   const rank = results.rank; // rankもAPIから取得
   
@@ -119,7 +119,7 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
       )}
 
       <div className="results-header text-center mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">🎉 <ruby>結果<rt>けっか</rt></ruby><ruby>発表<rt>はっぴょう</rt></ruby></h1>
+        <h1 className="text-3xl md:text-4xl font-bold mb-2" aria-label="けっかはっぴょう">🎉 <ruby>結果<rt>けっか</rt></ruby><ruby>発表<rt>はっぴょう</rt></ruby></h1>
         <p className="text-lg md:text-xl text-gray-600" dangerouslySetInnerHTML={{ __html: getResultMessage() }}></p>
       </div>
 
@@ -143,10 +143,10 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
       </div>
 
       <div className="results-details bg-white rounded-lg shadow-lg p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">📊 <ruby>詳細<rt>しょうさい</rt></ruby></h2>
+        <h2 className="text-xl font-semibold mb-4" aria-label="しょうさい">📊 <ruby>詳細<rt>しょうさい</rt></ruby></h2>
         <ul className="space-y-4">
           {problems && problems.length > 0 ? (
-            problems.map((problem, index) => (
+            problems.map((problem: any, index: number) => (
               <li key={index} className={`p-4 rounded-lg ${problem.isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
                 <div className="flex flex-col space-y-2">
                   <div className="flex justify-between items-center">

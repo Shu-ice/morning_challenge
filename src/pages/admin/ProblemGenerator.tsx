@@ -184,7 +184,8 @@ const ProblemGenerator: React.FC<ProblemGeneratorProps> = ({ isActive = false })
             // トークンが無効な場合はトークンをクリア
             localStorage.removeItem('token');
           } else {
-            setError(`サーバーエラー (${error.response.status}): ${error.response.data?.error || error.response.data?.message || error.message}`);
+            const errorData = error.response.data as any || {};
+            setError(`サーバーエラー (${error.response.status}): ${errorData.error || errorData.message || 'Unknown error'}`);
           }
         } else if (error.request) {
           // リクエストは送信されたがレスポンスがない

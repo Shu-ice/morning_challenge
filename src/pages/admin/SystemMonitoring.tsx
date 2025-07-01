@@ -35,7 +35,7 @@ const SystemMonitoring: React.FC = () => {
       try {
         healthRes = await monitoringAPI.getSystemHealth();
       } catch (healthError) {
-        logger.warn('[SystemMonitoring] Health API エラー:', healthError);
+        logger.warn('[SystemMonitoring] Health API エラー:', healthError instanceof Error ? healthError : String(healthError));
         // 503エラーの場合は degraded として扱う
         healthRes = {
           data: {
@@ -60,7 +60,7 @@ const SystemMonitoring: React.FC = () => {
       try {
         performanceRes = await monitoringAPI.getPerformanceStats();
       } catch (performanceError) {
-        logger.warn('[SystemMonitoring] Performance API エラー:', performanceError);
+        logger.warn('[SystemMonitoring] Performance API エラー:', performanceError instanceof Error ? performanceError : String(performanceError));
         performanceRes = { data: { success: false } };
       }
 

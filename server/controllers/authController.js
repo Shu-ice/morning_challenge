@@ -124,6 +124,13 @@ const loginUser = async (req, res, next) => {
       logger.debug(`User has matchPassword method: ${typeof user.matchPassword === 'function'}`);
       logger.debug(`User password exists: ${!!user.password}`);
       
+      // Safeguard: if user document does not have matchPassword (e.g. lean object)
+      if (typeof user.matchPassword !== 'function') {
+        logger.error(`User document for ${email} missing matchPassword method. Possible lean result.`);
+        res.status(401);
+        throw new Error('メールアドレスまたはパスワードが無効です');
+      }
+
       logger.debug(`Comparing password for user: ${user.username}`);
       const isMatch = await user.matchPassword(password);
       const passwordMatchTime = Date.now();

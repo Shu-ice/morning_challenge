@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode, useEffect, useRef } from 'react';
 import { logger } from '../utils/logger';
 import '../styles/ErrorBoundary.css';
 
@@ -14,6 +14,164 @@ interface State {
   errorInfo: ErrorInfo | null;
   errorId: string | null;
 }
+
+// Error UI component with keyboard handling and accessibility
+const ErrorDisplay: React.FC<{
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+  errorId: string | null;
+  onRetry: () => void;
+  onReload: () => void;
+  onGoHome: () => void;
+}> = ({ error, errorInfo, errorId, onRetry, onReload, onGoHome }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  useEffect(() => {
+    // Focus trap and ESC key handling
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onRetry(); // ESC key closes the error modal
+      }
+      
+      // Focus trap
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusableElements = dialogRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      }
+    };
+
+    // Auto-focus first button
+    const firstButton = dialogRef.current?.querySelector('button') as HTMLElement;
+    firstButton?.focus();
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onRetry]);
+
+  // Handle backdrop click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onRetry();
+    }
+  };
+
+  return (
+    <div 
+      className="error-boundary" 
+      onClick={handleBackdropClick}
+      role="dialog" 
+      aria-modal="true"
+      aria-labelledby="error-title"
+      aria-describedby="error-description"
+    >
+      <div className="error-boundary__container" ref={dialogRef}>
+        <div className="error-boundary__icon">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" fill="#ff6b6b"/>
+            <circle cx="12" cy="20" r="2" fill="#ff6b6b"/>
+          </svg>
+        </div>
+        
+        <h1 id="error-title" className="error-boundary__title">
+          アプリケーションエラーが発生しました
+        </h1>
+        
+        <p id="error-description" className="error-boundary__message">
+          申し訳ございません。予期しないエラーが発生しました。
+          <br />
+          以下のいずれかの方法をお試しください。
+          <br />
+          <small>ESCキーを押すか、外側をクリックして再試行できます。</small>
+        </p>
+
+        {errorId && (
+          <div className="error-boundary__error-id">
+            <strong>エラーID:</strong> {errorId}
+          </div>
+        )}
+
+        <div className="error-boundary__actions">
+          <button 
+            className="error-boundary__button error-boundary__button--primary"
+            onClick={onRetry}
+            aria-label="エラーを解消して再試行"
+          >
+            再試行
+          </button>
+          
+          <button 
+            className="error-boundary__button error-boundary__button--secondary"
+            onClick={onReload}
+            aria-label="ページを完全に再読み込み"
+          >
+            ページを再読み込み
+          </button>
+          
+          <button 
+            className="error-boundary__button error-boundary__button--tertiary"
+            onClick={onGoHome}
+            aria-label="ホームページに戻る"
+          >
+            ホームに戻る
+          </button>
+        </div>
+
+        {isDevelopment && error && (
+          <details className="error-boundary__details">
+            <summary className="error-boundary__details-summary">
+              開発者向け詳細情報
+            </summary>
+            
+            <div className="error-boundary__error-details">
+              <h3>エラーメッセージ</h3>
+              <pre className="error-boundary__code">{error.message}</pre>
+              
+              {error.stack && (
+                <>
+                  <h3>スタックトレース</h3>
+                  <pre className="error-boundary__code">{error.stack}</pre>
+                </>
+              )}
+              
+              {errorInfo?.componentStack && (
+                <>
+                  <h3>コンポーネントスタック</h3>
+                  <pre className="error-boundary__code">{errorInfo.componentStack}</pre>
+                </>
+              )}
+            </div>
+          </details>
+        )}
+
+        <div className="error-boundary__help">
+          <p>
+            問題が継続する場合は、
+            <a href="mailto:support@example.com" className="error-boundary__link">
+              サポートにお問い合わせ
+            </a>
+            ください。
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -94,7 +252,7 @@ class ErrorBoundary extends Component<Props, State> {
           logger.error('[ErrorBoundary] Failed to report error:', reportErr);
         });
       } catch (reportError) {
-        logger.error('[ErrorBoundary] Error in error reporting:', reportError);
+        logger.error('[ErrorBoundary] Error in error reporting:', reportError instanceof Error ? reportError : String(reportError));
       }
     }
   };
@@ -124,95 +282,16 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       const { error, errorInfo, errorId } = this.state;
-      const isDevelopment = process.env.NODE_ENV === 'development';
 
       return (
-        <div className="error-boundary">
-          <div className="error-boundary__container">
-            <div className="error-boundary__icon">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" fill="#ff6b6b"/>
-                <circle cx="12" cy="20" r="2" fill="#ff6b6b"/>
-              </svg>
-            </div>
-            
-            <h1 className="error-boundary__title">
-              アプリケーションエラーが発生しました
-            </h1>
-            
-            <p className="error-boundary__message">
-              申し訳ございません。予期しないエラーが発生しました。
-              <br />
-              以下のいずれかの方法をお試しください。
-            </p>
-
-            {errorId && (
-              <div className="error-boundary__error-id">
-                <strong>エラーID:</strong> {errorId}
-              </div>
-            )}
-
-            <div className="error-boundary__actions">
-              <button 
-                className="error-boundary__button error-boundary__button--primary"
-                onClick={this.handleRetry}
-              >
-                再試行
-              </button>
-              
-              <button 
-                className="error-boundary__button error-boundary__button--secondary"
-                onClick={this.handleReload}
-              >
-                ページを再読み込み
-              </button>
-              
-              <button 
-                className="error-boundary__button error-boundary__button--tertiary"
-                onClick={this.handleGoHome}
-              >
-                ホームに戻る
-              </button>
-            </div>
-
-            {isDevelopment && error && (
-              <details className="error-boundary__details">
-                <summary className="error-boundary__details-summary">
-                  開発者向け詳細情報
-                </summary>
-                
-                <div className="error-boundary__error-details">
-                  <h3>エラーメッセージ</h3>
-                  <pre className="error-boundary__code">{error.message}</pre>
-                  
-                  {error.stack && (
-                    <>
-                      <h3>スタックトレース</h3>
-                      <pre className="error-boundary__code">{error.stack}</pre>
-                    </>
-                  )}
-                  
-                  {errorInfo?.componentStack && (
-                    <>
-                      <h3>コンポーネントスタック</h3>
-                      <pre className="error-boundary__code">{errorInfo.componentStack}</pre>
-                    </>
-                  )}
-                </div>
-              </details>
-            )}
-
-            <div className="error-boundary__help">
-              <p>
-                問題が継続する場合は、
-                <a href="mailto:support@example.com" className="error-boundary__link">
-                  サポートにお問い合わせ
-                </a>
-                ください。
-              </p>
-            </div>
-          </div>
-        </div>
+        <ErrorDisplay
+          error={error}
+          errorInfo={errorInfo}
+          errorId={errorId}
+          onRetry={this.handleRetry}
+          onReload={this.handleReload}
+          onGoHome={this.handleGoHome}
+        />
       );
     }
 

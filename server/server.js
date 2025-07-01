@@ -354,10 +354,15 @@ if (dotenvResult.error) {
   logger.info('[dotenv] .env file loaded successfully.');
 }
 
-// *** 緊急フォールバック：必須ENV未設定時のデフォルト値 ***
+// *** セキュリティチェック：必須ENV変数の検証 ***
 if (!process.env.JWT_SECRET) {
-  logger.warn('🔒 JWT_SECRET が未設定です。デフォルトキーを設定しました。必ず本番環境で上書きしてください！');
-  process.env.JWT_SECRET = 'morning-challenge-super-secret-key';
+  if (process.env.NODE_ENV === 'production') {
+    logger.error('🔒 PRODUCTION環境でJWT_SECRETが未設定です。サーバーを停止します。');
+    process.exit(1);
+  } else {
+    logger.warn('🔒 JWT_SECRET が未設定です。開発環境用のデフォルトキーを使用します。');
+    process.env.JWT_SECRET = 'development-only-secret-key-change-in-production';
+  }
 }
 
 if (!process.env.MONGODB_MOCK) {

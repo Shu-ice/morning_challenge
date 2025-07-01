@@ -29,7 +29,7 @@ const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid, defaultDiffic
         <div className="time-notice">
           <div className="time-icon">⏰</div>
           <div>
-            <h3>
+            <h3 aria-label="げんざいはれんしゅうじかんがいです">
               <ruby>現在<rt>げんざい</rt></ruby>は<ruby>練習時間外<rt>れんしゅうじかんがい</rt></ruby>です
             </h3>
             <p>
@@ -46,7 +46,7 @@ const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid, defaultDiffic
     <div className="home-container">
       {/* ヒーローセクション */}
       <section className="hero-section">
-        <h1>
+        <h1 aria-label="あさのけいさんチャレンジ">
           <ruby>朝<rt>あさ</rt></ruby>の<ruby>計算<rt>けいさん</rt></ruby>チャレンジ
         </h1>
         <p className="hero-subtitle">

@@ -2,7 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Colors */
+  /* Light theme colors */
   --primary-color: #007AFF;
   --secondary-color: #5AC8FA;
   --success-color: #34C759;
@@ -42,6 +42,26 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* Dark theme colors */
+[data-theme="dark"] {
+  --primary-color: #0A84FF;
+  --secondary-color: #64D2FF;
+  --success-color: #30D158;
+  --warning-color: #FF9F0A;
+  --danger-color: #FF453A;
+  --light-gray: #1C1C1E;
+  --mid-gray: #2C2C2E;
+  --dark-gray: #48484A;
+  --background: #000000;
+  --text-primary: #FFFFFF;
+  --text-secondary: #8E8E93;
+  
+  /* Dark theme shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
 }
 
 /* Reset & Base Styles */
@@ -128,6 +148,15 @@ p {
   outline: none;
   border: none;
   font-size: var(--font-size-md);
+  transform: scale(1);
+}
+
+/* Focus-visible styles for accessibility */
+.button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  ring: 2px solid var(--primary-color);
+  ring-offset: 2px;
 }
 
 .button-primary {
@@ -137,6 +166,17 @@ p {
 
 .button-primary:hover {
   background-color: rgba(0, 122, 255, 0.9);
+  transform: scale(1.05);
+}
+
+.button-primary:active {
+  transform: scale(0.95);
+}
+
+.button-primary:disabled {
+  transform: scale(1);
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .button-secondary {
@@ -146,6 +186,17 @@ p {
 
 .button-secondary:hover {
   background-color: var(--mid-gray);
+  transform: scale(1.05);
+}
+
+.button-secondary:active {
+  transform: scale(0.95);
+}
+
+.button-secondary:disabled {
+  transform: scale(1);
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .button-success {
@@ -170,6 +221,12 @@ input, select {
 }
 
 input:focus, select:focus {
+  border-color: var(--primary-color);
+}
+
+input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
   border-color: var(--primary-color);
 }
 
