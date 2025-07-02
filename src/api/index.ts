@@ -443,16 +443,16 @@ const rankingAPI = {
   }
 };
 
-// 管理者API
+// 管理者API - Vercel Hobby プラン対応（統合エンドポイント使用）
 const adminAPI = {
   // システム統計 - 統合エンドポイント使用
-  getOverview: () => API.get('/admin-stats?type=overview'),
-  getDifficultyStats: (period = 'week') => API.get(`/admin-stats?type=difficulty&period=${period}`),
-  getGradeStats: (period = 'week') => API.get(`/admin-stats?type=grade&period=${period}`),
-  getHourlyStats: (days = 7) => API.get(`/admin-stats?type=hourly&days=${days}`),
+  getOverview: () => API.get('/admin/index?path=stats&type=overview'),
+  getDifficultyStats: (period = 'week') => API.get(`/admin/index?path=stats&type=difficulty&period=${period}`),
+  getGradeStats: (period = 'week') => API.get(`/admin/index?path=stats&type=grade&period=${period}`),
+  getHourlyStats: (days = 7) => API.get(`/admin/index?path=stats&type=hourly&days=${days}`),
   getProblemSetStats: () => API.get('/admin/stats/problemsets'),
   
-  // ユーザー管理
+  // ユーザー管理 - 統合エンドポイント使用
   getUsers: (params: {
     page?: number;
     limit?: number;
@@ -462,22 +462,23 @@ const adminAPI = {
     order?: string;
   } = {}) => {
     const queryParams = new URLSearchParams();
+    queryParams.append('path', 'users'); // 統合エンドポイントのパス指定
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== '') {
         queryParams.append(key, value.toString());
       }
     });
-    return API.get(`/admin/users?${queryParams.toString()}`);
+    return API.get(`/admin/index?${queryParams.toString()}`);
   },
   
   // 従来の問題生成
   generateProblems: (date: string) => API.post(`/admin/generate-problems/${date}`),
 
-  // 管理者権限管理
+  // 管理者権限管理 - 統合エンドポイント使用
   makeAdmin: async (userId: string) => {
     try {
       logger.info('[API] Making user admin:', userId);
-      const response = await API.put(`/admin/users/${userId}/make-admin`);
+      const response = await API.put(`/admin/index?path=users&userId=${userId}&action=make-admin`);
       return response;
     } catch (error: unknown) {
       logger.error('[API] Make admin error:', (error as Error).message);
@@ -488,7 +489,7 @@ const adminAPI = {
   removeAdmin: async (userId: string) => {
     try {
       logger.info('[API] Removing admin rights:', userId);
-      const response = await API.put(`/admin/users/${userId}/remove-admin`);
+      const response = await API.put(`/admin/index?path=users&userId=${userId}&action=remove-admin`);
       return response;
     } catch (error: unknown) {
       logger.error('[API] Remove admin error:', (error as Error).message);
@@ -497,13 +498,13 @@ const adminAPI = {
   },
 };
 
-// 監視・パフォーマンスAPI
+// 監視・パフォーマンスAPI - Vercel Hobby プラン対応（統合エンドポイント使用）
 const monitoringAPI = {
   // パフォーマンス統計 - 統合エンドポイント使用
-  getPerformanceStats: () => API.get('/monitoring?type=performance'),
+  getPerformanceStats: () => API.get('/admin/index?path=monitoring&type=performance'),
   
   // システムヘルスチェック - 統合エンドポイント使用
-  getSystemHealth: () => API.get('/monitoring?type=health'),
+  getSystemHealth: () => API.get('/admin/index?path=monitoring&type=health'),
   
   // 詳細システム情報（管理者のみ）
   getSystemInfo: () => API.get('/monitoring/system'),
@@ -566,13 +567,13 @@ const historyAPI = {
 // 必要なものだけを最後にまとめてエクスポート
 export { API, authAPI, userAPI, problemsAPI, rankingAPI, historyAPI, adminAPI, monitoringAPI, testBackendConnection };
 
-// 管理者統計関連のAPI関数 - 統合エンドポイント使用
-export const getOverview = () => API.get('/admin-stats?type=overview');
-export const getDifficultyStats = (period: string = 'week') => API.get(`/admin-stats?type=difficulty&period=${period}`);
-export const getGradeStats = (period: string = 'week') => API.get(`/admin-stats?type=grade&period=${period}`);
-export const getHourlyStats = (days: number = 7) => API.get(`/admin-stats?type=hourly&days=${days}`);
+// 管理者統計関連のAPI関数 - Vercel Hobby プラン対応（統合エンドポイント使用）
+export const getOverview = () => API.get('/admin/index?path=stats&type=overview');
+export const getDifficultyStats = (period: string = 'week') => API.get(`/admin/index?path=stats&type=difficulty&period=${period}`);
+export const getGradeStats = (period: string = 'week') => API.get(`/admin/index?path=stats&type=grade&period=${period}`);
+export const getHourlyStats = (days: number = 7) => API.get(`/admin/index?path=stats&type=hourly&days=${days}`);
 
 
-// システム監視関連 - 統合エンドポイント使用
-export const getSystemHealth = () => API.get('/monitoring?type=health');
-export const getPerformanceStats = () => API.get('/monitoring?type=performance'); 
+// システム監視関連 - Vercel Hobby プラン対応（統合エンドポイント使用）
+export const getSystemHealth = () => API.get('/admin/index?path=monitoring&type=health');
+export const getPerformanceStats = () => API.get('/admin/index?path=monitoring&type=performance'); 

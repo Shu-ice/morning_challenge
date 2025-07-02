@@ -121,15 +121,15 @@ class ApiService {
 const api = new ApiService();
 export default api;
 
-// 管理者統計関連のAPI関数
-export const getOverview = () => api.get('/admin/stats/overview');
-export const getDifficultyStats = (period: string = 'week') => api.get(`/admin/stats/difficulty?period=${period}`);
-export const getGradeStats = (period: string = 'week') => api.get(`/admin/stats/grade?period=${period}`);
-export const getHourlyStats = (days: number = 7) => api.get(`/admin/stats/hourly?days=${days}`);
+// 管理者統計関連のAPI関数 - Vercel Hobby プラン対応（統合エンドポイント使用）
+export const getOverview = () => api.get('/admin/index?path=stats&type=overview');
+export const getDifficultyStats = (period: string = 'week') => api.get(`/admin/index?path=stats&type=difficulty&period=${period}`);
+export const getGradeStats = (period: string = 'week') => api.get(`/admin/index?path=stats&type=grade&period=${period}`);
+export const getHourlyStats = (days: number = 7) => api.get(`/admin/index?path=stats&type=hourly&days=${days}`);
 
 // 管理者ダッシュボード専用API
 export const getDashboardData = () => api.get('/admin-dashboard');
 
-// システム監視関連
-export const getSystemHealth = () => api.get('/monitoring/health');
-export const getPerformanceStats = () => api.get('/monitoring/performance');
+// システム監視関連 - Vercel Hobby プラン対応（統合エンドポイント使用）
+export const getSystemHealth = () => api.get('/admin/index?path=monitoring&type=health');
+export const getPerformanceStats = () => api.get('/admin/index?path=monitoring&type=performance');

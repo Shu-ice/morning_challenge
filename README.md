@@ -134,7 +134,13 @@ morning_challenge/
 
 ## 🛠️ **最近の改善**
 
-### 2025年7月
+### 2025年7月 - Vercel 本番環境対応
+- ✅ **Vercel Serverless Functions 実装**: 管理者API をServerless化し404エラーを解決
+- ✅ **環境変数検証システム改善**: Vercel環境での適切な検証ロジック実装
+- ✅ **SPA ルーティング問題解決**: 管理画面リロード時の404エラー修正
+- ✅ **ビルドプロセス最適化**: `build:vercel` コマンドと環境別ビルド対応
+- ✅ **CI/CD パイプライン整備**: GitHub Actions による自動テストとビルド検証
+- ✅ **API エンドポイント拡充**: ユーザー管理、システム監視APIの実装
 - ✅ **管理者ダッシュボードの時刻表示バグ修正**: timeSpent値の桁ずれ問題解決（26422秒 → 26.42秒）
 - ✅ **System Health パネルの機能強化**: メモリ使用状況、環境設定、エラー統計、コンポーネント別ヘルス状態の詳細表示
 - ✅ **モックデータの一貫性修正**: 実際のDBと同じミリ秒単位に統一
@@ -188,15 +194,48 @@ node server/scripts/backfillGrades.js
 ### テスト実行
 
 ```bash
-# 全テスト実行
-cd server && npm test
+# フロントエンドテスト
+npm run test:run                    # Vitest 単体テスト
+npm run test:coverage              # カバレッジ付きテスト
 
-# 学年同期機能の単体テスト
-cd server && npm test -- gradeSync.test.js
+# APIテスト
+npm run test:api                   # Vercel Serverless Functions テスト
 
-# ランキングAPI関連テスト
-cd server && npm test -- ranking.test.js
+# 環境変数検証テスト
+npm run test:env                   # validate_env.mjs のテスト
+
+# Vercelビルドテスト
+npm run test:build-vercel          # 本番ビルドプロセステスト
+
+# サーバーテスト（ローカル開発用）
+cd server && npm test              # Express サーバーテスト
+cd server && npm test -- gradeSync.test.js    # 学年同期テスト
+cd server && npm test -- ranking.test.js      # ランキングAPIテスト
 ```
+
+## 🚀 **デプロイメント**
+
+### 環境別設定
+
+```bash
+# ローカル開発環境
+cp env.example .env
+npm run dev
+
+# Vercel 本番環境
+# 1. Vercel Dashboard で環境変数設定
+# 2. git push origin main
+```
+
+### 環境変数早見表
+
+| 環境 | NODE_ENV | MONGODB_MOCK | 必須変数 |
+|------|----------|--------------|----------|
+| 開発 | development | true | JWT_SECRET, MONGODB_URI |
+| プレビュー | preview | true | なし（自動設定） |
+| 本番 | production | false | 全て（管理者設定含む） |
+
+詳細な手順は [VERCEL_DEPLOYMENT_GUIDE.md](./VERCEL_DEPLOYMENT_GUIDE.md) を参照してください。
 
 ## 🤝 **開発に参加**
 
@@ -213,4 +252,4 @@ MIT License
 ---
 
 **作成者**: Your Name  
-**最終更新**: 2025年6月17日
+**最終更新**: 2025年7月2日
