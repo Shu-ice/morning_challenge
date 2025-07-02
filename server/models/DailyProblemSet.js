@@ -44,6 +44,11 @@ const dailyProblemSetSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  // 緊急生成された問題セットかどうかのフラグ
+  isEmergencyGenerated: {
+    type: Boolean,
+    default: false,
+  },
 }, {
   timestamps: true,
   // 日付と難易度の組み合わせでユニークにする複合インデックス

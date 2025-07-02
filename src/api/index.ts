@@ -507,6 +507,9 @@ const monitoringAPI = {
   
   // 詳細システム情報（管理者のみ）
   getSystemInfo: () => API.get('/monitoring/system'),
+  
+  // 詳細システム状態（管理者のみ）- 新たに追加
+  getDetailedSystemStatus: () => API.get('/system/status'),
 };
 
 // --- 履歴関連 API ---

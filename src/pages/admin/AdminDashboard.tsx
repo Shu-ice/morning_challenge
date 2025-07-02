@@ -4,7 +4,7 @@ import { adminAPI, monitoringAPI } from '@/api/index';
 import { logger } from '@/utils/logger';
 import '@/styles/AdminLayout.css';
 import { getGradeLabel } from '../../utils/gradeUtils';
-import { formatTime } from '../../utils/dateUtils';
+import { formatTime, formatTimeSpent } from '../../utils/dateUtils';
 import type { 
   SystemOverview, 
   DifficultyStats, 
@@ -30,6 +30,7 @@ const AdminDashboard: React.FC = () => {
   const [hourlyStats, setHourlyStats] = useState<HourlyStats[]>([]);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [performanceStats, setPerformanceStats] = useState<PerformanceStats | null>(null);
+  const [detailedSystemStatus, setDetailedSystemStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('week');
@@ -50,14 +51,16 @@ const AdminDashboard: React.FC = () => {
           gradeResponse,
           hourlyResponse,
           healthResponse,
-          performanceResponse
+          performanceResponse,
+          detailedStatusResponse
         ] = await Promise.allSettled([
           adminAPI.getOverview(),
           adminAPI.getDifficultyStats('week'),
           adminAPI.getGradeStats('week'),
           adminAPI.getHourlyStats(7),
           monitoringAPI.getSystemHealth(),
-          monitoringAPI.getPerformanceStats()
+          monitoringAPI.getPerformanceStats(),
+          monitoringAPI.getDetailedSystemStatus()
         ]);
 
         // 各レスポンスを処理
@@ -86,6 +89,10 @@ const AdminDashboard: React.FC = () => {
 
         if (performanceResponse.status === 'fulfilled') {
           setPerformanceStats(performanceResponse.value.data || {});
+        }
+
+        if (detailedStatusResponse.status === 'fulfilled') {
+          setDetailedSystemStatus(detailedStatusResponse.value.data || {});
         }
 
         console.log('✅ [AdminDashboard] 全データ取得完了');
@@ -517,6 +524,160 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* 詳細システム状態 */}
+      {detailedSystemStatus && (
+        <div style={{ marginBottom: '3rem' }}>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: '600', marginBottom: '1.5rem', color: '#1D1D1F' }}>
+            🔧 詳細システム状態
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+            
+            {/* メモリ使用状況 */}
+            {detailedSystemStatus.system?.process?.memory && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem', color: '#FF9500' }}>
+                  💾 メモリ使用状況
+                </h3>
+                <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#1D1D1F', marginBottom: '0.5rem' }}>
+                  {(detailedSystemStatus.performance?.memoryUsage?.used || 0).toFixed(1)} MB
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                  使用中 / {(detailedSystemStatus.performance?.memoryUsage?.total || 0).toFixed(1)} MB 総容量
+                </div>
+                {/* メモリ使用率バー */}
+                <div style={{
+                  background: '#f0f0f0',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  marginTop: '1rem',
+                  height: '8px'
+                }}>
+                  <div style={{
+                    background: '#FF9500',
+                    height: '100%',
+                    width: `${Math.min((detailedSystemStatus.performance?.memoryUsage?.used / detailedSystemStatus.performance?.memoryUsage?.total) * 100, 100)}%`,
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
+                  {Math.round((detailedSystemStatus.performance?.memoryUsage?.used / detailedSystemStatus.performance?.memoryUsage?.total) * 100) || 0}% 使用中
+                </div>
+              </div>
+            )}
+
+            {/* システム環境 */}
+            {detailedSystemStatus.system?.environment && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem', color: '#5856D6' }}>
+                  🌍 環境設定
+                </h3>
+                <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.9rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#666' }}>環境:</span>
+                    <span style={{ fontWeight: '600' }}>{detailedSystemStatus.system.environment.nodeEnv}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#666' }}>モック DB:</span>
+                    <span style={{ fontWeight: '600', color: detailedSystemStatus.system.environment.mongoMock ? '#FF9500' : '#34C759' }}>
+                      {detailedSystemStatus.system.environment.mongoMock ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#666' }}>時間チェック:</span>
+                    <span style={{ fontWeight: '600', color: detailedSystemStatus.system.environment.timeCheckDisabled ? '#FF9500' : '#34C759' }}>
+                      {detailedSystemStatus.system.environment.timeCheckDisabled ? '無効' : '有効'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* エラー統計 */}
+            {detailedSystemStatus.errors && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem', color: '#FF3B30' }}>
+                  ⚠️ エラー統計
+                </h3>
+                <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#1D1D1F', marginBottom: '0.5rem' }}>
+                  {detailedSystemStatus.errors.recentCount || 0}
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                  過去1時間のエラー数
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.5rem' }}>
+                  総エラー数: {detailedSystemStatus.errors.totalCount || 0}
+                </div>
+              </div>
+            )}
+
+            {/* コンポーネント別ヘルス状態 */}
+            {detailedSystemStatus.health?.components && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                gridColumn: 'span 2'
+              }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem', color: '#007AFF' }}>
+                  🏥 コンポーネント詳細
+                </h3>
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  {Object.entries(detailedSystemStatus.health.components).map(([key, component]: [string, any]) => (
+                    <div key={key} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.75rem',
+                      background: component.isHealthy ? 'rgba(52, 199, 89, 0.1)' : 'rgba(255, 59, 48, 0.1)',
+                      borderRadius: '8px',
+                      border: `1px solid ${component.isHealthy ? 'rgba(52, 199, 89, 0.3)' : 'rgba(255, 59, 48, 0.3)'}`
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.2rem' }}>
+                          {component.isHealthy ? '✅' : '❌'}
+                        </span>
+                        <span style={{ fontWeight: '600' }}>{component.name || key}</span>
+                      </div>
+                      {component.issues && component.issues.length > 0 && (
+                        <div style={{
+                          fontSize: '0.8rem',
+                          color: '#666',
+                          maxWidth: '200px',
+                          textAlign: 'right'
+                        }}>
+                          {component.issues.slice(0, 2).join(', ')}
+                          {component.issues.length > 2 && '...'}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '1rem' }}>
+                  最終チェック: {new Date(detailedSystemStatus.health.timestamp).toLocaleString('ja-JP')}
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
       {/* 管理ツール */}
       <div style={{ marginBottom: '3rem' }}>
         <h2 style={{ fontSize: '1.8rem', fontWeight: '600', marginBottom: '1.5rem', color: '#1D1D1F' }}>
@@ -756,7 +917,7 @@ const AdminDashboard: React.FC = () => {
                       {activity.difficulty} - {activity.correctAnswers}/{activity.totalProblems}問正解
                     </div>
                     <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.25rem' }}>
-                      📊 {activity.timeSpent > 0 ? formatTime(activity.timeSpent * 1000) : '時間情報なし'} で完了
+                      📊 {activity.timeSpent > 0 ? formatTimeSpent(activity.timeSpent) : '時間情報なし'} で完了
                     </div>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#999', textAlign: 'right', minWidth: '120px' }}>

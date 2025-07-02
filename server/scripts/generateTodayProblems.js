@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { generateProblems } from '../utils/problemGenerator.js';
 import DailyProblemSet from '../models/DailyProblemSet.js';
+import { getTodayJST, debugTimezoneInfo } from '../utils/dateUtils.js';
 import dotenv from 'dotenv';
 
 // 環境変数を読み込み
@@ -17,8 +18,17 @@ async function generateTodayProblems() {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/morning-math-challenge');
     console.log('MongoDB接続成功');
 
-    const today = new Date().toISOString().split('T')[0];
-    console.log(`今日の日付: ${today}`);
+    // タイムゾーン情報をデバッグ表示
+    const timezoneInfo = debugTimezoneInfo();
+    console.log('=== タイムゾーン情報 ===');
+    console.log(`UTC時刻: ${timezoneInfo.utc}`);
+    console.log(`JST時刻: ${timezoneInfo.jst}`);
+    console.log(`UTC日付: ${timezoneInfo.utcDate}`);
+    console.log(`JST日付: ${timezoneInfo.jstDate}`);
+
+    // 🔧 修正: JST基準の日付を使用
+    const today = getTodayJST();
+    console.log(`今日のJST日付: ${today}`);
     
     if (forceUpdate) {
       console.log('--force オプションが指定されました。既存の問題セットを更新します。');

@@ -3,6 +3,7 @@ import DailyProblemSet from '../models/DailyProblemSet.js';
 import { logger } from '../utils/logger.js';
 import User from '../models/User.js';
 import dayjs from 'dayjs';
+import { getTodayJST, getJSTTimeInfo, isValidDateString } from '../utils/dateUtils.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getMockResults, getMockDailyProblemSets, addMockResult, findMockUser, getMockUsers } from '../config/database.js';
 import { DifficultyRank } from '../constants/difficultyRank.js';
@@ -92,11 +93,9 @@ export const getProblems = async (req, res) => {
         const shouldSkipTimeCheck = (skipTimeCheck === 'true' || 
                                    (req.user && req.user.isAdmin)) && !isTestUser;
         
-        // 現在時刻をチェック（日本時間）
-        const now = new Date();
-        const hours = now.getHours();
-        const minutes = now.getMinutes();
-        const currentTime = hours + minutes/60;
+        // 🔧 修正: JST基準での時刻チェック
+        const jstTimeInfo = getJSTTimeInfo();
+        const { hours, minutes, currentTime } = jstTimeInfo;
         
         logger.debug(`[TimeCheck] 現在時刻チェック: ${hours}:${String(minutes).padStart(2, '0')} (${currentTime.toFixed(2)}時)`);
         
@@ -137,7 +136,8 @@ export const getProblems = async (req, res) => {
       userId = req.user._id.toString(); // ObjectIdを文字列に変換
     }
     
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    // 🔧 修正: JST基準の日付を使用
+    const targetDate = date || getTodayJST();
     
     // 日次チャレンジ制限チェック
     if (userId) {
@@ -164,12 +164,81 @@ export const getProblems = async (req, res) => {
     const problemSet = await DailyProblemSet.findOne({ date: targetDate, difficulty: difficulty });
 
     if (!problemSet || !problemSet.problems || problemSet.problems.length === 0) {
-      logger.warn(`[getProblems] No problem set found for ${targetDate} (${difficulty}). Returning 404.`);
-      return res.status(404).json({
+      logger.warn(`[getProblems] No problem set found for ${targetDate} (${difficulty}). Attempting auto-recovery...`);
+      
+      // 🔧 自動復旧機能: 管理者または緊急時に問題を自動生成
+      const canAutoGenerate = req.user?.isAdmin || 
+                             process.env.EMERGENCY_GENERATION === 'true' ||
+                             process.env.NODE_ENV === 'development';
+      
+      if (canAutoGenerate) {
+        try {
+          logger.info(`[getProblems] 🚨 緊急問題生成を実行: ${targetDate} (${difficulty})`);
+          
+          // 問題を緊急生成
+          const emergencyProblems = await generateProblems(difficulty, 10, null, `emergency_${Date.now()}`);
+          
+          if (emergencyProblems && emergencyProblems.length > 0) {
+            // 問題セットをDBに保存
+            const problemsForDB = emergencyProblems.map(p => ({
+              id: p.id,
+              question: p.question,
+              correctAnswer: p.answer,
+              options: p.options
+            }));
+            
+            const emergencyProblemSet = await DailyProblemSet.create({
+              date: targetDate,
+              difficulty,
+              problems: problemsForDB,
+              isEdited: false,
+              isEmergencyGenerated: true
+            });
+            
+            logger.info(`[getProblems] ✅ 緊急問題生成成功: ${emergencyProblemSet.problems.length}問`);
+            
+            // 緊急生成した問題を返す
+            const problemsForClient = emergencyProblemSet.problems.map(p => ({
+              id: p.id, 
+              question: p.question,
+              options: p.options,
+            }));
+            
+            req.session = req.session || {};
+            req.session.problems = problemsForClient; 
+            
+            return res.json({
+              success: true,
+              difficulty: difficulty,
+              date: targetDate,
+              problems: problemsForClient,
+              isEmergencyGenerated: true,
+              message: '問題を緊急生成しました。'
+            });
+          }
+        } catch (emergencyError) {
+          logger.error(`[getProblems] 緊急問題生成に失敗:`, emergencyError);
+        }
+      }
+      
+      // 自動復旧失敗時のエラーレスポンス
+      return res.status(503).json({
         success: false,
-        message: `<ruby>選択<rt>せんたく</rt></ruby>された日付の問題が見つかりませんでした。`,
+        message: process.env.NODE_ENV === 'production' 
+          ? `申し訳ございません。現在問題を準備中です。しばらくお待ちください。`
+          : `問題セットが見つかりません: ${targetDate} (${difficulty})`,
         problems: [],
-        canGenerate: true
+        canGenerate: true,
+        isTemporaryError: true,
+        suggestedActions: [
+          '数分後に再度お試しください',
+          '問題が続く場合は管理者にお問い合わせください'
+        ],
+        debug: process.env.NODE_ENV !== 'production' ? {
+          targetDate,
+          difficulty,
+          autoGenerateAttempted: canAutoGenerate
+        } : undefined
       });
     }
 
