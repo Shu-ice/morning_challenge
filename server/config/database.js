@@ -198,8 +198,8 @@ const initializeMockData = async () => {
       unanswered: 1,
       totalProblems: 10,
       score: 70,
-      timeSpent: 480, // 秒単位
-      totalTime: 480000, // ミリ秒単位
+      timeSpent: 120000, // ミリ秒単位 (2分)
+      totalTime: 120000, // ミリ秒単位
       grade: 3,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -214,8 +214,8 @@ const initializeMockData = async () => {
       unanswered: 0,
       totalProblems: 10,
       score: 80,
-      timeSpent: 420, // 秒単位
-      totalTime: 420000, // ミリ秒単位
+      timeSpent: 180000, // ミリ秒単位 (3分)
+      totalTime: 180000, // ミリ秒単位
       grade: 6,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -230,8 +230,8 @@ const initializeMockData = async () => {
       unanswered: 0,
       totalProblems: 10,
       score: 90,
-      timeSpent: 360, // 秒単位
-      totalTime: 360000, // ミリ秒単位
+      timeSpent: 150000, // ミリ秒単位 (2.5分)
+      totalTime: 150000, // ミリ秒単位
       grade: 6,
       createdAt: dayjs().subtract(1, 'day').toDate(),
       updatedAt: dayjs().subtract(1, 'day').toDate()
@@ -246,8 +246,8 @@ const initializeMockData = async () => {
       unanswered: 1,
       totalProblems: 10,
       score: 60,
-      timeSpent: 520, // 秒単位
-      totalTime: 520000, // ミリ秒単位
+      timeSpent: 200000, // ミリ秒単位 (3.33分)
+      totalTime: 200000, // ミリ秒単位
       grade: 3,
       createdAt: dayjs().subtract(1, 'day').toDate(),
       updatedAt: dayjs().subtract(1, 'day').toDate()
@@ -262,8 +262,8 @@ const initializeMockData = async () => {
       unanswered: 0,
       totalProblems: 10,
       score: 80,
-      timeSpent: 340, // 秒単位
-      totalTime: 340000, // ミリ秒単位
+      timeSpent: 210000, // ミリ秒単位 (3.5分)
+      totalTime: 210000, // ミリ秒単位
       grade: 8,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -278,8 +278,8 @@ const initializeMockData = async () => {
       unanswered: 0,
       totalProblems: 10,
       score: 90,
-      timeSpent: 280, // 秒単位
-      totalTime: 280000, // ミリ秒単位
+      timeSpent: 165000, // ミリ秒単位 (2.75分)
+      totalTime: 165000, // ミリ秒単位
       grade: 12,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -294,8 +294,8 @@ const initializeMockData = async () => {
       unanswered: 0,
       totalProblems: 10,
       score: 100,
-      timeSpent: 240, // 秒単位
-      totalTime: 240000, // ミリ秒単位
+      timeSpent: 140000, // ミリ秒単位 (2.33分)
+      totalTime: 140000, // ミリ秒単位
       grade: 14,
       createdAt: dayjs().subtract(1, 'day').toDate(),
       updatedAt: dayjs().subtract(1, 'day').toDate()
@@ -310,8 +310,8 @@ const initializeMockData = async () => {
       unanswered: 1,
       totalProblems: 10,
       score: 80,
-      timeSpent: 300, // 秒単位
-      totalTime: 300000, // ミリ秒単位
+      timeSpent: 195000, // ミリ秒単位 (3.25分)
+      totalTime: 195000, // ミリ秒単位
       grade: 15,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -326,8 +326,8 @@ const initializeMockData = async () => {
       unanswered: 1,
       totalProblems: 10,
       score: 70,
-      timeSpent: 450, // 秒単位
-      totalTime: 450000, // ミリ秒単位
+      timeSpent: 225000, // ミリ秒単位 (3.75分)
+      totalTime: 225000, // ミリ秒単位
       grade: 99,
       createdAt: dayjs().subtract(1, 'day').toDate(),
       updatedAt: dayjs().subtract(1, 'day').toDate()

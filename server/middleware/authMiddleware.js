@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 // 🔧 統一: 環境設定はenvironment.jsで一元管理
 import environmentConfig from '../config/environment.js';
+import { getJSTTimeInfo } from '../utils/dateUtils.js';
 const { logger } = await import('../utils/logger.js');
 
 const JWT_SECRET = environmentConfig.jwtSecret;
@@ -108,18 +109,22 @@ const timeRestriction = (req, res, next) => {
       return next();
     }
     
-    // 現在時刻をチェック
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTime = hours + minutes/60;
+    // 🔧 修正: JST基準での時刻チェック
+    const jstTimeInfo = getJSTTimeInfo();
+    const { hours, minutes, currentTime, timeString } = jstTimeInfo;
     
     // 6:30-8:00の間のみアクセス許可
     if (currentTime < 6.5 || currentTime > 8.0) {
       return res.status(403).json({
         success: false,
         message: '朝の計算チャレンジは、朝6:30から8:00の間のみ挑戦できます。またの挑戦をお待ちしています！',
-        isTimeRestricted: true
+        isTimeRestricted: true,
+        currentTime: timeString,
+        allowedTime: '6:30-8:00',
+        debug: process.env.NODE_ENV !== 'production' ? {
+          jstTime: jstTimeInfo.jstDate.toISOString(),
+          utcTime: jstTimeInfo.utcDate.toISOString()
+        } : undefined
       });
     }
     

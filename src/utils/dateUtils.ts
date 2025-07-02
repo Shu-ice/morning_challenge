@@ -46,6 +46,30 @@ export const formatTime = (milliseconds: number | undefined): string => {
 };
 
 /**
+ * timeSpent値を適切にフォーマット（自動的にミリ秒・秒を判定）
+ * @param timeValue - timeSpent値（ミリ秒または秒）
+ * @returns 秒単位の文字列（小数点以下2桁）
+ */
+export const formatTimeSpent = (timeValue: number | undefined): string => {
+  if (timeValue === undefined || timeValue === null || isNaN(timeValue)) {
+    return '0.00秒';
+  }
+  
+  // 10000以上の値はミリ秒として扱い、それ以下は秒として扱う
+  // 理由: 通常のチャレンジで10000秒（2.7時間）以上かかることはないため
+  let seconds: number;
+  if (timeValue >= 10000) {
+    // ミリ秒として扱う
+    seconds = timeValue / 1000;
+  } else {
+    // 秒として扱う
+    seconds = timeValue;
+  }
+  
+  return `${seconds.toFixed(2)}秒`;
+};
+
+/**
  * ミリ秒を分:秒形式の文字列に変換
  * @param milliseconds - 変換するミリ秒
  * @returns 分:秒形式の文字列

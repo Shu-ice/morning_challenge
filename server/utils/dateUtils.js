@@ -1,7 +1,13 @@
 /**
  * 日付処理ユーティリティ
  * アプリケーション全体で一貫した日付処理を提供
+ * JST（日本標準時）対応で朝のチャレンジアプリに最適化
  */
+
+import { logger } from './logger.js';
+
+// JST（UTC+9）のオフセット（ミリ秒）
+const JST_OFFSET = 9 * 60 * 60 * 1000;
 
 // 現在の日付をYYYY-MM-DD形式で取得
 export const getTodayDateString = () => {
@@ -94,4 +100,130 @@ export const getMonthDateRange = () => {
     startDateString: formatDateToISOString(startOfMonth),
     endDateString: formatDateToISOString(endOfMonth)
   };
+};
+
+// ===== JST（日本標準時）対応の新機能 =====
+
+/**
+ * 現在のJST日付を YYYY-MM-DD 形式で取得
+ * @returns {string} YYYY-MM-DD 形式の日付文字列
+ */
+export const getTodayJST = () => {
+  const now = new Date();
+  const jstDate = new Date(now.getTime() + JST_OFFSET);
+  const dateStr = jstDate.toISOString().split('T')[0];
+  
+  logger.debug(`[DateUtils] getTodayJST: UTC=${now.toISOString()}, JST=${jstDate.toISOString()}, result=${dateStr}`);
+  return dateStr;
+};
+
+/**
+ * JST時刻での時間チェック（朝の時間制限用）
+ * @returns {Object} 時間情報オブジェクト
+ */
+export const getJSTTimeInfo = () => {
+  const now = new Date();
+  const jstDate = new Date(now.getTime() + JST_OFFSET);
+  
+  const hours = jstDate.getHours();
+  const minutes = jstDate.getMinutes();
+  const currentTime = hours + minutes / 60;
+  
+  const timeInfo = {
+    hours,
+    minutes,
+    currentTime,
+    dateString: jstDate.toISOString().split('T')[0],
+    timeString: `${hours}:${String(minutes).padStart(2, '0')}`,
+    isWithinMorningWindow: currentTime >= 6.5 && currentTime <= 8.0,
+    jstDate,
+    utcDate: now
+  };
+  
+  logger.debug(`[DateUtils] getJSTTimeInfo:`, {
+    jstTime: timeInfo.timeString,
+    isWithinWindow: timeInfo.isWithinMorningWindow,
+    date: timeInfo.dateString
+  });
+  return timeInfo;
+};
+
+/**
+ * 指定日付をJSTベースの YYYY-MM-DD 形式で取得
+ * @param {Date|string|number} date - 変換する日付
+ * @returns {string} YYYY-MM-DD 形式の日付文字列
+ */
+export const getDateJST = (date) => {
+  let targetDate;
+  
+  if (typeof date === 'string') {
+    targetDate = new Date(date);
+  } else if (typeof date === 'number') {
+    targetDate = new Date(date);
+  } else if (date instanceof Date) {
+    targetDate = date;
+  } else {
+    targetDate = new Date();
+  }
+  
+  const jstDate = new Date(targetDate.getTime() + JST_OFFSET);
+  return jstDate.toISOString().split('T')[0];
+};
+
+/**
+ * 日付文字列の検証
+ * @param {string} dateStr - 検証する日付文字列
+ * @returns {boolean} 有効な日付かどうか
+ */
+export const isValidDateString = (dateStr) => {
+  if (typeof dateStr !== 'string') return false;
+  
+  const regex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!regex.test(dateStr)) return false;
+  
+  const date = new Date(dateStr + 'T00:00:00.000Z');
+  return !isNaN(date.getTime()) && date.toISOString().split('T')[0] === dateStr;
+};
+
+/**
+ * 昨日のJST日付を取得
+ * @returns {string} YYYY-MM-DD 形式の昨日の日付
+ */
+export const getYesterdayJST = () => {
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  return getDateJST(yesterday);
+};
+
+/**
+ * 明日のJST日付を取得
+ * @returns {string} YYYY-MM-DD 形式の明日の日付
+ */
+export const getTomorrowJST = () => {
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  return getDateJST(tomorrow);
+};
+
+/**
+ * 開発/テスト用のタイムゾーン情報表示
+ */
+export const debugTimezoneInfo = () => {
+  const now = new Date();
+  const utc = now.toISOString();
+  const jst = new Date(now.getTime() + JST_OFFSET).toISOString();
+  const local = now.toString();
+  
+  const info = {
+    utc,
+    jst,
+    local,
+    utcDate: utc.split('T')[0],
+    jstDate: jst.split('T')[0],
+    offset: now.getTimezoneOffset(),
+    jstOffsetFromLocal: (now.getTimezoneOffset() * 60 * 1000) + JST_OFFSET
+  };
+  
+  logger.info('[DateUtils] Timezone Debug Info:', info);
+  return info;
 }; 
