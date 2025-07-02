@@ -3,7 +3,12 @@
 
 # === Serverless Function 誤認識を防ぐファイル除外 ===
 # Development scripts (Vercel が Functions として誤認識)
-scripts/
+# --- scripts ディレクトリ ---
+# 1) まずディレクトリ自体を包含
+!scripts/
+# 2) ディレクトリ内はデフォルトで除外
+scripts/**
+# 3) ビルドに必要なファイルだけ再包含
 !scripts/validate_env.mjs
 test-*.js
 test-*.html
