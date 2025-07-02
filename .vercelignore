@@ -41,8 +41,6 @@ api/monitoring.js
 # 統合エンドポイントは含める
 !api/admin/index.js
 
-# ライブラリファイル（Functions ではない）
-api/_lib/
 
 # === 通常の除外ファイル ===
 # Development files

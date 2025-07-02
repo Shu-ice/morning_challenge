@@ -1,8 +1,8 @@
 // 📑 /api/problems/edit - Get or update a DailyProblemSet
 // 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
 
-const { connectMongoose } = require('../_lib/database');
-const { DailyProblemSet } = require('../_lib/models');
+const { connectMongoose } = require('../../shared_lib/database');
+const { DailyProblemSet } = require('../../shared_lib/models');
 
 module.exports = async function handler(req, res) {
   // --- CORS ヘッダー ---

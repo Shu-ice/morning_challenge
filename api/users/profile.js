@@ -2,8 +2,8 @@
 // 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
 
 const jwt = require('jsonwebtoken');
-const { connectMongoose } = require('../_lib/database');
-const { User } = require('../_lib/models');
+const { connectMongoose } = require('../../shared_lib/database');
+const { User } = require('../../shared_lib/models');
 
 // 環境変数
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';

@@ -1,6 +1,6 @@
 // Vercel Function: /api/system/status
 // システム状態監視API
-const { connectMongoose } = require('../_lib/database');
+const { connectMongoose } = require('../../shared_lib/database');
 const jwt = require('jsonwebtoken');
 const os = require('os');
 

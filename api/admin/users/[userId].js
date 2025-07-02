@@ -1,7 +1,7 @@
 // Vercel Function: /api/admin/users/[userId]
 // 管理者用ユーザー権限管理API
-const { connectMongoose } = require('../../_lib/database');
-const { User } = require('../../_lib/models');
+const { connectMongoose } = require('../../../shared_lib/database');
+const { User } = require('../../../shared_lib/models');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 

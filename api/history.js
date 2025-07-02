@@ -3,8 +3,8 @@
 
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const { connectMongoose } = require('./_lib/database');
-const { Result, User, DailyProblemSet } = require('./_lib/models');
+const { connectMongoose } = require('../shared_lib/database');
+const { Result, User, DailyProblemSet } = require('../shared_lib/models');
 
 // 連続日数計算関数
 function calculateStreaks(history) {

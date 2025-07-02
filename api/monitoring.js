@@ -2,8 +2,8 @@
 // MongoDB Atlas対応版統合監視API - ヘルスチェックとパフォーマンス統計を統合
 // 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
 
-const { connectMongoose } = require('./_lib/database');
-const { Result } = require('./_lib/models');
+const { connectMongoose } = require('../shared_lib/database');
+const { Result } = require('../shared_lib/models');
 
 async function getHealthCheck() {
   const startTime = Date.now();

@@ -1,7 +1,7 @@
 // Vercel Function: /api/admin/index (Consolidated Admin Endpoints)
 // 管理者系API統合エンドポイント - Vercel Hobby プランの Function 制限対応
-const { connectMongoose, optimizeQuery, optimizeAggregation, withTimeout } = require('../_lib/database');
-const { User, Result, DailyProblemSet } = require('../_lib/models');
+const { connectMongoose, optimizeQuery, optimizeAggregation, withTimeout } = require('../../shared_lib/database');
+const { User, Result, DailyProblemSet } = require('../../shared_lib/models');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const dayjs = require('dayjs');

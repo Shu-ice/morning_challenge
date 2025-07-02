@@ -1,7 +1,7 @@
 // 🏆 ランキングAPI - Vercel対応
 const { ObjectId } = require('mongodb');
-const { getGradeLabel, normalizeGrade } = require('./_lib/gradeMapping');
-const { getDatabase, handleDatabaseError } = require('./_lib/database');
+const { getGradeLabel, normalizeGrade } = require('../shared_lib/gradeMapping');
+const { getDatabase, handleDatabaseError } = require('../shared_lib/database');
 
 const IS_PRODUCTION = process.env.VERCEL || process.env.NODE_ENV === 'production';
 const logger = {

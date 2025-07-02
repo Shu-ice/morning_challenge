@@ -2,8 +2,8 @@
 // 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
 
 const path = require('path');
-const { connectMongoose } = require('../_lib/database');
-const { DailyProblemSet } = require('../_lib/models');
+const { connectMongoose } = require('../../shared_lib/database');
+const { DailyProblemSet } = require('../../shared_lib/models');
 
 // 既存の problems モジュールを再利用
 const problemsModule = require('./index');

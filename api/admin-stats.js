@@ -1,8 +1,8 @@
 // Vercel Function: /api/admin-stats
 // 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
 
-const { connectMongoose, optimizeQuery, optimizeAggregation, withTimeout } = require('./_lib/database');
-const { User, Result, DailyProblemSet } = require('./_lib/models');
+const { connectMongoose, optimizeQuery, optimizeAggregation, withTimeout } = require('../shared_lib/database');
+const { User, Result, DailyProblemSet } = require('../shared_lib/models');
 
 // 🚀 最適化された統計処理関数
 async function getOverviewStats() {

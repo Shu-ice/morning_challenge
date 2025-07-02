@@ -3,8 +3,8 @@
 // 🚀 最適化版 - グローバルキャッシュと一元化モデルを使用
 
 const jwt = require('jsonwebtoken');
-const { connectMongoose, handleDatabaseError } = require('../_lib/database');
-const { DailyProblemSet, Result } = require('../_lib/models');
+const { connectMongoose, handleDatabaseError } = require('../../shared_lib/database');
+const { DailyProblemSet, Result } = require('../../shared_lib/models');
 const mongoose = require('mongoose');
 
 // 環境変数設定
