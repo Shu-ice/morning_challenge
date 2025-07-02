@@ -19,7 +19,7 @@ postcss.config.js
 tailwind.config.js
 webpack.config.js
 vite.config.ts
-tsconfig.node.json
+!tsconfig.node.json
 jest.config.js
 vitest.config.ts
 
