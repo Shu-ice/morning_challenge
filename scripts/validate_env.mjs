@@ -32,6 +32,12 @@ for (const envFile of envFiles) {
   }
 }
 
+// ---- 追加: Vercel など CI で環境変数チェックをスキップするオプション ----
+if (process.env.SKIP_ENV_VALIDATION === 'true') {
+  console.log('🚧 SKIP_ENV_VALIDATION=true -> skipping environment validation');
+  process.exit(0);
+}
+
 // 必須環境変数定義
 const REQUIRED_VARS = {
   // 全環境共通

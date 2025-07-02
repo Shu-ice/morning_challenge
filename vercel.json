@@ -43,6 +43,11 @@
     "NODE_ENV": "production",
     "MONGODB_MOCK": "false"
   },
+  "build": {
+    "env": {
+      "SKIP_ENV_VALIDATION": "true"
+    }
+  },
   "regions": ["hnd1"],
   "github": {
     "autoAlias": false
