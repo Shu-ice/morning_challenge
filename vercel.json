@@ -41,11 +41,15 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "MONGODB_MOCK": "false"
+    "MONGODB_MOCK": "true"
   },
   "build": {
     "env": {
-      "SKIP_ENV_VALIDATION": "true"
+      "SKIP_ENV_VALIDATION": "true",
+      "JWT_SECRET": "temporary_secret_key_abcdefghijklmnopqrstuvwxyz012345",
+      "MONGODB_URI": "mongodb://example.com:27017/tempdb",
+      "ADMIN_EMAIL": "admin@example.com",
+      "ADMIN_DEFAULT_PASSWORD": "TempPass123"
     }
   },
   "regions": ["hnd1"],
