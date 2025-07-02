@@ -1,10 +1,78 @@
-# Exclude backend express server used only for local development
-server/
-# Exclude test scripts and local documentation
-scripts/*
+# Vercel Deployment Optimization
+# ⚠️ CRITICAL: Exclude files that Vercel might interpret as Serverless Functions
+
+# === Serverless Function 誤認識を防ぐファイル除外 ===
+# Development scripts (Vercel が Functions として誤認識)
+scripts/
+!scripts/validate_env.mjs
+test-*.js
+test-*.html
+tmp.js
+
+# Configuration files (ランタイム不要)
+postcss.config.js
+tailwind.config.js
+webpack.config.js
+vite.config.ts
+tsconfig.node.json
+jest.config.js
+vitest.config.ts
+
+# Testing files (Functions ではない)
+**/tests/
+**/__tests__/
 *.test.js
 *.test.ts
-# Exclude environment examples and local setup files
-.env*
+*.test.tsx
+*.test.mjs
+
+# === 通常の除外ファイル ===
+# Development files
+server/
+*.md
+*.txt
+*.log
+
+# Documentation
+docs/
+CHANGELOG.md
+TROUBLESHOOTING.md
+*_REPORT.md
+*_GUIDE.md
+*_CHECKLIST.md
+architecture-alternatives.md
+mongodb-atlas-setup.md
+mongodb_setup.md
+backend.log
+
+# Utilities
 check-db.mongo
-!scripts/validate_env.mjs 
+cookies.txt
+debug-checklist.md
+
+# Environment and config files
+.env*
+env.example
+start-with-mock.bat
+
+# Build artifacts (handled by Vercel)
+dist/
+.cache/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Vercel specific
+vercel-optimized.json
+vercel_logs.txt 

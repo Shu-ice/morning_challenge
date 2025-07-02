@@ -1,0 +1,102 @@
+# GitHub Actions workflow for Vercel Preview builds
+# プレビュー環境での自動テストとビルド検証
+
+name: Vercel Preview Build Validation
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  validate-build:
+    name: Validate Vercel Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci --legacy-peer-deps
+      
+    - name: Setup preview environment variables
+      run: |
+        echo "NODE_ENV=preview" >> $GITHUB_ENV
+        echo "MONGODB_MOCK=true" >> $GITHUB_ENV
+        echo "JWT_SECRET=github_actions_preview_jwt_secret_32_chars_minimum" >> $GITHUB_ENV
+        echo "MONGODB_URI=mongodb://localhost:27017/preview_db" >> $GITHUB_ENV
+        echo "ADMIN_EMAIL=preview-admin@example.com" >> $GITHUB_ENV
+        echo "ADMIN_DEFAULT_PASSWORD=PreviewPass123" >> $GITHUB_ENV
+        echo "DISABLE_TIME_CHECK=true" >> $GITHUB_ENV
+        echo "VERCEL=1" >> $GITHUB_ENV
+        echo "VERCEL_ENV=preview" >> $GITHUB_ENV
+      
+    - name: Validate environment setup
+      run: node scripts/validate_env.mjs
+      
+    - name: Test Vercel build command
+      run: npm run build:vercel
+      
+    - name: Run frontend tests
+      run: npm run test:run
+      
+    - name: Type check
+      run: npm run type-check
+      
+    - name: Lint check
+      run: npm run lint
+      
+    - name: Test API endpoints (mock)
+      run: |
+        # API テストがある場合は実行
+        if [ -f "api/package.json" ]; then
+          cd api && npm ci && npm test
+        fi
+      
+  build-size-check:
+    name: Build Size Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci --legacy-peer-deps
+      
+    - name: Setup build environment
+      run: |
+        echo "NODE_ENV=production" >> $GITHUB_ENV
+        echo "MONGODB_MOCK=true" >> $GITHUB_ENV
+        echo "VERCEL=1" >> $GITHUB_ENV
+        
+    - name: Build for production
+      run: npm run build:vercel
+      
+    - name: Analyze bundle size
+      run: |
+        echo "📊 Build size analysis:"
+        du -sh dist/
+        echo "📦 Main assets:"
+        find dist/ -name "*.js" -o -name "*.css" | head -10 | xargs ls -lh
+        
+    - name: Check critical files exist
+      run: |
+        echo "🔍 Checking critical files..."
+        [ -f "dist/index.html" ] && echo "✅ index.html exists" || exit 1
+        [ -d "dist/assets" ] && echo "✅ assets directory exists" || exit 1
+        echo "✅ All critical files exist"

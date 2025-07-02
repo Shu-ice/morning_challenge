@@ -5,7 +5,7 @@
   "buildCommand": "npm run build:vercel",
   "outputDirectory": "dist",
   "functions": {
-    "**/*.{js,mjs,ts}": {
+    "api/**/*.js": {
       "runtime": "nodejs18.x",
       "maxDuration": 30
     }

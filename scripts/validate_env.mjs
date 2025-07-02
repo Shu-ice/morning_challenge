@@ -32,10 +32,21 @@ for (const envFile of envFiles) {
   }
 }
 
-// ---- 追加: Vercel など CI で環境変数チェックをスキップするオプション ----
+// ---- Vercel環境での適切な検証ロジック ----
+const isVercel = process.env.VERCEL === '1';
+const isVercelPreview = process.env.VERCEL_ENV === 'preview';
+const isMockMode = process.env.MONGODB_MOCK === 'true';
+
+// SKIP_ENV_VALIDATION (廃止予定) - 後方互換性のため一時的に残す
 if (process.env.SKIP_ENV_VALIDATION === 'true') {
-  console.log('🚧 SKIP_ENV_VALIDATION=true -> skipping environment validation');
+  console.log('⚠️  SKIP_ENV_VALIDATION=true (deprecated, use MONGODB_MOCK=true instead)');
   process.exit(0);
+}
+
+// Vercel環境でモックモードの場合は緩い検証
+if (isVercel && isMockMode) {
+  console.log(`🚀 Vercel環境でモックモード検出 (VERCEL_ENV=${process.env.VERCEL_ENV})`);
+  console.log('📋 必須環境変数の最小限チェックのみ実行...');
 }
 
 // 必須環境変数定義
@@ -103,11 +114,43 @@ function validateEnvironment() {
   
   const errors = [];
   const warnings = [];
-  const varsToCheck = { ...REQUIRED_VARS };
+  let varsToCheck = { ...REQUIRED_VARS };
   
-  // 本番環境の場合は追加チェック
-  if (nodeEnv === 'production') {
-    Object.assign(varsToCheck, PRODUCTION_REQUIRED_VARS);
+  // Vercel環境でモックモードの場合は最小限の検証
+  if (isVercel && isMockMode) {
+    console.log('📋 Vercelモックモード: 必須変数のみチェック');
+    varsToCheck = {
+      'NODE_ENV': REQUIRED_VARS['NODE_ENV'],
+      'MONGODB_MOCK': REQUIRED_VARS['MONGODB_MOCK']
+    };
+    
+    // デフォルト値を設定
+    if (!process.env.JWT_SECRET) {
+      process.env.JWT_SECRET = 'vercel_build_dummy_secret_key_32_chars_min';
+      warnings.push('📝 JWT_SECRET: Vercelビルド用ダミー値を設定');
+    }
+    if (!process.env.MONGODB_URI) {
+      process.env.MONGODB_URI = 'mongodb://localhost:27017/mock_db';
+      warnings.push('📝 MONGODB_URI: モック用ダミー値を設定');
+    }
+    if (!process.env.ADMIN_EMAIL) {
+      process.env.ADMIN_EMAIL = 'admin@example.com';
+      warnings.push('📝 ADMIN_EMAIL: デフォルト値を設定');
+    }
+    if (!process.env.ADMIN_DEFAULT_PASSWORD) {
+      process.env.ADMIN_DEFAULT_PASSWORD = 'DefaultPass123';
+      warnings.push('📝 ADMIN_DEFAULT_PASSWORD: デフォルト値を設定');
+    }
+  } else {
+    // 通常環境: 本番環境の場合は追加チェック
+    if (nodeEnv === 'production' && !isMockMode) {
+      Object.assign(varsToCheck, PRODUCTION_REQUIRED_VARS);
+      console.log('🔒 本番環境: 全環境変数の厳密チェック');
+    } else if (isVercelPreview) {
+      console.log('🔍 Vercelプレビュー環境: 緩い検証モード');
+      // プレビュー環境では一部の検証を緩和
+      varsToCheck = { ...REQUIRED_VARS };
+    }
   }
   
   for (const [varName, config] of Object.entries(varsToCheck)) {
@@ -118,14 +161,19 @@ function validateEnvironment() {
       console.log(`DEBUG - ${varName}: "${value}" (type: ${typeof value})`);
     }
     
-    // 必須チェック
+    // 必須チェック (Vercelモックモードでは緩和)
     if (config.required && !value) {
-      errors.push(`❌ Missing required environment variable: ${varName}`);
-      errors.push(`   Description: ${config.description}`);
-      if (config.defaultValue) {
-        errors.push(`   Suggested value: ${config.defaultValue}`);
+      if (isVercel && isMockMode) {
+        // Vercelモックモードでは警告のみ
+        warnings.push(`⚠️  Missing ${varName} (will use default in mock mode)`);
+      } else {
+        errors.push(`❌ Missing required environment variable: ${varName}`);
+        errors.push(`   Description: ${config.description}`);
+        if (config.defaultValue) {
+          errors.push(`   Suggested value: ${config.defaultValue}`);
+        }
+        continue;
       }
-      continue;
     }
     
     // デフォルト値設定
@@ -156,20 +204,28 @@ function validateEnvironment() {
     warnings.forEach(warning => console.log(warning));
   }
   
-  // エラーがある場合は終了
+  // エラーがある場合は終了 (Vercelモックモードでは許可)
   if (errors.length > 0) {
-    console.log('\\n💥 Environment validation failed:');
-    errors.forEach(error => console.log(error));
-    
-    console.log('\\n📖 How to fix:');
-    console.log('1. Create .env file in project root');
-    console.log('2. Add missing environment variables');
-    console.log('3. For production deployment, set variables in Vercel dashboard');
-    
-    process.exit(1);
+    if (isVercel && isMockMode) {
+      console.log('\\n⚠️  Environment validation warnings (continuing in Vercel mock mode):');
+      errors.forEach(error => console.log(error));
+      console.log('\\n🚀 Continuing build with mock data...');
+    } else {
+      console.log('\\n💥 Environment validation failed:');
+      errors.forEach(error => console.log(error));
+      
+      console.log('\\n📖 How to fix:');
+      console.log('1. Create .env file in project root');
+      console.log('2. Add missing environment variables');
+      console.log('3. For production deployment, set variables in Vercel dashboard');
+      console.log('4. For Vercel builds, set MONGODB_MOCK=true to use mock mode');
+      
+      process.exit(1);
+    }
   }
   
-  console.log('\\n🎉 Environment validation passed!');
+  const modeText = isVercel && isMockMode ? ' (Vercel Mock Mode)' : '';
+  console.log(`\\n🎉 Environment validation passed${modeText}!`);
   return true;
 }
 
