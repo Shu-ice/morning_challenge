@@ -88,33 +88,86 @@ module.exports = async function handler(req, res) {
       return res.status(401).json({ message: 'Invalid token: User ID not found' });
     }
 
+    // ページングパラメータの取得と検証
+    let limit = parseInt(req.query.limit) || 10; // デフォルト10件
+    let offset = parseInt(req.query.offset) || 0; // デフォルト0から開始
+    
+    // パラメータの検証
+    if (isNaN(limit) || limit < 1) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'limit parameter must be a positive integer' 
+      });
+    }
+    if (limit > 100) {
+      limit = 100; // 最大100件に制限
+    }
+    if (isNaN(offset) || offset < 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'offset parameter must be a non-negative integer' 
+      });
+    }
+
     // DB接続
     await connectMongoose();
 
-    // 🚀【重要】ObjectIdと文字列の両方でユーザーを検索
-    const userHistory = await Result.find({
+    // ユーザー検索条件
+    const userFilter = {
       $or: [
         { userId: new mongoose.Types.ObjectId(userId) },
         { userId: userId }
       ]
-    }).sort({ createdAt: -1 }).limit(100).lean();
+    };
 
-    if (userHistory.length === 0) {
+    // 全件数を取得
+    const totalCount = await Result.countDocuments(userFilter);
+
+    // ページング対応で履歴データを取得
+    const userHistory = await Result.find(userFilter)
+      .sort({ createdAt: -1 })
+      .skip(offset)
+      .limit(limit)
+      .lean();
+
+    if (userHistory.length === 0 && offset === 0) {
       return res.status(200).json({
         success: true,
         count: 0,
+        totalCount: 0,
+        offset: offset,
+        limit: limit,
+        hasMore: false,
         data: [],
+        history: [], // フロントエンド互換性のため
         currentStreak: 0,
         maxStreak: 0,
         message: '履歴データがありません'
       });
     }
     
+    // offsetが範囲外の場合
+    if (userHistory.length === 0 && offset > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `offset ${offset} is out of range. Total records: ${totalCount}`
+      });
+    }
+    
     // ユーザー情報取得
     const user = await User.findById(userId).lean();
 
-    // 連続日数計算
-    const { currentStreak, maxStreak } = calculateStreaks(userHistory);
+    // 連続日数計算（全データが必要）
+    let streakData = { currentStreak: 0, maxStreak: 0 };
+    if (totalCount > 0) {
+      // 連続日数計算のために全履歴データの日付のみを取得
+      const allHistoryForStreaks = await Result.find(userFilter)
+        .select('date createdAt')
+        .sort({ createdAt: -1 })
+        .lean();
+      streakData = calculateStreaks(allHistoryForStreaks);
+    }
+    const { currentStreak, maxStreak } = streakData;
 
     // 履歴データの整形
     const formattedHistory = await Promise.all(userHistory.map(async (result) => {
@@ -203,10 +256,18 @@ module.exports = async function handler(req, res) {
       };
     }));
 
+    // hasMore計算
+    const hasMore = (offset + limit) < totalCount;
+    
     return res.status(200).json({
       success: true,
       count: formattedHistory.length,
+      totalCount: totalCount,
+      offset: offset,
+      limit: limit,
+      hasMore: hasMore,
       data: formattedHistory,
+      history: formattedHistory, // フロントエンド互換性のため
       user: {
           username: user?.username,
           avatar: user?.avatar,
@@ -214,7 +275,7 @@ module.exports = async function handler(req, res) {
       },
       currentStreak: currentStreak,
       maxStreak: maxStreak,
-      message: `履歴データ (${formattedHistory.length}件)`
+      message: `履歴データ (${formattedHistory.length}件/${totalCount}件中)`
     });
 
   } catch (error) {
