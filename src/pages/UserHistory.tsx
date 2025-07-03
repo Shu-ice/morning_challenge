@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { historyAPI } from '../api/index';
 import { difficultyToJapanese, DifficultyRank } from '../types/difficulty';
 import '../styles/UserHistory.css';
@@ -95,7 +95,12 @@ const UserHistory = () => {
   const [user, setUser] = useState<UserData & { token: string } | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const observerRef = useRef<HTMLDivElement | null>(null);
+  const ITEMS_PER_PAGE = 10;
 
   // ストリーク情報を計算
   const { currentStreak, maxStreak } = useMemo(() => {
@@ -137,21 +142,25 @@ const UserHistory = () => {
     }
   }, []);
 
-  // 履歴データ取得関数
-  const fetchHistory = async () => {
+  // 履歴データ取得関数（初期ロード用）
+  const fetchHistory = async (reset = false) => {
     if (!user) { 
       setIsLoading(false);
       setHistory([]);
       return;
     }
     
-    setIsLoading(true);
+    if (reset) {
+      setIsLoading(true);
+      setOffset(0);
+      setHasMore(true);
+    }
     setError(null);
     
     try {
-      logger.info('[UserHistory] 履歴取得開始');
+      logger.info('[UserHistory] 履歴取得開始 (初期ロード)');
       
-      const response = await historyAPI.getUserHistory(50);
+      const response = await historyAPI.getUserHistory(ITEMS_PER_PAGE, 0);
       logger.debug('=== API レスポンス ===');
       logger.debug('成功:', response.success);
       logger.debug('履歴件数:', response.history?.length || 0);
@@ -174,7 +183,13 @@ const UserHistory = () => {
         return;
       }
       
-      setHistory(historyArray);
+      if (reset) {
+        setHistory(historyArray);
+        setOffset(historyArray.length);
+      }
+      
+      // ページネーション情報を更新
+      setHasMore(response?.hasMore || false);
       
       if (historyArray.length === 0 && response?.success) {
         logger.info('[UserHistory] No history data available (empty but successful response)');
@@ -227,18 +242,88 @@ const UserHistory = () => {
     }
   };
 
+  // 追加データ取得関数（無限スクロール用）
+  const fetchMoreHistory = useCallback(async () => {
+    if (!user || isLoadingMore || !hasMore) {
+      return;
+    }
+    
+    setIsLoadingMore(true);
+    
+    try {
+      logger.info(`[UserHistory] 追加履歴取得開始 (offset: ${offset})`);
+      
+      const response = await historyAPI.getUserHistory(ITEMS_PER_PAGE, offset);
+      logger.debug('=== 追加データ API レスポンス ===');
+      logger.debug('成功:', response.success);
+      logger.debug('履歴件数:', response.history?.length || 0);
+      logger.debug('hasMore:', response.hasMore);
+      logger.debug('===========================');
+      
+      if (response?.success && Array.isArray(response.history)) {
+        const newHistoryArray = response.history.filter((item: HistoryItem) => {
+          return item && typeof item === 'object' && (item._id || item.date);
+        });
+        
+        if (newHistoryArray.length > 0) {
+          setHistory(prev => [...prev, ...newHistoryArray]);
+          setOffset(prev => prev + newHistoryArray.length);
+        }
+        
+        setHasMore(response?.hasMore || false);
+        logger.info(`[UserHistory] 追加履歴データを取得: ${newHistoryArray.length}件, hasMore: ${response?.hasMore}`);
+      } else {
+        logger.warn('[UserHistory] 追加データの取得に失敗:', response);
+        setHasMore(false);
+      }
+    } catch (err: unknown) {
+      logger.error('[UserHistory] 追加履歴取得エラー:', err instanceof Error ? err : String(err));
+      setHasMore(false);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [user, isLoadingMore, hasMore, offset]);
+
   // ユーザー情報が変わったら履歴を取得
   useEffect(() => {
     if (user !== undefined) {
-      fetchHistory();
+      fetchHistory(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // 手動リロードボタン
   const handleRefresh = () => {
-    fetchHistory();
+    fetchHistory(true);
   };
+
+  // IntersectionObserver設定
+  useEffect(() => {
+    const currentObserver = observerRef.current;
+    if (!currentObserver || !hasMore || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          logger.debug('[UserHistory] スクロール検知: 追加データを読み込み中...');
+          fetchMoreHistory();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '50px',
+        threshold: 0.1
+      }
+    );
+
+    observer.observe(currentObserver);
+
+    return () => {
+      if (currentObserver) {
+        observer.unobserve(currentObserver);
+      }
+    };
+  }, [fetchMoreHistory, hasMore, isLoadingMore]);
 
   // モチベーションメッセージ生成
   const getMotivationMessage = (streak: number): string => {
@@ -411,6 +496,30 @@ const UserHistory = () => {
               </tbody>
             </table>
           </div>
+
+          {/* 無限スクロール用のセンチネル要素 */}
+          {hasMore && (
+            <div 
+              ref={observerRef} 
+              className="scroll-sentinel"
+              style={{ height: '20px', margin: '10px 0' }}
+            />
+          )}
+
+          {/* 追加ローディング表示 */}
+          {isLoadingMore && (
+            <div className="loading-more-container" role="status" aria-live="polite">
+              <div className="loading-spinner-small" aria-hidden="true"></div>
+              <p>さらに読み込み中...</p>
+            </div>
+          )}
+
+          {/* データ終了メッセージ */}
+          {!hasMore && history.length > 0 && (
+            <div className="no-more-data" role="status">
+              <p>すべての履歴を表示しました ({history.length}件)</p>
+            </div>
+          )}
         </section>
       )}
     </div>

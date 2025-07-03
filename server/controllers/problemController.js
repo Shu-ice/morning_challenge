@@ -866,7 +866,22 @@ export const getHistory = async (req, res) => {
     targetUserId = req.user._id.toString();
   }
 
-  logger.debug(`[getHistory] リクエスト開始: targetUserId=${targetUserId}, req.user.isAdmin=${req.user?.isAdmin}`);
+  // ページング パラメータの取得と検証
+  let limit = parseInt(req.query.limit) || 10; // デフォルト10件
+  let offset = parseInt(req.query.offset) || 0; // デフォルト0から開始
+  
+  // パラメータの検証
+  if (isNaN(limit) || limit < 1) {
+    limit = 10;
+  }
+  if (limit > 100) {
+    limit = 100; // 最大100件に制限
+  }
+  if (isNaN(offset) || offset < 0) {
+    offset = 0;
+  }
+
+  logger.debug(`[getHistory] リクエスト開始: targetUserId=${targetUserId}, limit=${limit}, offset=${offset}, req.user.isAdmin=${req.user?.isAdmin}`);
 
   // 管理者でない場合、自分の履歴のみ取得可能
   if (!req.user.isAdmin && targetUserId !== req.user._id.toString()) {
@@ -880,14 +895,16 @@ export const getHistory = async (req, res) => {
   }
 
   try {
-    logger.debug(`[getHistory] 履歴データ検索開始: userId=${targetUserId}`);
+    logger.debug(`[getHistory] 履歴データ検索開始: userId=${targetUserId}, limit=${limit}, offset=${offset}`);
     
-    // 履歴データの取得（日付順で新しいものから）
+    // 履歴データの取得（日付順で新しいものから）- ページング対応
     let historyResults;
+    let totalCount = 0;
+    
     if (isMongoMock()) {
       // モック環境での履歴取得
       const mockResults = getMockResults();
-      historyResults = mockResults
+      const filteredResults = mockResults
         .filter(result => result.userId === targetUserId)
         .sort((a, b) => {
           // 日付順（新しいものから）
@@ -897,20 +914,33 @@ export const getHistory = async (req, res) => {
           // 作成日時順（新しいものから）
           return new Date(b.createdAt) - new Date(a.createdAt);
         });
-      logger.debug(`[getHistory] モック履歴検索完了: ${historyResults.length}件`);
+      
+      totalCount = filteredResults.length;
+      historyResults = filteredResults.slice(offset, offset + limit);
+      logger.debug(`[getHistory] モック履歴検索完了: 全${totalCount}件中 ${historyResults.length}件取得 (offset: ${offset}, limit: ${limit})`);
     } else {
       // 通常のMongoose環境での取得を試行
       try {
+        // 総件数の取得
+        totalCount = await Result.countDocuments({ userId: targetUserId });
+        
         historyResults = await Result.find({ userId: targetUserId })
           .sort({ date: -1, createdAt: -1 })
+          .skip(offset)
+          .limit(limit)
           .populate('userId', 'username grade')
           .lean();
       } catch (populateError) {
         // populateが使えない場合の代替処理
         logger.warn('[getHistory] populateエラー、代替処理に切り替え:', populateError.message);
         
+        // 総件数の取得
+        totalCount = await Result.countDocuments({ userId: targetUserId });
+        
         historyResults = await Result.find({ userId: targetUserId })
           .sort({ date: -1, createdAt: -1 })
+          .skip(offset)
+          .limit(limit)
           .lean();
       }
     }
@@ -947,10 +977,25 @@ export const getHistory = async (req, res) => {
 
     logger.debug(`[getHistory] 整形後の履歴データ例:`, formattedHistory[0] || 'なし');
 
+    // ストリーク計算（フロントエンド互換性のため）
+    const currentStreak = 0; // TODO: 実装が必要な場合
+    const maxStreak = 0; // TODO: 実装が必要な場合
+    
+    const responseMessage = `履歴データ (${formattedHistory.length}件/${totalCount}件中)`;
+    
     res.json({
       success: true,
       count: formattedHistory.length,
-      data: formattedHistory
+      total: totalCount, // totalCount の代わりに total も提供（互換性）
+      totalCount: totalCount,
+      offset: offset,
+      limit: limit,
+      hasMore: (offset + limit) < totalCount,
+      data: formattedHistory,
+      history: formattedHistory, // フロントエンドとの互換性のため
+      currentStreak: currentStreak,
+      maxStreak: maxStreak,
+      message: responseMessage
     });
 
   } catch (error) {
