@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { DarkModeToggle } from './DarkModeToggle';
 
-export const TopNav: React.FC = () => {
+export const TopNav: React.FC = React.memo(() => {
   const { user, logout } = useAuth();
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const adminMenuButtonRef = useRef<HTMLButtonElement>(null);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -52,10 +54,11 @@ export const TopNav: React.FC = () => {
     color: '#424245',
     fontWeight: '500' as const,
     textDecoration: 'none',
-    padding: '8px 16px',
+    padding: '12px 16px', // タッチターゲット拡大
     borderRadius: '8px',
     transition: 'all 0.3s ease',
     minWidth: '80px',
+    minHeight: '44px', // WCAG 2.5.5 準拠
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center'
@@ -71,7 +74,8 @@ export const TopNav: React.FC = () => {
     display: 'flex',
     alignItems: 'center',
     fontSize: '1.1rem',
-    margin: '4px 0'
+    margin: '4px 0',
+    minHeight: '44px' // WCAG 2.5.5 準拠
   };
 
   const handleMobileMenuToggle = () => {
@@ -142,28 +146,36 @@ export const TopNav: React.FC = () => {
                 {user.isAdmin && (
                   <div className="relative" ref={adminMenuRef}>
                     <button 
+                      ref={adminMenuButtonRef}
                       onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
                       style={{
                         background: 'linear-gradient(135deg, #34C759 0%, #30D158 100%)',
                         color: 'white',
                         fontWeight: '600',
                         border: 'none',
-                        padding: '8px 16px',
+                        padding: '12px 16px', // タッチターゲット拡大
                         borderRadius: '8px',
                         cursor: 'pointer',
                         fontSize: '0.9rem',
                         transition: 'all 0.3s ease',
-                        boxShadow: '0 4px 12px rgba(52, 199, 89, 0.25)'
+                        boxShadow: '0 4px 12px rgba(52, 199, 89, 0.25)',
+                        minHeight: '44px' // WCAG 2.5.5 準拠
                       }}
                       className="focus:outline-none hover:shadow-lg hover:scale-105"
                       aria-expanded={isAdminMenuOpen}
                       aria-haspopup="true"
+                      aria-controls="admin-menu"
+                      aria-label={isAdminMenuOpen ? '管理者メニューを閉じる' : '管理者メニューを開く'}
                     >
                       <ruby>管理者<rt>かんりしゃ</rt></ruby>メニュー
                     </button>
                     
                     {isAdminMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-20 border border-gray-100" style={{
+                      <div 
+                        id="admin-menu"
+                        role="menu" 
+                        aria-labelledby="admin-menu-button"
+                        className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-20 border border-gray-100" style={{
                         backdropFilter: 'blur(20px)',
                         background: 'rgba(255, 255, 255, 0.95)'
                       }}>
@@ -256,7 +268,7 @@ export const TopNav: React.FC = () => {
                     background: 'linear-gradient(135deg, #FF3B30 0%, #D70015 100%)',
                     color: 'white',
                     border: 'none',
-                    padding: '8px 16px',
+                    padding: '12px 16px', // タッチターゲット拡大
                     borderRadius: '8px',
                     fontSize: '0.9rem',
                     fontWeight: '600',
@@ -264,11 +276,13 @@ export const TopNav: React.FC = () => {
                     transition: 'all 0.3s ease',
                     boxShadow: '0 4px 12px rgba(255, 59, 48, 0.25)',
                     minWidth: '100px',
+                    minHeight: '44px', // WCAG 2.5.5 準拠
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}
                   className="hover:shadow-lg hover:scale-105"
+                  aria-label="アカウントからログアウト"
                 >
                   ログアウト
                 </button>
@@ -305,21 +319,25 @@ export const TopNav: React.FC = () => {
             )}
             
             <button
+              ref={mobileMenuButtonRef}
               onClick={handleMobileMenuToggle}
               style={{
                 background: 'rgba(0, 0, 0, 0.05)',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '8px',
+                padding: '12px', // タッチターゲット拡大
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                minWidth: '44px', // WCAG 2.5.5 準拠
+                minHeight: '44px' // WCAG 2.5.5 準拠
               }}
               className="hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
               aria-expanded={isMobileMenuOpen}
-              aria-label="メニューを開く"
+              aria-controls="mobile-navigation-menu"
+              aria-label={isMobileMenuOpen ? 'メニューを閉じる' : 'メニューを開く'}
             >
               <svg 
                 width="24" 
@@ -349,6 +367,9 @@ export const TopNav: React.FC = () => {
             
             {/* Mobile Menu */}
             <div 
+              id="mobile-navigation-menu"
+              role="menu"
+              aria-labelledby="mobile-menu-button"
               ref={mobileMenuRef}
               className="mobile-drawer fixed top-16 right-0 h-[calc(100vh-4rem)] w-80 max-w-[85vw] bg-white shadow-2xl z-50 overflow-y-auto"
               style={{
@@ -500,4 +521,6 @@ export const TopNav: React.FC = () => {
       </nav>
     </header>
   );
-};
+});
+
+TopNav.displayName = 'TopNav';

@@ -52,7 +52,24 @@ export default defineConfig(async () => {
       rollupOptions: {
         output: {
           manualChunks: {
-            vendor: ['react', 'react-dom', 'react-router-dom'],
+            // React Core
+            react: ['react', 'react-dom'],
+            // Routing
+            router: ['react-router-dom'],
+            // Data Fetching
+            query: ['@tanstack/react-query'],
+            // Admin pages (heavy components)
+            admin: [
+              'src/pages/admin/AdminDashboard.tsx',
+              'src/pages/admin/ProblemGenerator.tsx',
+              'src/pages/admin/ProblemEditor.tsx',
+              'src/pages/admin/UserManagement.tsx',
+              'src/pages/admin/SystemMonitoring.tsx',
+              'src/pages/admin/StatsDashboard.tsx',
+              'src/pages/admin/TimeWindowSettings.tsx'
+            ],
+            // Utils and libraries
+            utils: ['date-fns', 'uuid', 'axios']
           },
         },
         onwarn(warning, warn) {

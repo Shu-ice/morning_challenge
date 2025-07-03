@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import '../styles/Rankings.css';
 import { Results, UserData } from '@/types/index';
@@ -7,6 +7,7 @@ import { GRADE_OPTIONS } from '@/types/grades';
 import { rankingAPI } from '../api/index';
 // date-fnsの使用を停止
 import LoadingSpinner from '../components/LoadingSpinner';
+import SkeletonLoader from '../components/SkeletonLoader';
 import { formatTime, gradeLabel } from '../utils/dateUtils';
 import { ErrorHandler } from '../utils/errorHandler';
 
@@ -57,7 +58,7 @@ const getUserData = (): UserData | null => {
   }
 };
 
-export const Rankings: React.FC<RankingsProps> = ({ results }) => {
+export const Rankings: React.FC<RankingsProps> = React.memo(({ results }) => {
   const location = useLocation();
   
   // 結果ページからの難易度情報を取得（複数のソースから）
@@ -88,8 +89,8 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
     getInitialDifficulty()
   );
   
-  // 過去7日間の日付オプションを生成
-  const generateDateOptions = (): string[] => {
+  // 過去7日間の日付オプションを生成（メモ化）
+  const dateOptions = useMemo((): string[] => {
     const options: string[] = [];
     const today = new Date();
     
@@ -101,9 +102,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
     }
     
     return options;
-  };
-  
-  const dateOptions = generateDateOptions();
+  }, []); // 日付は日次で変更されるため、依存配列は空でOK
   
   const [selectedDate, setSelectedDate] = useState<string>(dateOptions[0]);
   const [currentUser, setCurrentUser] = useState<UserData | null>(getUserData());
@@ -151,8 +150,8 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
   // formatTime は dateUtils から利用
   const formatTimeSpent = formatTime; // 後方互換のためのエイリアス
 
-  // 学年の表示処理（統一ユーティリティを使用）
-  const formatGrade = (grade: string | number | undefined): string => {
+  // 学年の表示処理（統一ユーティリティを使用、メモ化）
+  const formatGrade = useCallback((grade: string | number | undefined): string => {
     if (grade === undefined || grade === null || grade === '') return '不明';
     
     const gradeStr = String(grade);
@@ -165,7 +164,7 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
 
     // 統一ユーティリティを使用
     return gradeLabel(grade);
-  };
+  }, []);
 
   return (
     <div className="rankings-container">
@@ -203,11 +202,12 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
         </div>
       </div>
       
-      {/* ローディング表示 */}
+      {/* ローディング表示 - Skeleton UI */}
       {isLoading && (
-        <div className="loading-container">
-          <LoadingSpinner />
-          <p>ランキングを<ruby>読<rt>よ</rt></ruby>み<ruby>込<rt>こ</rt></ruby>み<ruby>中<rt>ちゅう</rt></ruby>...</p>
+        <div className="space-y-6">
+          <SkeletonLoader variant="rectangular" height={200} className="w-full rounded-lg" />
+          <SkeletonLoader variant="ranking" lines={10} />
+          <SkeletonLoader variant="card" height={150} />
         </div>
       )}
       
@@ -237,22 +237,38 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
       {/* ランキングリスト */}
       {!isLoading && !error && rankings.length > 0 && (
         <div className="rankings-list">
-          <div className="rankings-header">
-            <div><ruby>順位<rt>じゅんい</rt></ruby></div>
-          <div>ユーザー</div>
-            <div><ruby>学年<rt>がくねん</rt></ruby></div>
-            <div><ruby>正解数<rt>せいかいすう</rt></ruby></div>
-            <div><ruby>所要時間<rt>しょようじかん</rt></ruby></div>
-          </div>
+          <table className="ranking-table" role="table" aria-label="ランキング一覧">
+            <colgroup>
+              <col />
+              <col />
+              <col />
+              <col />
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col"><ruby>順位<rt>じゅんい</rt></ruby></th>
+                <th scope="col">ユーザー</th>
+                <th scope="col"><ruby>学年<rt>がくねん</rt></ruby></th>
+                <th scope="col"><ruby>正解数<rt>せいかいすう</rt></ruby></th>
+                <th scope="col"><ruby>所要時間<rt>しょようじかん</rt></ruby></th>
+              </tr>
+            </thead>
+            <tbody>
           
           {rankings.map((ranking, index) => {
             // 現在のユーザーかどうかを判定
             const isCurrentUser = currentUser && ranking.username === currentUser.username;
               
-            // クラス名を動的に設定
-              const itemClassName = `ranking-item ${
-                index < 3 ? `top-${index + 1}` : ''
-              } ${isCurrentUser ? 'current-user-rank' : ''}`;
+            // クラス名を動的に設定 - 履歴ページと同じ方式
+              const trClasses = [];
+              if (index < 3) {
+                trClasses.push(`top-${index + 1}`);
+              }
+              if (isCurrentUser) {
+                trClasses.push('current-user-rank');
+              }
+              const itemClassName = trClasses.join(' ');
 
               // 順位に応じたアイコン
               const getRankIcon = (rank: number): string => {
@@ -260,29 +276,31 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
               };
 
             return (
-              <div 
-                  key={`${ranking.userId}-${ranking.date}`}
+              <tr 
+                key={`${ranking.userId}-${ranking.date}`}
                 className={itemClassName}
               >
-                  <div className="rank-column">
-                    {getRankIcon(ranking.rank)}
-                  </div>
-                  <div className="user-column">
-                    <span className="username">{ranking.username}</span>
-                    {isCurrentUser && <span className="you-badge">あなた</span>}
-                  </div>
-                <div className="grade-column">{formatGrade(ranking.grade)}</div>
-                  <div className="score-column">
-                    <span className="score-text">
-                      {ranking.correctAnswers}/{ranking.totalProblems}
-                    </span>
-                  </div>
-                <div className="time-column">
+                <td className="rank-column">
+                  {index + 1 <= 3 ? ['🥇', '🥈', '🥉'][index] : ''} {getRankIcon(ranking.rank)}
+                </td>
+                <td className="user-column">
+                  <span className="username">{ranking.username}</span>
+                  {isCurrentUser && <span className="you-badge">あなた</span>}
+                </td>
+                <td className="grade-column">{formatGrade(ranking.grade)}</td>
+                <td className="score-column">
+                  <span className="score-text">
+                    {ranking.correctAnswers}/{ranking.totalProblems}
+                  </span>
+                </td>
+                <td className="time-column">
                   {formatTimeSpent(ranking.totalTime ?? ranking.timeSpent)}
-                </div>
-              </div>
+                </td>
+              </tr>
             );
           })}
+            </tbody>
+          </table>
         </div>
       )}
       
@@ -319,6 +337,8 @@ export const Rankings: React.FC<RankingsProps> = ({ results }) => {
       )}
     </div>
   );
-};
+});
+
+Rankings.displayName = 'Rankings';
 
 export default Rankings;

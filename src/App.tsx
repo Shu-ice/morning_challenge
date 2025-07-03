@@ -1,28 +1,55 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ProblemProvider, useProblem } from './contexts/ProblemContext';
 import { MainLayout } from './layouts/MainLayout';
 import ErrorBoundary from './components/ErrorBoundary';
+import LoadingSpinner from './components/LoadingSpinner';
 import type { ApiResult } from './types/index';
 import { logger } from './utils/logger';
 
-// ページコンポーネント
+// 主要ページコンポーネント（即座に必要）
 import Home from './pages/Home';
 import Problems from './pages/Problems';
-import ResultsPage from './pages/Results';
-import Rankings from './pages/Rankings';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import UserHistory from './pages/UserHistory';
-import ProfilePage from './pages/ProfilePage';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import ProblemGenerator from './pages/admin/ProblemGenerator';
-import ProblemEditor from './pages/admin/ProblemEditor';
-import UserManagement from './pages/admin/UserManagement';
-import SystemMonitoring from './pages/admin/SystemMonitoring';
-import StatsDashboard from './pages/admin/StatsDashboard';
-import TimeWindowSettings from './pages/admin/TimeWindowSettings';
+
+// セカンダリページコンポーネント（遅延ローディング）
+const ResultsPage = lazy(() => import('./pages/Results'));
+const Rankings = lazy(() => import('./pages/Rankings'));
+const UserHistory = lazy(() => import('./pages/UserHistory'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+
+// 管理者ページコンポーネント（遅延ローディング）
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const ProblemGenerator = lazy(() => import('./pages/admin/ProblemGenerator'));
+const ProblemEditor = lazy(() => import('./pages/admin/ProblemEditor'));
+const UserManagement = lazy(() => import('./pages/admin/UserManagement'));
+const SystemMonitoring = lazy(() => import('./pages/admin/SystemMonitoring'));
+const StatsDashboard = lazy(() => import('./pages/admin/StatsDashboard'));
+const TimeWindowSettings = lazy(() => import('./pages/admin/TimeWindowSettings'));
+
+// Suspenseラッパーコンポーネント
+const SuspenseWrapper: React.FC<{ children: React.ReactNode; fallback?: React.ReactNode }> = ({ 
+  children, 
+  fallback = <div className="loading-container"><LoadingSpinner /><p>ページを読み込み中...</p></div>
+}) => (
+  <Suspense fallback={fallback}>
+    {children}
+  </Suspense>
+);
+
+// 管理者専用Suspenseラッパー
+const AdminSuspenseWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Suspense fallback={
+    <div className="loading-container">
+      <LoadingSpinner />
+      <p>管理者画面を読み込み中...</p>
+    </div>
+  }>
+    {children}
+  </Suspense>
+);
 
 // --- 保護されたルートのラッパー --- 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -202,75 +229,141 @@ const AppRoutes: React.FC = () => {
           path="/results"
           element={
             <ProtectedRoute>
-              <ResultsPage
-                results={lastResults}
-                onViewRankings={() => {
-                  // 難易度をランキングページに渡すためにstateを使用
-                  navigate('/rankings', { 
-                    state: { selectedDifficulty: currentSession?.difficulty } 
-                  });
-                }}
-                onBackToHome={() => navigate('/')}
-              />
+              <SuspenseWrapper>
+                <ResultsPage
+                  results={lastResults}
+                  onViewRankings={() => {
+                    // 難易度をランキングページに渡すためにstateを使用
+                    navigate('/rankings', { 
+                      state: { selectedDifficulty: currentSession?.difficulty } 
+                    });
+                  }}
+                  onBackToHome={() => navigate('/')}
+                />
+              </SuspenseWrapper>
             </ProtectedRoute>
           }
         />
         <Route
           path="/rankings"
-          element={<ProtectedRoute><Rankings /></ProtectedRoute>}
+          element={
+            <ProtectedRoute>
+              <SuspenseWrapper>
+                <Rankings />
+              </SuspenseWrapper>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/history"
-          element={<ProtectedRoute><UserHistory /></ProtectedRoute>}
+          element={
+            <ProtectedRoute>
+              <SuspenseWrapper>
+                <UserHistory />
+              </SuspenseWrapper>
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/profile"
           element={
             <ProtectedRoute>
-          <ProfilePage
-                user={user!} // ProtectedRouteでnullでないことを保証
-                onLogout={() => {
-                  console.log('[AppRoutes] Handling logout...');
-                  logout();
-                  navigate('/login', { replace: true });
-                }}
-                onViewHistory={() => navigate('/history')}
-                onSaveProfile={updateUser}
-              />
+              <SuspenseWrapper>
+                <ProfilePage
+                  user={user!} // ProtectedRouteでnullでないことを保証
+                  onLogout={() => {
+                    console.log('[AppRoutes] Handling logout...');
+                    logout();
+                    navigate('/login', { replace: true });
+                  }}
+                  onViewHistory={() => navigate('/history')}
+                  onSaveProfile={updateUser}
+                />
+              </SuspenseWrapper>
             </ProtectedRoute>
           }
         />
 
         {/* --- 管理者専用ルート --- */}
-        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-        <Route path="/admin/settings" element={<AdminRoute><TimeWindowSettings /></AdminRoute>} />
+        <Route 
+          path="/admin" 
+          element={
+            <AdminRoute>
+              <AdminSuspenseWrapper>
+                <AdminDashboard />
+              </AdminSuspenseWrapper>
+            </AdminRoute>
+          } 
+        />
+        <Route 
+          path="/admin/settings" 
+          element={
+            <AdminRoute>
+              <AdminSuspenseWrapper>
+                <TimeWindowSettings />
+              </AdminSuspenseWrapper>
+            </AdminRoute>
+          } 
+        />
         <Route
           path="/admin/dashboard"
-          element={<AdminRoute><AdminDashboard /></AdminRoute>}
+          element={
+            <AdminRoute>
+              <AdminSuspenseWrapper>
+                <AdminDashboard />
+              </AdminSuspenseWrapper>
+            </AdminRoute>
+          }
         />
         <Route
           path="/admin/users"
-          element={<AdminRoute><UserManagement /></AdminRoute>}
+          element={
+            <AdminRoute>
+              <AdminSuspenseWrapper>
+                <UserManagement />
+              </AdminSuspenseWrapper>
+            </AdminRoute>
+          }
         />
         <Route
           path="/admin/generate"
-          element={(
+          element={
             <AdminRoute>
-              <ProblemGenerator isActive={location.pathname === '/admin/generate'} />
+              <AdminSuspenseWrapper>
+                <ProblemGenerator isActive={location.pathname === '/admin/generate'} />
+              </AdminSuspenseWrapper>
             </AdminRoute>
-          )}
+          }
         />
         <Route
           path="/admin/edit"
-          element={<AdminRoute><ProblemEditor /></AdminRoute>}
+          element={
+            <AdminRoute>
+              <AdminSuspenseWrapper>
+                <ProblemEditor />
+              </AdminSuspenseWrapper>
+            </AdminRoute>
+          }
         />
         <Route
           path="/admin/monitoring"
-          element={<AdminRoute><SystemMonitoring /></AdminRoute>}
+          element={
+            <AdminRoute>
+              <AdminSuspenseWrapper>
+                <SystemMonitoring />
+              </AdminSuspenseWrapper>
+            </AdminRoute>
+          }
         />
         <Route
           path="/admin/stats"
-          element={<AdminRoute><StatsDashboard /></AdminRoute>}
+          element={
+            <AdminRoute>
+              <AdminSuspenseWrapper>
+                <StatsDashboard />
+              </AdminSuspenseWrapper>
+            </AdminRoute>
+          }
         />
 
         {/* --- Not Found --- */}

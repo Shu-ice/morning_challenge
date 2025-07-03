@@ -77,6 +77,33 @@
   color: var(--primary-color);
 }
 
+.result-message {
+  background: linear-gradient(135deg, #f8faff 0%, #e8f2ff 100%);
+  border: 2px solid #3b82f6;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px auto;
+  max-width: 400px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+}
+
+.result-message p {
+  color: #1f2937 !important;
+  font-weight: 600;
+  margin: 0;
+  text-shadow: none;
+}
+
+/* Dark mode support for result message */
+[data-theme="dark"] .result-message {
+  background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+  border-color: #60a5fa;
+}
+
+[data-theme="dark"] .result-message p {
+  color: #f9fafb !important;
+}
+
 .stats-section {
   display: flex;
   flex-direction: column;

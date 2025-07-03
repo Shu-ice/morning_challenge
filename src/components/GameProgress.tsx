@@ -1,4 +1,5 @@
 import React from 'react';
+import ProgressIndicator from './ProgressIndicator';
 
 interface GameProgressProps {
   currentProblem: number;
@@ -9,7 +10,7 @@ interface GameProgressProps {
   className?: string;
 }
 
-export const GameProgress: React.FC<GameProgressProps> = ({
+export const GameProgress: React.FC<GameProgressProps> = React.memo(({
   currentProblem,
   totalProblems,
   elapsedTime,
@@ -18,20 +19,6 @@ export const GameProgress: React.FC<GameProgressProps> = ({
   className = ""
 }) => {
   const progressPercentage = (progress / totalProblems) * 100;
-  
-  // Color transition based on progress - simulating correct answer rate
-  // When 80%+ progress is made, use green gradient (assuming good performance)
-  const getProgressGradient = () => {
-    if (progressPercentage >= 80) {
-      return "from-green-400 to-green-600";
-    } else if (progressPercentage >= 60) {
-      return "from-blue-400 to-green-500";
-    } else if (progressPercentage >= 40) {
-      return "from-yellow-400 to-blue-500";
-    } else {
-      return "from-orange-400 to-yellow-500";
-    }
-  };
 
   return (
     <div className={`bg-white rounded-lg shadow-md p-4 mb-6 ${className}`}>
@@ -44,19 +31,23 @@ export const GameProgress: React.FC<GameProgressProps> = ({
         </div>
       </div>
       
-      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin={0} aria-valuemax={100}>
-        <div 
-          className={`bg-gradient-to-r ${getProgressGradient()} h-3 rounded-full transition-all duration-500 ease-out transform`}
-          style={{ 
-            width: `${progressPercentage}%`,
-            transition: 'width 0.5s ease-out, background 0.3s ease-in-out'
-          }}
-        />
-      </div>
+      <ProgressIndicator
+        current={progress}
+        total={totalProblems}
+        variant="bar"
+        size="md"
+        showPercentage={false}
+        showText={false}
+        animated={true}
+        color={progressPercentage >= 80 ? 'green' : progressPercentage >= 60 ? 'blue' : progressPercentage >= 40 ? 'orange' : 'red'}
+        className="mt-1"
+      />
       
       <div className="text-center text-sm text-gray-600 mt-2" aria-label={`完了 ${progress} / ${totalProblems} 問題`}>
         完了: {progress} / {totalProblems} 問題
       </div>
     </div>
   );
-};
+});
+
+GameProgress.displayName = 'GameProgress';

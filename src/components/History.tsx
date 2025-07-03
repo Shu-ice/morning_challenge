@@ -165,7 +165,6 @@ export const History: React.FC = () => {
           <div className="max-streak-section">
             <div className="max-streak-label">自己最高連続記録</div>
             <div className="max-streak-value">{maxStreak}</div>
-            <div className="max-streak-days">日連続</div>
           </div>
         </div>
       </div>

@@ -8,7 +8,7 @@ interface LoadingSpinnerProps {
   className?: string;
 }
 
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = React.memo(({
   size = 'md',
   message,
   fullScreen = false,
@@ -85,7 +85,9 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       </div>
     </div>
   );
-};
+});
+
+LoadingSpinner.displayName = 'LoadingSpinner';
 
 // インライン使用用の小さなスピナー
 export const InlineSpinner: React.FC<{ className?: string }> = ({ 

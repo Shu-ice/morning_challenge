@@ -120,7 +120,9 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
 
       <div className="results-header text-center mb-8">
         <h1 className="text-3xl md:text-4xl font-bold mb-2" aria-label="けっかはっぴょう">🎉 <ruby>結果<rt>けっか</rt></ruby><ruby>発表<rt>はっぴょう</rt></ruby></h1>
-        <p className="text-lg md:text-xl text-gray-600" dangerouslySetInnerHTML={{ __html: getResultMessage() }}></p>
+        <div className="result-message bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 mx-auto max-w-md">
+          <p className="text-lg md:text-xl font-semibold text-gray-800" dangerouslySetInnerHTML={{ __html: getResultMessage() }}></p>
+        </div>
       </div>
 
       <div className="results-summary bg-white rounded-lg shadow-lg p-6 mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">

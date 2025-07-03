@@ -62,7 +62,8 @@
       "Bash(NODE_ENV=production JWT_SECRET=production-jwt-secret-minimum-32-characters-long-for-security MONGODB_URI=mongodb+srv://test:test@cluster.mongodb.net/morning_challenge MONGODB_MOCK=false npm run build:production)",
       "Bash(NODE_ENV=production JWT_SECRET=production-jwt-secret-minimum-32-characters-long-for-security MONGODB_URI=mongodb+srv://test:test@cluster.mongodb.net/morning_challenge MONGODB_MOCK=false ADMIN_EMAIL=admin@example.com ADMIN_DEFAULT_PASSWORD=admin123456 npm run build:production)",
       "Bash(ADMIN_EMAIL=admin@example.com NODE_ENV=production JWT_SECRET=production-jwt-secret-minimum-32-characters-long-for-security MONGODB_URI=mongodb+srv://test:test@cluster.mongodb.net/morning_challenge MONGODB_MOCK=false ADMIN_DEFAULT_PASSWORD=admin123456 node scripts/validate_env.mjs)",
-      "Bash(ADMIN_EMAIL=admin@example.com node -e \"console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL)\")"
+      "Bash(ADMIN_EMAIL=admin@example.com node -e \"console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL)\")",
+      "Bash(NODE_ENV=development npm run build)"
     ],
     "deny": []
   }

@@ -8,10 +8,24 @@ interface MainLayoutProps {
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #F5F5F7 0%, #FAFAFA 50%, #F5F5F7 100%)' }}>
+    <div 
+      className="min-h-screen" 
+      style={{ 
+        background: 'linear-gradient(135deg, #F5F5F7 0%, #FAFAFA 50%, #F5F5F7 100%)',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+        paddingBottom: 'env(safe-area-inset-bottom)'
+      }}
+    >
       <TopNav />
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main 
+        id="main-content"
+        className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"
+        role="main"
+        aria-label="メインコンテンツ"
+      >
         {children}
       </main>
 

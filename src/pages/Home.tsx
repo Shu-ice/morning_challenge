@@ -87,15 +87,25 @@ const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid, defaultDiffic
             <ruby>難易度<rt>なんいど</rt></ruby>を<ruby>選択<rt>せんたく</rt></ruby>してください
           </h3>
           
-          <div className="difficulty-options">
+          <fieldset className="difficulty-options">
+            <legend className="sr-only">難易度を選択してください</legend>
             {(Object.keys(DIFFICULTY_LABELS) as DifficultyRank[]).map((difficulty) => {
               const info = getDifficultyInfo(difficulty);
               return (
-                <div 
+                <label 
                   key={difficulty}
-                  onClick={() => handleDifficultySelect(difficulty)}
                   className={`difficulty-card ${selectedDifficulty === difficulty ? 'selected' : ''}`}
+                  style={{ minHeight: '44px', cursor: 'pointer' }}
                 >
+                  <input
+                    type="radio"
+                    name="difficulty"
+                    value={difficulty}
+                    checked={selectedDifficulty === difficulty}
+                    onChange={() => handleDifficultySelect(difficulty)}
+                    className="sr-only"
+                    aria-describedby={`difficulty-desc-${difficulty}`}
+                  />
                   <div className="difficulty-title">
                     <span className="difficulty-emoji">
                       {difficulty === 'beginner' ? '🟢' : 
@@ -112,13 +122,16 @@ const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid, defaultDiffic
                     {info.problems}
                   </div>
                   
-                  <div className="difficulty-details">
+                  <div 
+                    id={`difficulty-desc-${difficulty}`} 
+                    className="difficulty-details"
+                  >
                     {info.recommendation}
                   </div>
-                </div>
+                </label>
               );
             })}
-          </div>
+          </fieldset>
         </div>
         
         <button 

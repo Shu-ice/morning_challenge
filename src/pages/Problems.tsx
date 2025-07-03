@@ -17,6 +17,8 @@ import { AnswerInput } from '../components/AnswerInput';
 import { GameControls } from '../components/GameControls';
 import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingSpinner from '../components/LoadingSpinner';
+import SkeletonLoader, { ProblemSkeleton } from '../components/SkeletonLoader';
+import ProgressIndicator from '../components/ProgressIndicator';
 import useApiWithRetry from '../hooks/useApiWithRetry';
 
 import { logger } from '../utils/logger';
@@ -233,11 +235,31 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     }
   }, [currentAnswer, gameState.currentProblemIndex, nextProblem, handleComplete]);
 
-  // Loading state
+  // Loading state - Enhanced with skeleton UI
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <LoadingSpinner message={`${difficultyToJapanese(difficulty)}レベルの問題を準備中...`} />
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Game Progress Skeleton */}
+          <SkeletonLoader variant="card" height={120} className="mb-6" />
+          
+          {/* Problem Display Skeleton */}
+          <ProblemSkeleton />
+          
+          {/* Answer Input Skeleton */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <SkeletonLoader variant="rectangular" height={60} className="mb-4" />
+            <div className="flex justify-center space-x-4">
+              <SkeletonLoader variant="rectangular" width={100} height={40} />
+              <SkeletonLoader variant="rectangular" width={100} height={40} />
+            </div>
+          </div>
+          
+          {/* Loading message */}
+          <div className="text-center">
+            <LoadingSpinner message={`${difficultyToJapanese(difficulty)}レベルの問題を準備中...`} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -332,6 +354,8 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           onChange={handleAnswerChange}
           onKeyPress={handleKeyPress}
           placeholder="答えを入力してください"
+          autoFocus={true}
+          key={gameState.currentProblemIndex}
         />
 
         {/* Game Controls */}

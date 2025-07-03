@@ -48,16 +48,25 @@ export const GameControls: React.FC<GameControlsProps> = ({
             onClick={onComplete}
             disabled={!isComplete}
             className="button button-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
+              maxWidth: '200px',
+              minWidth: '120px',
+              fontSize: '14px',
+              padding: '8px 12px'
+            }}
           >
             {isComplete ? (
-              <>完了して<ruby>提出<rt>ていしゅつ</rt></ruby></>
+              <><ruby>提出<rt>ていしゅつ</rt></ruby>✓</>
             ) : (
-              <>全<ruby>問題<rt>もんだい</rt></ruby>に<ruby>回答<rt>かいとう</rt></ruby>してください</>
+              <>未完了</>
             )}
           </button>
         ) : (
           <button onClick={onNext} className="button button-primary">
-            <ruby>次<rt>つぎ</rt></ruby>の<ruby>問題<rt>もんだい</rt></ruby> →
+            <ruby>次<rt>つぎ</rt></ruby>へ →
           </button>
         )}
       </div>

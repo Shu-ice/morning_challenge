@@ -5,10 +5,30 @@
  * ビルド前に必須環境変数をチェックし、不足があれば早期終了
  */
 
-import { config } from 'dotenv';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+
+// 簡易dotenv実装（組み込みモジュールのみ使用）
+function loadEnvFile(filePath) {
+  if (!existsSync(filePath)) return;
+  
+  const content = readFileSync(filePath, 'utf8');
+  const lines = content.split('\n');
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed.startsWith('#')) continue;
+    
+    const [key, ...valueParts] = trimmed.split('=');
+    if (key && valueParts.length > 0) {
+      const value = valueParts.join('=').replace(/^["']|["']$/g, ''); // クォート除去
+      if (!process.env[key]) { // 既存の環境変数を上書きしない
+        process.env[key] = value;
+      }
+    }
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,7 +48,7 @@ for (const envFile of envFiles) {
   const envPath = join(rootDir, envFile);
   if (existsSync(envPath)) {
     console.log(`📋 Loading environment from: ${envFile}`);
-    config({ path: envPath, override: false }); // 既存の環境変数を保持
+    loadEnvFile(envPath);
   }
 }
 

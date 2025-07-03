@@ -296,7 +296,6 @@ const UserHistory = () => {
           <div className="streak-icon-large" aria-hidden="true">👑</div>
           <div className="streak-number" aria-label={`自己最高連続記録 ${maxStreak}日`}>{maxStreak}</div>
           <div id="max-streak-label" className="streak-label"><ruby>自己最高連続記録<rt>じこさいこうれんぞくきろく</rt></ruby></div>
-          <div className="streak-unit"><ruby>日連続<rt>にちれんぞく</rt></ruby></div>
         </div>
       </section>
 

@@ -96,154 +96,143 @@
   border-color: var(--primary-color);
 }
 
-/* ランキングリスト */
+/* ランキングリスト - 履歴ページと同じ横スクロール対応 */
 .rankings-list {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  padding: 0;
+  overflow-x: auto;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
   margin: 0 var(--spacing-xl) var(--spacing-xl);
   border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.rankings-header {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr 1fr 1fr;
-  background: linear-gradient(135deg, var(--primary-color) 0%, #5a9cff 100%);
-  color: white;
-  padding: var(--spacing-lg);
-  font-weight: 700;
-  text-align: center;
-  font-size: 1rem;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-}
-
-/* 順位ヘッダーのみ左寄せ */
-.rankings-header > :first-child {
-  text-align: left;
-  padding-left: 1rem;
-}
-
-.ranking-item {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr 1fr 1fr;
-  padding: var(--spacing-lg);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  align-items: center;
-  transition: all 0.3s ease;
   position: relative;
-  overflow: hidden;
-  font-size: 1.1rem;
-  font-weight: 500;
+  contain: layout style;
+  -webkit-overflow-scrolling: touch;
 }
 
-.ranking-item::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
+/* テーブル構造 - 履歴ページと同じ厳密制御方式 */
+.ranking-table {
   width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.1), transparent);
-  transition: left 0.5s;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--font-size-md);
+  background: transparent;
+  min-width: 640px;
+  contain: layout style;
 }
 
-.ranking-item:hover::before {
-  left: 100%;
+/* デスクトップ版の列幅（パーセンテージベース） - 履歴ページと同じ制御方式 */
+.ranking-table colgroup col:nth-child(1) { width: 15.625%; } /* 100px/640px - 順位 */
+.ranking-table colgroup col:nth-child(2) { width: 31.25%; }  /* 200px/640px - ユーザー */
+.ranking-table colgroup col:nth-child(3) { width: 18.75%; }  /* 120px/640px - 学年 */
+.ranking-table colgroup col:nth-child(4) { width: 17.1875%; } /* 110px/640px - 正解数 */
+.ranking-table colgroup col:nth-child(5) { width: 17.1875%; } /* 110px/640px - 所要時間 */
+
+.ranking-table th,
+.ranking-table td {
+  padding: 12px 8px;
+  text-align: center;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  contain: layout style;
 }
 
-.ranking-item:last-child {
-  border-bottom: none;
-}
-
-.ranking-item:hover {
-  background: linear-gradient(135deg, rgba(0, 122, 255, 0.05) 0%, rgba(255, 255, 255, 0.8) 100%);
-  transform: translateX(5px);
-}
-
-/* トップ3のスタイル - 洗練されたデザイン */
-.ranking-item.top-1 {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 255, 255, 0.95) 100%);
-  border-left: 5px solid #FFD700;
-  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.2);
-}
-
-.ranking-item.top-1 .rank-column {
-  color: #b45309;
-  font-size: 1.6rem;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-}
-
-.ranking-item.top-2 {
-  background: linear-gradient(135deg, rgba(192, 192, 192, 0.15) 0%, rgba(255, 255, 255, 0.95) 100%);
-  border-left: 5px solid #C0C0C0;
-  box-shadow: 0 3px 10px rgba(192, 192, 192, 0.2);
-}
-
-.ranking-item.top-2 .rank-column {
-  color: #6b7280;
-  font-size: 1.5rem;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-}
-
-.ranking-item.top-3 {
-  background: linear-gradient(135deg, rgba(205, 127, 50, 0.15) 0%, rgba(255, 255, 255, 0.95) 100%);
-  border-left: 5px solid #CD7F32;
-  box-shadow: 0 2px 8px rgba(205, 127, 50, 0.2);
-}
-
-.ranking-item.top-3 .rank-column {
-  color: #92400e;
-  font-size: 1.5rem;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-}
-
-.current-user-rank {
-  background: linear-gradient(135deg, rgba(52, 199, 89, 0.12) 0%, rgba(255, 255, 255, 0.95) 100%);
-  border-left: 5px solid var(--success-color);
+.ranking-table th {
+  background: #f8f9fa;
+  color: #1a1a1a;
   font-weight: 600;
-  box-shadow: 0 3px 10px rgba(52, 199, 89, 0.15);
+  font-size: var(--font-size-sm);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  will-change: scroll-position;
+  contain: layout style;
 }
 
-.current-user-rank .username {
-  color: var(--success-color);
+.ranking-table td {
+  background: #ffffff;
+  font-size: var(--font-size-sm);
+}
+
+/* テーブル行のホバー効果 - 履歴ページと同じシンプル版 */
+.ranking-table tbody tr {
+  transition: background-color 0.2s ease;
+  will-change: background-color;
+  contain: layout style paint;
+}
+
+.ranking-table tbody tr:hover {
+  background-color: rgba(0, 122, 255, 0.08);
+}
+
+.ranking-table tbody tr:hover td {
+  background-color: rgba(0, 122, 255, 0.05);
+}
+
+/* ホバー時も装飾されたセルは背景を維持 */
+.ranking-table tbody tr:hover .rank-column {
+  background: inherit !important;
+}
+
+/* トップ3のスタイル - 履歴ページと同じtd内装飾方式 */
+.ranking-table tbody tr.top-1 {
+  background-color: rgba(255, 215, 0, 0.05);
+}
+
+.ranking-table tbody tr.top-1 .rank-column {
+  background: linear-gradient(135deg, #FFD700 0%, #FFC107 100%);
+  color: #333;
   font-weight: 800;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(255, 215, 0, 0.3);
 }
 
-/* CSS Grid用カラム中央揃え */
+.ranking-table tbody tr.top-2 {
+  background-color: rgba(192, 192, 192, 0.05);
+}
+
+.ranking-table tbody tr.top-2 .rank-column {
+  background: linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%);
+  color: #333;
+  font-weight: 800;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(192, 192, 192, 0.3);
+}
+
+.ranking-table tbody tr.top-3 {
+  background-color: rgba(205, 127, 50, 0.05);
+}
+
+.ranking-table tbody tr.top-3 .rank-column {
+  background: linear-gradient(135deg, #CD7F32 0%, #B8651F 100%);
+  color: #fff;
+  font-weight: 800;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(205, 127, 50, 0.3);
+}
+
+/* テーブル内カラムスタイル - 履歴ページと同じシンプル方式 */
 .rank-column {
-  text-align: left;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding-left: 1rem;
-  font-size: 1.4rem;
   font-weight: 700;
   color: #1e40af;
+  font-size: 2.2rem;
+  transition: all 0.2s ease;
+}
+
+.user-column {
+  white-space: nowrap;
 }
 
 .grade-column,
 .score-column,
 .time-column {
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
   font-weight: 600;
-}
-
-/* ユーザーカラムを完全中央揃え */
-.user-column {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 8px;
-  width: 100%;
 }
 
 .user-avatar {
@@ -268,12 +257,14 @@
 .you-badge {
   background: linear-gradient(45deg, var(--success-color), #30d158);
   color: white;
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-radius: var(--radius-full);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  margin-left: 0;
+  margin-left: 4px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* ローディングとエラー表示 */
@@ -466,6 +457,38 @@
     margin: 0 var(--spacing-md) var(--spacing-lg);
   }
   
+  /* モバイル版の列幅調整 - 履歴ページと同じ方式 */
+  .ranking-table {
+    min-width: 500px;
+    font-size: 12px;
+  }
+  
+  .ranking-table colgroup col:nth-child(1) { width: 15%; }   /* 順位 */
+  .ranking-table colgroup col:nth-child(2) { width: 28%; }   /* ユーザー */
+  .ranking-table colgroup col:nth-child(3) { width: 22%; }   /* 学年 */
+  .ranking-table colgroup col:nth-child(4) { width: 17.5%; } /* 正解数 */
+  .ranking-table colgroup col:nth-child(5) { width: 17.5%; } /* 所要時間 */
+  
+  .ranking-table th,
+  .ranking-table td {
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+  
+  .ranking-table th {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* モバイルでの装飾セル調整 */
+  .ranking-table tbody tr.top-1 .rank-column,
+  .ranking-table tbody tr.top-2 .rank-column,
+  .ranking-table tbody tr.top-3 .rank-column,
+  .ranking-table tbody tr.current-user-rank .rank-column {
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    font-size: 11px;
+  }
+  
   .rankings-header,
   .ranking-item {
     grid-template-columns: 60px 1fr 80px 80px 100px;
@@ -575,27 +598,36 @@
   background: var(--primary-dark);
 }
 
-/* レスポンシブ対応 */
-@media (max-width: 768px) {
-  .rankings-header {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: center;
+/* レスポンシブ対応 - タブレット（履歴ページと同じ方式） */
+@media (max-width: 1024px) {
+  .ranking-table {
+    min-width: 580px;
+    font-size: 13px;
   }
   
-  .rankings-title {
-    font-size: 2rem;
-  }
+  .ranking-table colgroup col:nth-child(1) { width: 15%; }   /* 順位 */
+  .ranking-table colgroup col:nth-child(2) { width: 30%; }   /* ユーザー */
+  .ranking-table colgroup col:nth-child(3) { width: 20%; }   /* 学年 */
+  .ranking-table colgroup col:nth-child(4) { width: 17.5%; } /* 正解数 */
+  .ranking-table colgroup col:nth-child(5) { width: 17.5%; } /* 所要時間 */
   
   .ranking-table th,
   .ranking-table td {
-    padding: 8px 6px;
-    font-size: 14px;
+    padding: 10px 6px;
+    font-size: 12px;
   }
   
-  .crown {
-    margin-left: 4px;
-    font-size: 1em;
+  .ranking-table th {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* タブレットでの装飾セル調整 */
+  .ranking-table tbody tr.top-1 .rank-column,
+  .ranking-table tbody tr.top-2 .rank-column,
+  .ranking-table tbody tr.top-3 .rank-column,
+  .ranking-table tbody tr.current-user-rank .rank-column {
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -636,4 +668,22 @@
     padding: 0.25rem 0.5rem;
     box-sizing: border-box;
   }
+}
+
+/* 現在のユーザー強調スタイル - 履歴ページと同じtd内装飾方式 */
+.ranking-table tbody tr.current-user-rank {
+  background-color: rgba(52, 199, 89, 0.05);
+}
+
+.ranking-table tbody tr.current-user-rank .rank-column {
+  background: linear-gradient(135deg, var(--success-color) 0%, #20C65B 100%);
+  color: #fff;
+  font-weight: 800;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(52, 199, 89, 0.3);
+}
+
+.ranking-table tbody tr.current-user-rank .username {
+  color: var(--success-color);
+  font-weight: 800;
 }
