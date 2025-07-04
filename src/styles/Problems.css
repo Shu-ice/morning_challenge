@@ -237,3 +237,32 @@
     }
   }
 }
+
+/* モバイル用タイマー帯のスタイル */
+.mobile-timer-strip {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease-in-out;
+}
+
+.mobile-timer-strip:hover {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+}
+
+/* PC・タブレットでは非表示 */
+@media (min-width: 640px) {
+  .mobile-timer-strip {
+    display: none !important;
+  }
+}
+
+/* モバイル表示時の追加調整 */
+@media (max-width: 639px) {
+  .mobile-timer-strip {
+    margin-left: -1rem;
+    margin-right: -1rem;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}

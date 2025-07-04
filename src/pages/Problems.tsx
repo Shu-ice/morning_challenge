@@ -15,7 +15,7 @@ import { GameProgress } from '../components/GameProgress';
 import { ProblemDisplay } from '../components/ProblemDisplay';
 import { AnswerInput } from '../components/AnswerInput';
 import { GameControls } from '../components/GameControls';
-import { MobileTimer } from '../components/MobileTimer';
+import { MobileTimerStrip } from '../components/MobileTimerStrip';
 import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SkeletonLoader, { ProblemSkeleton } from '../components/SkeletonLoader';
@@ -105,10 +105,6 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   const [showCountdown, setShowCountdown] = useState(false);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isInputFocused, setIsInputFocused] = useState(false);
-  
-  // Refs for adaptive timer positioning
-  const answerInputRef = useRef<HTMLInputElement>(null);
 
   const { execute: executeLoadProblems } = useApiWithRetry(() => 
     problemsAPI.getProblems(difficulty, getTodayJST()), { maxRetries: 3 }
@@ -240,16 +236,6 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     }
   }, [currentAnswer, gameState.currentProblemIndex, nextProblem, handleComplete]);
 
-  // --------------- フォーカス処理 ---------------
-  const handleInputFocus = useCallback(() => {
-    setIsInputFocused(true);
-    logger.debug('[handleInputFocus] Input focused, showing adaptive timer positioning');
-  }, []);
-
-  const handleInputBlur = useCallback(() => {
-    setIsInputFocused(false);
-    logger.debug('[handleInputBlur] Input blurred, reverting to fixed timer positioning');
-  }, []);
 
   // Loading state - Enhanced with skeleton UI
   if (isLoading) {
@@ -348,7 +334,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto pb-16 sm:pb-8">
+      <div className="max-w-4xl mx-auto pb-8">
         {/* Game Progress */}
         <GameProgress
           currentProblem={gameState.currentProblemIndex}
@@ -369,9 +355,6 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           value={currentAnswer}
           onChange={handleAnswerChange}
           onKeyPress={handleKeyPress}
-          onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
-          inputRef={answerInputRef}
           placeholder="答えを入力してください"
           autoFocus={true}
           key={gameState.currentProblemIndex}
@@ -388,6 +371,12 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           onBack={onBack}
         />
 
+        {/* スマホ用タイマー帯 - ボタンの直下に固定表示 */}
+        <MobileTimerStrip
+          elapsedTime={elapsedTime}
+          formatTime={formatTime}
+        />
+
         {/* Submitting state */}
         {isSubmitting && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -397,13 +386,6 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           </div>
         )}
 
-        {/* スマホ用適応型タイマー */}
-        <MobileTimer
-          elapsedTime={elapsedTime}
-          formatTime={formatTime}
-          isInputFocused={isInputFocused}
-          inputRef={answerInputRef}
-        />
       </div>
     </div>
   );
