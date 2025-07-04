@@ -827,7 +827,8 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
               id="answer-input" // IDを追加 (もしCSSで使っていれば)
               type="text" // number より text の方が入力しやすい場合も
               inputMode="decimal" // モバイルでの数値キーボード表示を促す
-              autoComplete="off"
+              name="mathAnswer"
+              autoComplete="one-time-code"
               value={currentAnswer}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}

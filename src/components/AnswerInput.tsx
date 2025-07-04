@@ -63,6 +63,7 @@ export const AnswerInput: React.FC<AnswerInputProps> = ({
           type="number"
           inputMode="numeric"
           pattern="[0-9]*"
+          name="mathAnswer"
           value={value}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -73,7 +74,7 @@ export const AnswerInput: React.FC<AnswerInputProps> = ({
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400
                      transition-all duration-200 ease-in-out
                      placeholder-gray-400 font-mono"
-          autoComplete="off"
+          autoComplete="one-time-code"
           spellCheck={false}
           role="textbox"
           aria-label="答えを入力"
