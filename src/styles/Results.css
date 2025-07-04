@@ -352,6 +352,84 @@
   }
 }
 
+/* 過去7日の成績グリッド */
+.seven-day-history {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  margin-bottom: 32px;
+}
+
+.seven-day-grid {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.seven-day-cell {
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  position: relative;
+}
+
+.seven-day-cell:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* データがある日のセル */
+.seven-day-cell.has-result {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: #3b82f6;
+}
+
+/* データがない日のセル */
+.seven-day-cell.no-result {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .seven-day-history {
+    padding: 16px;
+    margin: 0 -16px 24px -16px;
+    border-radius: 0;
+  }
+  
+  .seven-day-grid {
+    padding: 0 16px;
+  }
+  
+  .seven-day-cell {
+    min-height: 70px;
+    padding: 8px 4px;
+  }
+  
+  /* モバイルでの横スクロール最適化 */
+  .grid.grid-cols-7 {
+    min-width: 350px; /* 最小幅を確保 */
+  }
+}
+
+@media (max-width: 480px) {
+  .seven-day-cell {
+    min-height: 60px;
+    padding: 6px 2px;
+  }
+  
+  .grid.grid-cols-7 {
+    gap: 4px;
+    min-width: 320px;
+  }
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .problem-answers {

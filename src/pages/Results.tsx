@@ -23,10 +23,69 @@ interface HistoryItem {
   rank?: number;
 }
 
+interface DayResult {
+  date: string;
+  dateDisplay: string;
+  hasResult: boolean;
+  result?: HistoryItem;
+}
+
 const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome }) => {
   const [showConfetti, setShowConfetti] = useState(true);
   const [recentHistory, setRecentHistory] = useState<HistoryItem[]>([]);
+  const [sevenDayHistory, setSevenDayHistory] = useState<DayResult[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // 過去7日分の日付配列を生成する関数
+  const generateLast7Days = (): DayResult[] => {
+    const days: DayResult[] = [];
+    const today = new Date();
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      
+      const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dateDisplay = `${date.getMonth() + 1}/${date.getDate()}`; // M/D
+      
+      days.push({
+        date: dateString,
+        dateDisplay,
+        hasResult: false,
+        result: undefined
+      });
+    }
+    
+    return days;
+  };
+
+  // 履歴データを7日分のグリッドにマッピングする関数
+  const mapHistoryTo7Days = (history: HistoryItem[]): DayResult[] => {
+    const sevenDays = generateLast7Days();
+    
+    // 履歴データを日付をキーとしたマップに変換
+    const historyMap = new Map<string, HistoryItem>();
+    history.forEach(item => {
+      // 日付文字列の正規化（YYYY-MM-DD形式に統一）
+      let normalizedDate = item.date;
+      if (item.date.includes('/')) {
+        // M/D または MM/DD 形式の場合、YYYY-MM-DD に変換
+        const dateParts = item.date.split('/');
+        const currentYear = new Date().getFullYear();
+        const month = dateParts[0].padStart(2, '0');
+        const day = dateParts[1].padStart(2, '0');
+        normalizedDate = `${currentYear}-${month}-${day}`;
+      }
+      historyMap.set(normalizedDate, item);
+    });
+    
+    // 各日付に対応する履歴があればマッピング
+    return sevenDays.map(day => ({
+      ...day,
+      hasResult: historyMap.has(day.date),
+      result: historyMap.get(day.date)
+    }));
+  };
   
   useEffect(() => {
     if (!results) return;
@@ -37,15 +96,22 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
     return () => clearTimeout(timer);
   }, [results]);
 
-  // 履歴データを取得
+  // 履歴データを取得（過去7日分）
   useEffect(() => {
     const loadRecentHistory = async () => {
       setHistoryLoading(true);
       try {
-        const response = await historyAPI.getUserHistory(5); // 最新5件を取得
+        // 過去7日以上のデータを取得（余裕を持って20件取得）
+        const response = await historyAPI.getUserHistory(20);
         if (response.success && response.history) {
           setRecentHistory(response.history);
+          
+          // 7日分のグリッドデータを生成
+          const sevenDayData = mapHistoryTo7Days(response.history);
+          setSevenDayHistory(sevenDayData);
+          
           logger.debug('Recent history loaded:', response.history);
+          logger.debug('Seven day history grid:', sevenDayData);
         }
       } catch (error) {
         const handledError = ErrorHandler.handleApiError(error, '履歴取得');
@@ -190,31 +256,71 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
         </ul>
       </div>
 
-      {/* 最近の履歴表示 */}
-      {recentHistory.length > 0 && (
-        <div className="recent-history bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">📈 最近の成績</h2>
-          {historyLoading ? (
-            <div className="text-center text-gray-500">履歴を読み込み中...</div>
-          ) : (
-            <div className="grid gap-3">
-              {recentHistory.map((item, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm font-medium">{item.date}</span>
-                    <span className="text-sm text-gray-600">{difficultyToJapanese(item.difficulty as any)}</span>
-                  </div>
-                  <div className="flex items-center space-x-4 text-sm">
-                    <span>{item.correctAnswers}/{item.totalProblems}</span>
-                    <span className="text-gray-600">{formatTime(item.timeSpent * 1000)}</span>
-                    {item.rank && <span className="text-blue-600">{item.rank}位</span>}
-                  </div>
+      {/* 過去7日の成績表示 */}
+      <div className="seven-day-history bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h2 className="text-xl font-semibold mb-4">📅 過去7日の成績</h2>
+        {historyLoading ? (
+          <div className="text-center text-gray-500">履歴を読み込み中...</div>
+        ) : (
+          <div className="seven-day-grid">
+            <div className="grid grid-cols-7 gap-2 md:gap-4">
+              {/* ヘッダー行（日付） */}
+              {sevenDayHistory.map((day, index) => (
+                <div key={`header-${index}`} className="text-center text-xs md:text-sm font-medium text-gray-600 pb-2">
+                  {day.dateDisplay}
+                </div>
+              ))}
+              
+              {/* データ行 */}
+              {sevenDayHistory.map((day, index) => (
+                <div 
+                  key={`data-${index}`} 
+                  className={`seven-day-cell p-2 md:p-3 rounded-lg border-2 text-center ${
+                    day.hasResult 
+                      ? 'bg-blue-50 border-blue-200' 
+                      : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  {day.hasResult && day.result ? (
+                    <div className="space-y-1">
+                      <div className="text-xs md:text-sm font-medium text-blue-800">
+                        {difficultyToJapanese(day.result.difficulty as any)}
+                      </div>
+                      <div className="text-lg md:text-xl font-bold text-blue-900">
+                        {day.result.correctAnswers}/{day.result.totalProblems}
+                      </div>
+                      {day.result.rank && (
+                        <div className="text-xs text-blue-600">
+                          {day.result.rank}位
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-600">
+                        {formatTime(day.result.timeSpent * 1000)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 text-sm md:text-base">
+                      -
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
+            
+            {/* 凡例 */}
+            <div className="mt-4 flex justify-center items-center space-x-4 text-xs text-gray-500">
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-blue-50 border border-blue-200 rounded"></div>
+                <span>挑戦あり</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-gray-50 border border-gray-200 rounded"></div>
+                <span>未挑戦</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="results-actions text-center space-x-4">
         <button 
