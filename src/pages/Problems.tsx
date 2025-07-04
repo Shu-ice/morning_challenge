@@ -15,6 +15,7 @@ import { GameProgress } from '../components/GameProgress';
 import { ProblemDisplay } from '../components/ProblemDisplay';
 import { AnswerInput } from '../components/AnswerInput';
 import { GameControls } from '../components/GameControls';
+import { MobileTimer } from '../components/MobileTimer';
 import ErrorDisplay from '../components/ErrorDisplay';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SkeletonLoader, { ProblemSkeleton } from '../components/SkeletonLoader';
@@ -332,7 +333,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto pb-16 sm:pb-8">
         {/* Game Progress */}
         <GameProgress
           currentProblem={gameState.currentProblemIndex}
@@ -377,6 +378,12 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
             </div>
           </div>
         )}
+
+        {/* スマホ用固定タイマー */}
+        <MobileTimer
+          elapsedTime={elapsedTime}
+          formatTime={formatTime}
+        />
       </div>
     </div>
   );

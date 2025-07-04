@@ -179,4 +179,41 @@
   .answer-input, .next-button {
     width: 100%;
   }
+  
+  /* モバイル用固定タイマーのスペース確保 */
+  .problems-container {
+    padding-bottom: calc(var(--spacing-xl) + 56px); /* 固定タイマーの高さ分 */
+  }
+}
+
+/* モバイル用固定タイマースタイル */
+.mobile-timer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
+  border-top: 2px solid #1e40af;
+  backdrop-filter: blur(8px);
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
+  .mobile-timer {
+    display: none;
+  }
+}
+
+/* キーボード対応 */
+@media (max-width: 639px) {
+  .mobile-timer {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
 }

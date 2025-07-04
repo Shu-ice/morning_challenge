@@ -26,7 +26,8 @@ export const GameProgress: React.FC<GameProgressProps> = React.memo(({
         <div className="text-lg font-semibold text-gray-700" aria-label={`問題 ${currentProblem + 1} / ${totalProblems}`}>
           問題 {currentProblem + 1} / {totalProblems}
         </div>
-        <div className="text-lg font-mono text-blue-600" aria-label={`経過時間 ${formatTime(elapsedTime)}`}>
+        {/* PC・タブレット用タイマー表示 - スマホでは非表示 */}
+        <div className="hidden sm:block text-lg font-mono text-blue-600" aria-label={`経過時間 ${formatTime(elapsedTime)}`}>
           経過時間: {formatTime(elapsedTime)}
         </div>
       </div>
