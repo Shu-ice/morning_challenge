@@ -216,4 +216,24 @@
   .mobile-timer {
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
+  
+  /* 入力フォーカス時のスムーズな遷移 */
+  .mobile-timer-focused {
+    border-radius: 8px;
+    margin: 0 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* アニメーション最適化 */
+  .mobile-timer {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+  
+  /* 低パフォーマンス端末への配慮 */
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-timer {
+      transition: none !important;
+    }
+  }
 }

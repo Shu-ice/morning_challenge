@@ -105,6 +105,10 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
   const [showCountdown, setShowCountdown] = useState(false);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  
+  // Refs for adaptive timer positioning
+  const answerInputRef = useRef<HTMLInputElement>(null);
 
   const { execute: executeLoadProblems } = useApiWithRetry(() => 
     problemsAPI.getProblems(difficulty, getTodayJST()), { maxRetries: 3 }
@@ -236,6 +240,17 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
     }
   }, [currentAnswer, gameState.currentProblemIndex, nextProblem, handleComplete]);
 
+  // --------------- フォーカス処理 ---------------
+  const handleInputFocus = useCallback(() => {
+    setIsInputFocused(true);
+    logger.debug('[handleInputFocus] Input focused, showing adaptive timer positioning');
+  }, []);
+
+  const handleInputBlur = useCallback(() => {
+    setIsInputFocused(false);
+    logger.debug('[handleInputBlur] Input blurred, reverting to fixed timer positioning');
+  }, []);
+
   // Loading state - Enhanced with skeleton UI
   if (isLoading) {
     return (
@@ -354,6 +369,9 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           value={currentAnswer}
           onChange={handleAnswerChange}
           onKeyPress={handleKeyPress}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
+          inputRef={answerInputRef}
           placeholder="答えを入力してください"
           autoFocus={true}
           key={gameState.currentProblemIndex}
@@ -379,10 +397,12 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           </div>
         )}
 
-        {/* スマホ用固定タイマー */}
+        {/* スマホ用適応型タイマー */}
         <MobileTimer
           elapsedTime={elapsedTime}
           formatTime={formatTime}
+          isInputFocused={isInputFocused}
+          inputRef={answerInputRef}
         />
       </div>
     </div>

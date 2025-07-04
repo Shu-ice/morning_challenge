@@ -7,6 +7,9 @@ interface AnswerInputProps {
   placeholder?: string;
   autoFocus?: boolean;
   className?: string;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
 }
 
 export const AnswerInput: React.FC<AnswerInputProps> = ({
@@ -15,9 +18,13 @@ export const AnswerInput: React.FC<AnswerInputProps> = ({
   onKeyPress,
   placeholder = "答えを入力してください",
   autoFocus = true,
-  className = ""
+  className = "",
+  onFocus,
+  onBlur,
+  inputRef: externalInputRef
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const internalInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = externalInputRef || internalInputRef;
 
   useEffect(() => {
     if (autoFocus && inputRef.current) {
@@ -55,6 +62,15 @@ export const AnswerInput: React.FC<AnswerInputProps> = ({
     }
   };
 
+  // フォーカス・ブラーイベントハンドラー
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    onFocus?.();
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    onBlur?.();
+  };
+
   return (
     <div className={`mb-6 ${className}`}>
       <div className="relative">
@@ -68,6 +84,8 @@ export const AnswerInput: React.FC<AnswerInputProps> = ({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onKeyPress={onKeyPress}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholder={placeholder}
           className="w-full px-6 py-4 text-2xl text-center border-2 border-gray-300 rounded-xl 
                      focus:border-blue-500 focus:ring-4 focus:ring-blue-200 
