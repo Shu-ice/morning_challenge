@@ -45,14 +45,13 @@ export const isNetworkError = (error: ApplicationError): error is NetworkError =
 
 // エラーメッセージ抽出ユーティリティ
 export const extractErrorMessage = (error: ApplicationError): string => {
+  let msg = '';
   if (isApiError(error)) {
-    return error.response?.data?.error || 
-           error.response?.data?.message || 
-           error.message || 
-           'APIエラーが発生しました';
-  }
-  
-  if (isNetworkError(error)) {
+    msg = error.response?.data?.error || 
+          error.response?.data?.message || 
+          error.message || 
+          'APIエラーが発生しました';
+  } else if (isNetworkError(error)) {
     switch (error.code) {
       case 'ERR_NETWORK':
         return 'ネットワークエラー: サーバーに接続できません';
@@ -63,7 +62,17 @@ export const extractErrorMessage = (error: ApplicationError): string => {
       default:
         return 'ネットワークエラーが発生しました';
     }
+  } else {
+    msg = error.message || '予期せぬエラーが発生しました';
   }
-  
-  return error.message || '予期せぬエラーが発生しました';
+
+  // 英語のエラーメッセージを日本語に変換
+  if (msg && typeof msg === 'string') {
+    if (msg.toLowerCase().includes('invalid credentials')) {
+      return 'メールアドレスまたはパスワードがちがいます。もういちど入力してみてね';
+    }
+    // 必要に応じて他のパターンも追加可能
+  }
+
+  return msg;
 }; 
