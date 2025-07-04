@@ -91,6 +91,7 @@ module.exports = async function handler(req, res) {
     // ページングパラメータの取得と検証
     let limit = parseInt(req.query.limit) || 10; // デフォルト10件
     let offset = parseInt(req.query.offset) || 0; // デフォルト0から開始
+    const includeSummary = req.query.summary === 'true'; // summaryパラメータの確認
     
     // パラメータの検証
     if (isNaN(limit) || limit < 1) {
@@ -131,7 +132,7 @@ module.exports = async function handler(req, res) {
       .lean();
 
     if (userHistory.length === 0 && offset === 0) {
-      return res.status(200).json({
+      const response = {
         success: true,
         count: 0,
         totalCount: 0,
@@ -140,10 +141,18 @@ module.exports = async function handler(req, res) {
         hasMore: false,
         data: [],
         history: [], // フロントエンド互換性のため
-        currentStreak: 0,
-        maxStreak: 0,
         message: '履歴データがありません'
-      });
+      };
+      
+      // summaryパラメータがtrueの場合のみsummary情報を追加
+      if (includeSummary) {
+        response.summary = {
+          currentStreak: 0,
+          bestStreak: 0
+        };
+      }
+      
+      return res.status(200).json(response);
     }
     
     // offsetが範囲外の場合
@@ -157,9 +166,9 @@ module.exports = async function handler(req, res) {
     // ユーザー情報取得
     const user = await User.findById(userId).lean();
 
-    // 連続日数計算（全データが必要）
+    // 連続日数計算（summaryパラメータがtrueの場合のみ実行）
     let streakData = { currentStreak: 0, maxStreak: 0 };
-    if (totalCount > 0) {
+    if (includeSummary && totalCount > 0) {
       // 連続日数計算のために全履歴データの日付のみを取得
       const allHistoryForStreaks = await Result.find(userFilter)
         .select('date createdAt')
@@ -259,7 +268,8 @@ module.exports = async function handler(req, res) {
     // hasMore計算
     const hasMore = (offset + limit) < totalCount;
     
-    return res.status(200).json({
+    // レスポンスオブジェクトの構築
+    const response = {
       success: true,
       count: formattedHistory.length,
       totalCount: totalCount,
@@ -273,10 +283,18 @@ module.exports = async function handler(req, res) {
           avatar: user?.avatar,
           grade: user?.grade
       },
-      currentStreak: currentStreak,
-      maxStreak: maxStreak,
       message: `履歴データ (${formattedHistory.length}件/${totalCount}件中)`
-    });
+    };
+    
+    // summaryパラメータがtrueの場合のみsummary情報を追加
+    if (includeSummary) {
+      response.summary = {
+        currentStreak: currentStreak,
+        bestStreak: maxStreak
+      };
+    }
+    
+    return res.status(200).json(response);
 
   } catch (error) {
     console.error('❌ 履歴取得エラー:', error);
