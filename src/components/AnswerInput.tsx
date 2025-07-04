@@ -57,14 +57,18 @@ export const AnswerInput: React.FC<AnswerInputProps> = ({
 
 
   return (
-    <div className={`mb-6 ${className}`}>
+    <div className={`mb-6 ${className}`} data-form-type="math-calculation">
       <div className="relative">
         <input
           ref={inputRef}
-          type="number"
+          type="text"
           inputMode="numeric"
           pattern="[0-9]*"
-          name="mathAnswer"
+          name="mathQuestionAnswer"
+          data-form-type="other"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          data-bwignore="true"
           value={value}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -75,7 +79,8 @@ export const AnswerInput: React.FC<AnswerInputProps> = ({
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400
                      transition-all duration-200 ease-in-out
                      placeholder-gray-400 font-mono"
-          autoComplete="one-time-code"
+          autoComplete="off"
+          autoCorrect="off"
           spellCheck={false}
           role="textbox"
           aria-label="答えを入力"
