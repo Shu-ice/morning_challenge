@@ -514,12 +514,13 @@ const monitoringAPI = {
 
 // --- 履歴関連 API ---
 const historyAPI = {
-  getUserHistory: async (limit: number = 10, offset: number = 0, userId?: string) => {
+  getUserHistory: async (limit: number = 10, offset: number = 0, userId?: string, includeSummary: boolean = false) => {
     try {
-      logger.info(`[API] 履歴取得リクエスト: limit=${limit}, offset=${offset}, userId=${userId || 'current user'}`);
+      logger.info(`[API] 履歴取得リクエスト: limit=${limit}, offset=${offset}, userId=${userId || 'current user'}, includeSummary=${includeSummary}`);
       
-      const params: { limit: number; offset: number; userId?: string } = { limit, offset };
+      const params: { limit: number; offset: number; userId?: string; summary?: string } = { limit, offset };
       if (userId) params.userId = userId;
+      if (includeSummary) params.summary = 'true';
       
       const response = await API.get('/history', { 
         params
@@ -539,7 +540,8 @@ const historyAPI = {
         offset: response.data.offset || 0,
         limit: response.data.limit || limit,
         hasMore: response.data.hasMore || false,
-        history: response.data.data || response.data.history || []
+        history: response.data.data || response.data.history || [],
+        summary: response.data.summary || null
       };
     } catch (error: unknown) {
       const handledError = ErrorHandler.handleApiError(error, '履歴取得');
@@ -552,7 +554,8 @@ const historyAPI = {
         offset: 0,
         limit: limit,
         hasMore: false,
-        history: []
+        history: [],
+        summary: null
       };
     }
   },

@@ -28,68 +28,7 @@ interface HistoryItem {
   totalTime?: number;
 }
 
-// ストリーク計算関数
-const calculateStreaks = (history: HistoryItem[]) => {
-  if (!history || history.length === 0) {
-    return { currentStreak: 0, maxStreak: 0 };
-  }
-
-  // 日付のみを抽出してユニークにする
-  const uniqueDates = [...new Set(
-    history.map(item => {
-      const date = new Date(item.timestamp || item.date);
-      return date.toISOString().split('T')[0]; // YYYY-MM-DD
-    })
-  )].sort();
-
-  if (uniqueDates.length === 0) {
-    return { currentStreak: 0, maxStreak: 0 };
-  }
-
-  // 今日の日付
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-  // 現在のストリーク計算（今日または昨日から開始）
-  let currentStreak = 0;
-  const latestDate = uniqueDates[uniqueDates.length - 1]; // 最新日付
-
-  if (latestDate === today || latestDate === yesterday) {
-    // 最新日から遡って連続日数をカウント
-    let checkDate = new Date(latestDate);
-    
-    for (let i = uniqueDates.length - 1; i >= 0; i--) {
-      const targetDate = checkDate.toISOString().split('T')[0];
-      
-      if (uniqueDates[i] === targetDate) {
-        currentStreak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-  }
-
-  // 最大ストリーク計算
-  let maxStreak = 1;
-  let tempStreak = 1;
-
-  for (let i = 1; i < uniqueDates.length; i++) {
-    const prevDate = new Date(uniqueDates[i - 1]);
-    const currDate = new Date(uniqueDates[i]);
-    const diffDays = Math.round((currDate.getTime() - prevDate.getTime()) / (24 * 60 * 60 * 1000));
-
-    if (diffDays === 1) {
-      tempStreak++;
-    } else {
-      maxStreak = Math.max(maxStreak, tempStreak);
-      tempStreak = 1;
-    }
-  }
-  maxStreak = Math.max(maxStreak, tempStreak);
-
-  return { currentStreak, maxStreak };
-};
+// ストリーク計算はAPIから取得したsummary情報を使用するため、この関数は不要
 
 const UserHistory = () => {
   const [user, setUser] = useState<UserData & { token: string } | null>(null);
@@ -99,22 +38,12 @@ const UserHistory = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
+  const [streakData, setStreakData] = useState<{ currentStreak: number; maxStreak: number }>({ currentStreak: 0, maxStreak: 0 });
   const observerRef = useRef<HTMLDivElement | null>(null);
   const ITEMS_PER_PAGE = 10;
 
-  // ストリーク情報を計算
-  const { currentStreak, maxStreak } = useMemo(() => {
-    logger.debug('=== ストリーク計算 ===');
-    logger.debug('履歴データ数:', history?.length || 0);
-    if (history && history.length > 0) {
-      logger.debug('最初の履歴:', history[0]);
-    }
-    
-    const result = calculateStreaks(history);
-    logger.debug('計算結果:', result);
-    logger.debug('=================');
-    return result;
-  }, [history]);
+  // ストリーク情報はAPIから取得したデータを使用
+  const { currentStreak, maxStreak } = streakData;
 
   // ユーザー情報をlocalStorageから取得
   useEffect(() => {
@@ -160,10 +89,11 @@ const UserHistory = () => {
     try {
       logger.info('[UserHistory] 履歴取得開始 (初期ロード)');
       
-      const response = await historyAPI.getUserHistory(ITEMS_PER_PAGE, 0);
+      const response = await historyAPI.getUserHistory(ITEMS_PER_PAGE, 0, undefined, true);
       logger.debug('=== API レスポンス ===');
       logger.debug('成功:', response.success);
       logger.debug('履歴件数:', response.history?.length || 0);
+      logger.debug('Summary:', response.summary);
       if (response.history && response.history.length > 0) {
         logger.debug('最初の履歴項目:', response.history[0]);
       }
@@ -186,6 +116,14 @@ const UserHistory = () => {
       if (reset) {
         setHistory(historyArray);
         setOffset(historyArray.length);
+      }
+      
+      // ストリーク情報を更新（summaryがある場合のみ）
+      if (response?.summary) {
+        setStreakData({
+          currentStreak: response.summary.currentStreak || 0,
+          maxStreak: response.summary.bestStreak || 0
+        });
       }
       
       // ページネーション情報を更新
