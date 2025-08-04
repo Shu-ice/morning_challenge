@@ -1,0 +1,16 @@
+[phases.setup]
+nixPkgs = ["nodejs-18_x", "npm-9_x"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build] 
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start:railway"
+
+[variables]
+NODE_ENV = "production"
+MONGODB_MOCK = "false"
+DISABLE_TIME_CHECK = "false"

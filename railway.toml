@@ -1,0 +1,16 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "npm run start:railway"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[[services]]
+name = "morning-challenge"
+type = "web"
+
+[env]
+NODE_ENV = "production"
+MONGODB_MOCK = "false"
+DISABLE_TIME_CHECK = "false"
