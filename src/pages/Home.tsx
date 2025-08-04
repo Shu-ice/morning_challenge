@@ -33,7 +33,8 @@ const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid, defaultDiffic
               <ruby>現在<rt>げんざい</rt></ruby>は<ruby>練習時間外<rt>れんしゅうじかんがい</rt></ruby>です
             </h3>
             <p>
-              <ruby>練習時間<rt>れんしゅうじかん</rt></ruby>は<ruby>朝<rt>あさ</rt></ruby>6:30から8:00までです。<br/>
+              <ruby>練習時間<rt>れんしゅうじかん</rt></ruby>は<ruby>朝<rt>あさ</rt></ruby>5:15から7:15までです。<br/>
+              （<ruby>朝<rt>あさ</rt></ruby>にできなかった<ruby>場合<rt>ばあい</rt></ruby>の<ruby>救済<rt>きゅうさい</rt></ruby>：<ruby>夕方<rt>ゆうがた</rt></ruby>16:00から17:00）<br/>
               また明日の朝にお会いしましょう
             </p>
           </div>
@@ -73,7 +74,7 @@ const Home: React.FC<HomeProps> = ({ onStartPractice, isTimeValid, defaultDiffic
             チャレンジルール
           </h2>
           <ul style={{ listStyle: 'none', paddingLeft: 0, lineHeight: 1.7, color: '#333' }}>
-            <li>⏰ チャレンジ<ruby>可能<rt>かのう</rt></ruby><ruby>時間<rt>じかん</rt></ruby>は <strong><ruby>朝<rt>あさ</rt></ruby> 6:30–8:00</strong> だけ！</li>
+            <li>⏰ チャレンジ<ruby>可能<rt>かのう</rt></ruby><ruby>時間<rt>じかん</rt></ruby>は <strong><ruby>朝<rt>あさ</rt></ruby> 5:15–7:15</strong>（<ruby>救済<rt>きゅうさい</rt></ruby>：<ruby>夕方<rt>ゆうがた</rt></ruby>16:00–17:00）</li>
             <li>🏅 1 <ruby>日<rt>にち</rt></ruby>につき <strong>チャレンジは 1 <ruby>回<rt>かい</rt></ruby></strong> <ruby>限<rt>かぎ</rt></ruby>りです。</li>
             <li>📈 <ruby>回答<rt>かいとう</rt></ruby>を<ruby>送信<rt>そうしん</rt></ruby>すると<ruby>結果<rt>けっか</rt></ruby>が<ruby>保存<rt>ほぞん</rt></ruby>され、<ruby>その日<rt>そのひ</rt></ruby>の<ruby>間<rt>あいだ</rt></ruby>は<ruby>再挑戦<rt>さいちょうせん</rt></ruby>できません。</li>
           </ul>

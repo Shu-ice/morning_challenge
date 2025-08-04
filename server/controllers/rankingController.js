@@ -1,7 +1,9 @@
 import Result from '../models/Result.js';
 import User from '../models/User.js';
+import ChallengeAttempt from '../models/ChallengeAttempt.js';
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger.js';
+import { getDateKeyJST } from '../utils/timeWindow.js';
 
 // @desc    日間ランキングの取得
 // @route   GET /api/rankings/daily
@@ -9,29 +11,65 @@ import { logger } from '../utils/logger.js';
 export const getDailyRankings = async (req, res) => {
   try {
     // リクエストで指定された日付を使用、なければ今日の日付
-    const targetDate = req.query.date || new Date().toISOString().split('T')[0];
+    const targetDate = req.query.date || getDateKeyJST();
+    const { grade } = req.query;
     
-    logger.debug(`[Ranking] 日間ランキング取得: date=${targetDate}, difficulty=${req.query.difficulty || 'all'}`);
+    logger.debug(`[Ranking] 日間ランキング取得: date=${targetDate}, grade=${grade || 'all'}`);
     
-    // 難易度フィルタリング
-    const filterConditions = {
-      date: targetDate, // 指定された日付のデータを取得
+    // ChallengeAttemptを使用して朝チャレンジのみを取得
+    const matchConditions = {
+      dateKey: targetDate,
+      type: 'MORNING' // 朝チャレンジのみ
     };
-    if (req.query.difficulty) {
-      filterConditions.difficulty = req.query.difficulty;
+    
+    // ランキングの取得（最大100件）
+    const limit = parseInt(req.query.limit) || 100;
+    
+    const pipeline = [
+      { $match: matchConditions },
+      { 
+        $lookup: { 
+          from: 'users', 
+          localField: 'userId', 
+          foreignField: '_id', 
+          as: 'user' 
+        } 
+      },
+      { $unwind: '$user' }
+    ];
+    
+    if (grade && grade !== 'ALL') {
+      pipeline.push({ 
+        $match: { 'user.grade': grade }
+      });
     }
     
-    // ランキングの取得（最大50件、limitが指定されていればそれを使用）
-    const limit = parseInt(req.query.limit) || 50;
-    let rankings;
+    pipeline.push(
+      { 
+        $project: {
+          userId: 1, 
+          correctCount: 1, 
+          totalTimeSec: 1,
+          displayName: '$user.displayName',
+          username: '$user.username',
+          grade: '$user.grade',
+          avatar: '$user.avatar',
+          level: '$user.level',
+          currentStreak: '$user.currentStreak'
+        }
+      },
+      { 
+        $sort: { 
+          correctCount: -1, 
+          totalTimeSec: 1 
+        } 
+      },
+      { $limit: limit }
+    );
     
+    let rankings;
     try {
-      // 通常のMongoose環境での取得を試行
-      rankings = await Result.find(filterConditions)
-        .sort({ correctAnswers: -1, timeSpent: 1, createdAt: 1 })
-        .limit(limit)
-        .populate('userId', 'username avatar grade streak')
-        .lean();
+      rankings = await ChallengeAttempt.aggregate(pipeline);
     } catch (populateError) {
       // モック環境またはpopulateが使えない場合の代替処理
       logger.debug(`[Ranking] populateエラー、代替処理に切り替え: ${populateError.message}`);
@@ -41,27 +79,27 @@ export const getDailyRankings = async (req, res) => {
         .limit(limit)
         .lean();
       
-      // --- モック環境でのみユーザー情報を補完 ---
-      let mockUsers = [];
-      if (process.env.MONGODB_MOCK === 'true') {
-        const { getMockUsers } = await import('../config/database.js');
-        mockUsers = getMockUsers();
-      }
+      // モック環境またはResultベースのフォールバック
+      rankings = await Result.find({
+        date: targetDate
+      })
+      .sort({ correctAnswers: -1, timeSpent: 1, createdAt: 1 })
+      .limit(limit)
+      .populate('userId', 'username displayName avatar grade level currentStreak')
+      .lean();
       
-      rankings = rankings.map(result => {
-        const resultIdStr = result.userId?.toString?.();
-        const user = mockUsers.find(u => u?._id && u._id.toString() === resultIdStr);
-        return {
-          ...result,
-          userId: {
-            _id: result.userId ?? null,
-            username: user?.username ?? result.username ?? 'Unknown',
-            avatar: user?.avatar ?? '👤',
-            grade: user?.grade ?? result.grade ?? 0,
-            streak: user?.streak ?? 0
-          }
-        };
-      });
+      // Resultの形式をChallengeAttempt形式に変換
+      rankings = rankings.map(r => ({
+        userId: r.userId?._id || r.userId,
+        correctCount: r.correctAnswers,
+        totalTimeSec: Math.round(r.timeSpent || 0),
+        displayName: r.userId?.displayName || r.userId?.username || r.username,
+        username: r.userId?.username || r.username,
+        grade: r.userId?.grade || r.grade,
+        avatar: r.userId?.avatar || r.avatar || '😊',
+        level: r.userId?.level || 1,
+        currentStreak: r.userId?.currentStreak || r.userId?.streak || 0
+      }));
     }
     
     logger.debug(`[Ranking] 取得件数: ${rankings.length}件`);
@@ -124,28 +162,23 @@ export const getDailyRankings = async (req, res) => {
 
       return {
         rank: index + 1,
-        userId: userIdStr, // 文字列 ID を返す
-        username: latest.username ?? populatedUser.username ?? 'Unknown',
-        avatar: (latest.avatar ?? populatedUser.avatar) || '👤',
-        grade: latest.grade ?? populatedUser.grade ?? result.grade ?? 0,
-        difficulty: result.difficulty,
-        score: result.score,
-        timeSpent: result.timeSpent,
-        totalTime: result.totalTime, // フロントエンドで使用される
-        correctAnswers: result.correctAnswers,
-        totalProblems: result.totalProblems,
-        incorrectAnswers: result.incorrectAnswers,
-        unanswered: result.unanswered,
-        streak: (latest.streak ?? populatedUser.streak) || 0,
-        date: result.date
+        userId: result.userId,
+        displayName: result.displayName || result.username || 'Unknown',
+        username: result.username,
+        grade: result.grade || 'OTHER',
+        avatar: result.avatar || '😊',
+        level: result.level || 1,
+        currentStreak: result.currentStreak || 0,
+        correctCount: result.correctCount,
+        totalTimeSec: result.totalTimeSec
       };
     }).filter(Boolean); // nullを除去
     
     res.json({
       success: true,
-      date: targetDate,
+      dateKey: targetDate,
       count: formattedRankings.length,
-      data: formattedRankings
+      leaderboard: formattedRankings
     });
   } catch (error) {
     logger.error("Error in getDailyRankings:", error);

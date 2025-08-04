@@ -11,6 +11,11 @@ export const TopNav: React.FC = React.memo(() => {
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const adminMenuButtonRef = useRef<HTMLButtonElement>(null);
+  
+  // Gamification data from user object
+  const userLevel = user?.level || 1;
+  const userPoints = user?.points || 0;
+  const userStreak = user?.currentStreak || 0;
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -124,6 +129,26 @@ export const TopNav: React.FC = React.memo(() => {
               </h1>
             </Link>
           </div>
+          
+          {/* Gamification Display */}
+          {user?.isLoggedIn && (
+            <div className="hidden md:flex items-center space-x-3 mr-4">
+              {userStreak > 0 && (
+                <div className="flex items-center bg-orange-50 px-3 py-1 rounded-full">
+                  <span className="text-orange-600 font-bold">🔥</span>
+                  <span className="ml-1 text-orange-700 font-semibold">{userStreak}</span>
+                </div>
+              )}
+              <div className="flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                <span className="text-blue-600 font-bold">Lv.</span>
+                <span className="ml-1 text-blue-700 font-semibold">{userLevel}</span>
+              </div>
+              <div className="flex items-center bg-purple-50 px-3 py-1 rounded-full">
+                <span className="text-purple-600 font-bold">⭐</span>
+                <span className="ml-1 text-purple-700 font-semibold">{userPoints}</span>
+              </div>
+            </div>
+          )}
           
           {/* Desktop Navigation */}
           <div className="hidden sm:flex items-center space-x-4">

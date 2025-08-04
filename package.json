@@ -19,7 +19,7 @@
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "type-check": "tsc --noEmit",
     "start": "npm run dev",
-    "start:production": "cross-env NODE_ENV=production concurrently \"npm run preview\" \"npm run dev:backend:prod\"",
+    "start:production": "cross-env NODE_ENV=production MONGODB_MOCK=false node server/server.js",
     "server": "cd server && cross-env NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true node server.js",
     "server:prod": "cd server && cross-env NODE_ENV=production DISABLE_TIME_CHECK=false MONGODB_MOCK=false node server.js",
     "clean": "rimraf dist node_modules/.cache",
@@ -45,11 +45,13 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "luxon": "^3.7.1",
     "mongodb": "^6.5.0",
     "mongoose": "^8.3.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.5.3",
+    "stripe": "^18.4.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

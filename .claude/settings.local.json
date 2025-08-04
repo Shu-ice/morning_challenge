@@ -64,7 +64,15 @@
       "Bash(ADMIN_EMAIL=admin@example.com NODE_ENV=production JWT_SECRET=production-jwt-secret-minimum-32-characters-long-for-security MONGODB_URI=mongodb+srv://test:test@cluster.mongodb.net/morning_challenge MONGODB_MOCK=false ADMIN_DEFAULT_PASSWORD=admin123456 node scripts/validate_env.mjs)",
       "Bash(ADMIN_EMAIL=admin@example.com node -e \"console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL)\")",
       "Bash(NODE_ENV=development npm run build)",
-      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true node server/server.js)"
+      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true node server/server.js)",
+      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true npm run dev)",
+      "Bash(true)",
+      "Bash(taskkill:*)",
+      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true PORT=5004 npm run dev:backend)",
+      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true PORT=5005 npm run dev:backend)",
+      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true PORT=5006 npm run dev:backend)",
+      "Bash(NODE_ENV=development DISABLE_TIME_CHECK=true MONGODB_MOCK=true PORT=5007 npm run dev:backend)",
+      "Bash(echo:*)"
     ],
     "deny": []
   }

@@ -66,15 +66,18 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // --- 管理者専用ルートのラッパー ---
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
+  console.log('[AdminRoute] Checking access:', { loading, user: user ? { username: user.username, isAdmin: user.isAdmin, isLoggedIn: user.isLoggedIn } : null });
+  
   if (loading) return <div className="loading-fullscreen">読み込み中...</div>;
   if (!user?.isLoggedIn) {
     console.log('[AdminRoute] Not logged in, redirecting to /login');
     return <Navigate to="/login" replace />;
   }
   if (!user?.isAdmin) {
-    console.log('[AdminRoute] Not admin, redirecting to /');
+    console.log('[AdminRoute] Not admin, user:', user, 'redirecting to /');
     return <Navigate to="/" replace />;
   }
+  console.log('[AdminRoute] Access granted to admin user');
   return <>{children}</>;
 };
 

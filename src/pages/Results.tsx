@@ -13,6 +13,13 @@ interface ResultsProps {
   onBackToHome: () => void;
 }
 
+interface GamificationResult {
+  pointsGained: number;
+  level: number;
+  currentStreak: number;
+  achievementsGranted: string[];
+}
+
 interface HistoryItem {
   date: string;
   difficulty: string;
@@ -209,6 +216,55 @@ const Results: React.FC<ResultsProps> = ({ results, onViewRankings, onBackToHome
           <div className="text-xl font-semibold">{rank ? `${rank}位` : '-'}</div>
         </div>
       </div>
+
+      {/* Gamification Results */}
+      {(results as any)?.gamification && (
+        <div className="gamification-results bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg shadow-lg p-6 mb-8">
+          <h3 className="text-xl font-bold text-purple-700 mb-4 text-center">🎮 ゲーム結果</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+            {(results as any).gamification.pointsGained > 0 && (
+              <div className="bg-white rounded-lg p-4 text-center shadow">
+                <div className="text-3xl text-purple-600 mb-1">⭐</div>
+                <div className="text-sm text-gray-600 mb-1">獲得ポイント</div>
+                <div className="text-xl font-bold text-purple-700">+{(results as any).gamification.pointsGained}</div>
+              </div>
+            )}
+            
+            <div className="bg-white rounded-lg p-4 text-center shadow">
+              <div className="text-3xl text-blue-600 mb-1">📊</div>
+              <div className="text-sm text-gray-600 mb-1">レベル</div>
+              <div className="text-xl font-bold text-blue-700">Lv.{(results as any).gamification.level}</div>
+            </div>
+            
+            {(results as any).gamification.currentStreak > 0 && (
+              <div className="bg-white rounded-lg p-4 text-center shadow">
+                <div className="text-3xl text-orange-600 mb-1">🔥</div>
+                <div className="text-sm text-gray-600 mb-1">連続記録</div>
+                <div className="text-xl font-bold text-orange-700">{(results as any).gamification.currentStreak}日</div>
+              </div>
+            )}
+          </div>
+          
+          {/* Achievement notifications */}
+          {(results as any).gamification.achievementsGranted && (results as any).gamification.achievementsGranted.length > 0 && (
+            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+              <h4 className="text-lg font-bold text-yellow-800 mb-3 text-center">🏆 新しいバッジを獲得！</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {(results as any).gamification.achievementsGranted.map((code: string, index: number) => (
+                  <div key={index} className="bg-yellow-100 px-4 py-3 rounded-lg text-yellow-800 font-medium text-center">
+                    {code === 'EARLY_BIRD' && '🌅 アーリーバード'}
+                    {code === 'PERFECT_10' && '💯 パーフェクト10'}
+                    {code === 'STREAK_7' && '🔥 ストリーク7'}
+                    {code === 'STREAK_30' && '⚡ ストリーク30'}
+                    {code === 'SOLVED_100' && '📚 100問達成'}
+                    {!['EARLY_BIRD', 'PERFECT_10', 'STREAK_7', 'STREAK_30', 'SOLVED_100'].includes(code) && `🏆 ${code}`}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="results-details bg-white rounded-lg shadow-lg p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4" aria-label="しょうさい">📊 <ruby>詳細<rt>しょうさい</rt></ruby></h2>

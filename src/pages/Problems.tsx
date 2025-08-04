@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import '../styles/Problems.css';
 import type { Problem, ProblemResult, Results, UserData, ApiResult, SubmitAnswersRequest } from '../types/index';
-import { problemsAPI } from '../api/index';
+import { problemsAPI, challengeAPI } from '../api/index';
+import { useAuth } from '../contexts/AuthContext';
 import { DifficultyRank, difficultyToJapanese, DIFFICULTY_INFO } from '../types/difficulty';
 import { useProblem } from '../contexts/ProblemContext';
 import axios, { isAxiosError } from 'axios';
@@ -92,6 +93,7 @@ const saveCompletionData = (difficulty: DifficultyRank, user: UserData | null) =
 const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) => {
   // Hooks
   const queryClient = useQueryClient();
+  const { user, updateUser } = useAuth();
   const { elapsedTime, startTimer, stopTimer, resetTimer, formatTime } = useGameTimer();
   const { gameState, startGame, resetGame, setCurrentProblem, nextProblem, previousProblem, setAnswer, isComplete, progress } = useGameState({
     difficulty,
@@ -210,11 +212,21 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         // Save completion data
         saveCompletionData(difficulty, userData);
         
+        // Update user context with gamification data if available
+        if ((apiResult as any).gamification && user) {
+          const gamification = (apiResult as any).gamification;
+          updateUser({
+            points: gamification.pointsGained ? (user.points || 0) + gamification.pointsGained : user.points,
+            level: gamification.level || user.level,
+            currentStreak: gamification.currentStreak || user.currentStreak
+          });
+        }
+        
         // Clear query cache
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.history] });
         
         logger.info('[handleComplete] Results submitted successfully');
-        onComplete(apiResult.results);
+        onComplete(apiResult.results || apiResult);
       }
     } catch (err) {
       const handledError = ErrorHandler.handleApiError(err, 'handleComplete');

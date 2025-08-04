@@ -33,6 +33,11 @@ import monitoringRoutes from './routes/monitoringRoutes.js';
 import historyRoutes from './routes/historyRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import { getHistory } from './controllers/problemController.js';
+import challengeRoutes from './routes/challengeRoutes.js';
+import leaderboardRoutes from './routes/leaderboardRoutes.js';
+import billingRoutes from './routes/billingRoutes.js';
+import progressRoutes from './routes/progressRoutes.js';
+import counselingRoutes from './routes/counselingRoutes.js';
 
 // --- dayjs プラグインの適用 (トップレベルで実行) ---
 dayjs.extend(utc);
@@ -67,12 +72,12 @@ const isChallengeTimeAllowed = () => {
     const currentMinute = nowJST.minute();
 
     const currentTimeInMinutes = currentHour * 60 + currentMinute;
-    const startTimeInMinutes = 6 * 60 + 30;
-    const endTimeInMinutes = 8 * 60 + 0;
+    const startTimeInMinutes = 5 * 60 + 15;
+    const endTimeInMinutes = 7 * 60 + 15;
 
     const isAllowed = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes < endTimeInMinutes;
     if (!isAllowed) {
-        logger.warn(`[Time Check] Access denied. Current JST: ${nowJST.format('HH:mm')}. Allowed: 06:30 - 08:00`);
+        logger.warn(`[Time Check] Access denied. Current JST: ${nowJST.format('HH:mm')}. Allowed: 05:15 - 07:15`);
     }
     return isAllowed;
 };
@@ -481,8 +486,22 @@ const startServer = async () => {
         // dayjs.extend(isBetween);
         // dayjs.tz.setDefault("Asia/Tokyo");
 
+        // --- 静的ファイル配信 (Railway.app用) ---
+        if (process.env.NODE_ENV === 'production') {
+          app.use(express.static(path.join(process.cwd(), 'dist')));
+          
+          // SPA用のキャッチオール ルート
+          app.get('*', (req, res, next) => {
+            // API ルートは除外
+            if (req.path.startsWith('/api/')) {
+              return next();
+            }
+            res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+          });
+        }
+
         // --- API ルート定義 --- 
-        app.get('/', (req, res) => {
+        app.get('/api', (req, res) => {
           res.json({ message: '朝の計算チャレンジAPIへようこそ！' });
         });
 
@@ -515,6 +534,11 @@ const startServer = async () => {
         app.use('/api/admin', adminRoutes);
         app.use('/api/monitoring', monitoringRoutes);
         app.use('/api/history', historyRoutes);
+        app.use('/api/challenge', challengeRoutes);
+        app.use('/api/leaderboard', leaderboardRoutes);
+        app.use('/api/billing', billingRoutes);
+        app.use('/api/progress', progressRoutes);
+        app.use('/api/counseling', counselingRoutes);
 
         app.post('/api/problems/submit', protect, async (req, res) => { // コメントアウトを解除
           // ...(元の処理)... 現状は省略

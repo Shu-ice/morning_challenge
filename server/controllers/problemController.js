@@ -9,6 +9,9 @@ import { getMockResults, getMockDailyProblemSets, addMockResult, findMockUser, g
 import { DifficultyRank } from '../constants/difficultyRank.js';
 import { getRankForResult } from '../utils/ranking.js';
 import { generateProblems } from '../utils/problemGenerator.js';
+import ChallengeAttempt from '../models/ChallengeAttempt.js';
+import { calcPoints, levelFromPoints, updateStreak, checkAndAwardAchievements } from '../services/gamificationService.js';
+import { inMorningWindow, inBonusWindow, getDateKeyJST } from '../utils/timeWindow.js';
 
 // モック環境判定
 const isMongoMock = () => {
@@ -828,6 +831,85 @@ export const submitAnswers = async (req, res) => {
         logger.error('[Submit] ランキング計算エラー:', rankErr);
         // ランキング計算エラーは無視して処理を続行
       }
+      
+      // ゲーミフィケーションロジック (MongoDB環境のみ)
+      let gamificationResult = null;
+      if (!isMongoMock()) {
+        try {
+          // 時間帯の判定
+          const dateKey = getDateKeyJST();
+          const isMorning = inMorningWindow();
+          const isBonus = inBonusWindow();
+          const challengeType = isMorning ? 'MORNING' : (isBonus ? 'BONUS' : null);
+          
+          if (challengeType) {
+            // ChallengeAttemptに記録
+            const totalTimeSec = Math.round(finalTimeSpentMs / 1000);
+            const attemptExists = await ChallengeAttempt.findOne({
+              userId: user._id,
+              dateKey,
+              type: challengeType
+            });
+            
+            if (!attemptExists) {
+              await ChallengeAttempt.create({
+                userId: user._id,
+                dateKey,
+                type: challengeType,
+                startedAt: new Date(calculatedStartTime),
+                finishedAt: new Date(calculatedEndTime),
+                correctCount,
+                totalTimeSec
+              });
+              
+              // ポイント計算
+              const previousBest = await ChallengeAttempt.findOne({
+                userId: user._id,
+                type: 'MORNING',
+                dateKey: { $ne: dateKey }
+              }).sort({ correctCount: -1 }).limit(1);
+              
+              const pts = calcPoints({ 
+                correctCount, 
+                totalTimeSec,
+                previousBest: previousBest?.correctCount
+              });
+              
+              // ユーザーモデルを更新可能な形で取得
+              const userToUpdate = await User.findById(user._id);
+              userToUpdate.points = (userToUpdate.points || 0) + pts;
+              userToUpdate.level = levelFromPoints(userToUpdate.points);
+              
+              let granted = [];
+              if (challengeType === 'MORNING') {
+                await updateStreak(userToUpdate, { completedMorningToday: true });
+                
+                const totalSolved = await ChallengeAttempt.countDocuments({ 
+                  userId: user._id 
+                });
+                
+                granted = await checkAndAwardAchievements(userToUpdate, {
+                  correctCount,
+                  finishedMorning: true,
+                  totalSolved: totalSolved * 10
+                });
+              } else {
+                await userToUpdate.save();
+              }
+              
+              gamificationResult = {
+                pointsGained: pts,
+                level: userToUpdate.level,
+                currentStreak: userToUpdate.currentStreak,
+                achievementsGranted: granted
+              };
+            }
+          }
+        } catch (gamErr) {
+          logger.error('[Submit] ゲーミフィケーションエラー:', gamErr);
+          // エラーは無視して処理を続行
+        }
+      }
     } else {
       logger.error(`[Submit] ユーザー情報が見つかりません: userId=${userId}`);
     }
@@ -835,7 +917,7 @@ export const submitAnswers = async (req, res) => {
     logger.info(`[Submit] 処理完了: userId=${userId}, correct=${correctCount}/${problems.length}, time=${timeSpentMs}ms`);
     
     // 成功レスポンス - フロントエンドが期待する形式に合わせる
-    return res.json({
+    const response = {
       success: true,
       message: '回答を送信しました！',
       results: resultsData, // フロントエンドが期待するresultsフィールドを追加
@@ -844,7 +926,14 @@ export const submitAnswers = async (req, res) => {
       timeSpent: timeSpentMs,
       resultId: savedResult?._id || null,
       rank: resultsData.rank || null
-    });
+    };
+    
+    // ゲーミフィケーション結果があれば追加
+    if (gamificationResult) {
+      response.gamification = gamificationResult;
+    }
+    
+    return res.json(response);
     
   } catch (error) {
     logger.error('[Submit] Error:', error);

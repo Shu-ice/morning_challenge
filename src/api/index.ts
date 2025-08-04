@@ -575,6 +575,36 @@ const historyAPI = {
 // API型定義は types/index.ts に移動済み
 
 // 必要なものだけを最後にまとめてエクスポート
+// New Challenge API
+export const challengeAPI = {
+  start: (type: 'MORNING' | 'BONUS') => API.post('/challenge/start', { type }),
+  submit: (data: { type: 'MORNING' | 'BONUS', correctCount: number, totalTimeSec: number, startedAt: string }) => API.post('/challenge/submit', data)
+};
+
+// New Leaderboard API
+export const leaderboardAPI = {
+  getDaily: (date?: string, grade?: string) => API.get('/leaderboard/daily', { params: { date, grade } })
+};
+
+// Progress API (for TAKE tier users)
+export const progressAPI = {
+  getSummary: (period?: string) => API.get('/progress/summary', { params: { period } }),
+  getWeakness: () => API.get('/progress/weakness')
+};
+
+// Billing API
+export const billingAPI = {
+  createCheckoutSession: (tier: 'TAKE' | 'MATSU') => API.post('/billing/create-checkout-session', { tier }),
+  getPortalUrl: () => API.get('/billing/portal')
+};
+
+// Counseling API (for MATSU tier users)
+export const counselingAPI = {
+  requestSession: (data: { startsAt: string, endsAt: string }) => API.post('/counseling/request', data),
+  getSessions: () => API.get('/counseling/sessions'),
+  cancelSession: (sessionId: string) => API.post(`/counseling/cancel/${sessionId}`)
+};
+
 export { API, authAPI, userAPI, problemsAPI, rankingAPI, historyAPI, adminAPI, monitoringAPI, testBackendConnection };
 
 // 管理者統計関連のAPI関数 - 統合エンドポイント使用

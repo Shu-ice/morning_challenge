@@ -20,18 +20,24 @@ interface RankingItem {
   rank: number;
   userId: string;
   username: string;
+  displayName?: string;
   avatar?: string;
   grade: string | number;
-  difficulty: DifficultyRank;
-  score: number;
-  timeSpent: number;
+  level?: number;
+  currentStreak?: number;
+  correctCount: number;
+  totalTimeSec: number;
+  // Legacy fields for compatibility
+  difficulty?: DifficultyRank;
+  score?: number;
+  timeSpent?: number;
   totalTime?: number;
-  correctAnswers: number;
-  totalProblems: number;
+  correctAnswers?: number;
+  totalProblems?: number;
   incorrectAnswers?: number;
   unanswered?: number;
   streak?: number;
-  date: string;
+  date?: string;
 }
 
 // ユーザーデータを取得するヘルパー関数
@@ -127,8 +133,8 @@ export const Rankings: React.FC<RankingsProps> = React.memo(({ results }) => {
         throw new Error('ランキングデータの取得に失敗しました');
       }
 
-      // ★ data が空でも正常ケースとして処理
-      const rankingsData = response.data?.data || response.data || [];
+      // ★ 新しいAPIレスポンス構造に対応
+      const rankingsData = response.data?.leaderboard || response.data?.data || response.data || [];
       setRankings(rankingsData);
       
       // データが空の場合はエラーではなく正常状態
@@ -258,7 +264,7 @@ export const Rankings: React.FC<RankingsProps> = React.memo(({ results }) => {
           
           {rankings.map((ranking, index) => {
             // 現在のユーザーかどうかを判定
-            const isCurrentUser = currentUser && ranking.username === currentUser.username;
+            const isCurrentUser = currentUser && (ranking.username === currentUser.username || ranking.userId === currentUser._id);
               
             // クラス名を動的に設定 - 履歴ページと同じ方式
               const trClasses = [];
@@ -284,17 +290,19 @@ export const Rankings: React.FC<RankingsProps> = React.memo(({ results }) => {
                   {index + 1 <= 3 ? ['🥇', '🥈', '🥉'][index] : ''} {getRankIcon(ranking.rank)}
                 </td>
                 <td className="user-column">
-                  <span className="username">{ranking.username}</span>
+                  <span className="username">{ranking.displayName || ranking.username}</span>
                   {isCurrentUser && <span className="you-badge">あなた</span>}
+                  {ranking.level && <span className="level-badge">Lv.{ranking.level}</span>}
                 </td>
                 <td className="grade-column">{formatGrade(ranking.grade)}</td>
                 <td className="score-column">
                   <span className="score-text">
-                    {ranking.correctAnswers}/{ranking.totalProblems}
+                    {ranking.correctCount || ranking.correctAnswers || 0}/10
                   </span>
+                  {ranking.currentStreak > 0 && <span className="streak-badge">🔥{ranking.currentStreak}</span>}
                 </td>
                 <td className="time-column">
-                  {formatTimeSpent(ranking.totalTime ?? ranking.timeSpent)}
+                  {formatTimeSpent(ranking.totalTimeSec ? ranking.totalTimeSec * 1000 : (ranking.totalTime ?? ranking.timeSpent))}
                 </td>
               </tr>
             );
@@ -320,14 +328,14 @@ export const Rankings: React.FC<RankingsProps> = React.memo(({ results }) => {
               <div className="stat-item">
                 <div className="stat-label"><ruby>平均点<rt>へいきんてん</rt></ruby></div>
                 <div className="stat-value">
-                  <span className="number">{(rankings.reduce((acc, r) => acc + r.correctAnswers, 0) / rankings.length).toFixed(1)}</span>
+                  <span className="number">{(rankings.reduce((acc, r) => acc + (r.correctCount || r.correctAnswers || 0), 0) / rankings.length).toFixed(1)}</span>
                   <span className="stat-unit">点</span>
                 </div>
               </div>
               <div className="stat-item">
                 <div className="stat-label"><ruby>平均時間<rt>へいきんじかん</rt></ruby></div>
                 <div className="stat-value">
-                  <span className="number">{(rankings.reduce((acc, r) => acc + (r.totalTime ?? r.timeSpent), 0) / rankings.length / 1000).toFixed(2)}</span>
+                  <span className="number">{(rankings.reduce((acc, r) => acc + (r.totalTimeSec || (r.totalTime ?? r.timeSpent) / 1000), 0) / rankings.length).toFixed(2)}</span>
                   <span className="stat-unit">秒</span>
                 </div>
               </div>

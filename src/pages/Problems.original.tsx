@@ -186,7 +186,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
         // 時間制限エラーの場合は専用のメッセージを表示
         if ((apiResponse as any).isTimeRestricted) {
           const errorMsg = apiResponse.message || 
-            '朝の計算チャレンジは、朝6:30から8:00の間のみ挑戦できます。\nまたの挑戦をお待ちしています！';
+            '朝の計算チャレンジは、朝5:15から7:15の間のみ挑戦できます。\n朝にできなかった場合の救済時間：夕方16:00から17:00\nまたの挑戦をお待ちしています！';
           throw new Error(errorMsg);
         }
         
@@ -216,7 +216,7 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
           if (errorResponse?.isTimeRestricted) {
             logger.warn('[Problems] 時間制限エラーを検出:', errorResponse.message);
             // カスタムエラーメッセージを設定
-            const customError = new Error(errorResponse.message || '計算チャレンジは朝6:30から8:00の間のみ利用できます。');
+            const customError = new Error(errorResponse.message || '計算チャレンジは朝5:15から7:15の間のみ利用できます。朝にできなかった場合の救済時間：夕方16:00から17:00');
             (customError as any).isTimeRestricted = true;
             throw customError;
           }
@@ -300,10 +300,10 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
       const minutes = now.getMinutes();
       const currentTime = hours + minutes/60;
       
-      // 時間制限チェック: 朝6:30-8:00のみ利用可能
+      // 時間制限チェック: 朝5:15-7:15のみ利用可能
       if (currentTime < 6.5 || currentTime > 8.0) {
-        logger.warn('⏰ 計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！');
-        alert('⏰ 朝の計算チャレンジは、朝6:30から8:00の間のみ挑戦できます！\n現在は時間外です。');
+        logger.warn('⏰ 計算チャレンジは、朝5:15から7:15の間のみ挑戦できます！');
+        alert('⏰ 朝の計算チャレンジは、朝5:15から7:15の間のみ挑戦できます！\n朝にできなかった場合の救済時間：夕方16:00から17:00\n現在は時間外です。');
         return;
       }
     }
@@ -694,9 +694,10 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
                   const message = problemsApiWithRetry.error?.message || 'エラーが発生しました';
                   
                   // 時間制限エラーメッセージの場合はルビ付きで表示
-                  if (message.includes('朝6:30から8:00') || message.includes('またの挑戦をお待ちしています')) {
+                  if (message.includes('朝5:15から7:15') || message.includes('またの挑戦をお待ちしています')) {
                     return `
-                      <ruby>朝<rt>あさ</rt></ruby>の<ruby>計算<rt>けいさん</rt></ruby>チャレンジは、<ruby>朝<rt>あさ</rt></ruby>6:30から8:00の<ruby>間<rt>あいだ</rt></ruby>のみ<ruby>挑戦<rt>ちょうせん</rt></ruby>できます。<br/>
+                      <ruby>朝<rt>あさ</rt></ruby>の<ruby>計算<rt>けいさん</rt></ruby>チャレンジは、<ruby>朝<rt>あさ</rt></ruby>5:15から7:15の<ruby>間<rt>あいだ</rt></ruby>のみ<ruby>挑戦<rt>ちょうせん</rt></ruby>できます。<br/>
+                      <ruby>朝<rt>あさ</rt></ruby>にできなかった<ruby>場合<rt>ばあい</rt></ruby>の<ruby>救済<rt>きゅうさい</rt></ruby><ruby>時間<rt>じかん</rt></ruby>：<ruby>夕方<rt>ゆうがた</rt></ruby>16:00から17:00<br/>
                       またの<ruby>挑戦<rt>ちょうせん</rt></ruby>をお<ruby>待<rt>ま</rt></ruby>ちしています！
                     `;
                   }
@@ -741,7 +742,8 @@ const Problems: React.FC<ProblemsProps> = ({ difficulty, onComplete, onBack }) =
                      return (
                        <span dangerouslySetInnerHTML={{
                          __html: `
-                           ⏰ <ruby>朝<rt>あさ</rt></ruby>の<ruby>計算<rt>けいさん</rt></ruby>チャレンジは、<strong><ruby>朝<rt>あさ</rt></ruby>6:30から8:00</strong>の<ruby>間<rt>あいだ</rt></ruby>のみ<ruby>挑戦<rt>ちょうせん</rt></ruby>できます。<br/>
+                           ⏰ <ruby>朝<rt>あさ</rt></ruby>の<ruby>計算<rt>けいさん</rt></ruby>チャレンジは、<strong><ruby>朝<rt>あさ</rt></ruby>5:15から7:15</strong>の<ruby>間<rt>あいだ</rt></ruby>のみ<ruby>挑戦<rt>ちょうせん</rt></ruby>できます。<br/>
+                           <ruby>朝<rt>あさ</rt></ruby>にできなかった<ruby>場合<rt>ばあい</rt></ruby>の<ruby>救済<rt>きゅうさい</rt></ruby><ruby>時間<rt>じかん</rt></ruby>：<strong><ruby>夕方<rt>ゆうがた</rt></ruby>16:00から17:00</strong><br/>
                            またの<ruby>挑戦<rt>ちょうせん</rt></ruby>をお<ruby>待<rt>ま</rt></ruby>ちしています！
                          `
                        }} />

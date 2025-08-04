@@ -47,6 +47,17 @@ export interface UserData {
   isLoggedIn: boolean;
   loginTime?: string;
   isAdmin?: boolean;
+  // Gamification fields
+  displayName?: string;
+  currentStreak?: number;
+  bestStreak?: number;
+  points?: number;
+  level?: number;
+  membershipTier?: 'UME' | 'TAKE' | 'MATSU';
+  achievements?: {
+    achievementId: string;
+    earnedAt: string;
+  }[];
 }
 
 // Login APIからのレスポンスデータの型定義

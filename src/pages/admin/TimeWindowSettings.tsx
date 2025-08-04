@@ -3,8 +3,8 @@ import { API } from '@/api/index';
 import '../../styles/AdminSettings.css';
 
 const TimeWindowSettings: React.FC = () => {
-  const [start, setStart] = useState('06:30');
-  const [end, setEnd] = useState('08:00');
+  const [start, setStart] = useState('05:15');
+  const [end, setEnd] = useState('07:15');
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string>('');
 

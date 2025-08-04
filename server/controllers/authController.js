@@ -109,11 +109,8 @@ const loginUser = async (req, res, next) => {
     logger.debug(`Searching for user by email: ${email}`);
     logger.debug(`Environment: MONGODB_MOCK=${process.env.MONGODB_MOCK}`);
     
-    // 🔥 緊急修正: モック環境でのfindOne処理
-    const userFindQuery = User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
-    logger.debug(`User query created: ${typeof userFindQuery}`);
-    
-    const user = await (userFindQuery.select ? userFindQuery.select('+password') : userFindQuery);
+    // 🔥 緊急修正: モック環境対応でfindOneSimpleを使用
+    const user = await User.findOneSimple({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
     logger.debug(`User search result: ${JSON.stringify(user ? { username: user.username, email: user.email, hasPassword: !!user.password, isAdmin: user.isAdmin } : null)}`);
     
     const userSearchTime = Date.now();

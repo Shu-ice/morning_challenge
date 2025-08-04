@@ -129,10 +129,12 @@ export const validateUserRegistration = [
  * ユーザーログインAPI用のバリデーション
  */
 export const validateUserLogin = [
-  body('username')
+  body('email')
     .isLength({ min: 1, max: 50 })
-    .withMessage('ユーザー名を入力してください')
-    .trim(),
+    .withMessage('メールアドレスを入力してください')
+    .isEmail()
+    .withMessage('有効なメールアドレスを入力してください')
+    .normalizeEmail(),
   
   body('password')
     .isLength({ min: 1, max: 128 })
@@ -267,6 +269,11 @@ export const sanitizeInput = (req, res, next) => {
   const sanitizeObject = (obj) => {
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
+        // パスワードフィールドはサニタイゼーションをスキップ
+        if (key === 'password') {
+          continue;
+        }
+        
         if (typeof obj[key] === 'object' && obj[key] !== null) {
           sanitizeObject(obj[key]);
         } else {
