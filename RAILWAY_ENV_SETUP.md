@@ -1,8 +1,12 @@
 # Railway デプロイ用環境変数設定
 
-## 必須環境変数
+## ⚠️ 重要: 「Application failed to respond」エラーの解決
 
-Railway ダッシュボードの Variables タブで以下を設定してください：
+このエラーが発生する場合、以下の環境変数が**必ず**設定されている必要があります：
+
+## 🔧 必須環境変数 (すべて必要)
+
+Railway ダッシュボードの **Variables** タブで以下を**全て**設定してください：
 
 ### セキュリティ設定
 ```
@@ -10,9 +14,9 @@ JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters-long
 JWT_EXPIRES_IN=30d
 ```
 
-### 管理者設定
+### 管理者設定 (必須 - 未設定だとクラッシュします)
 ```
-ADMIN_EMAIL=admin@yourmail.com
+ADMIN_EMAIL=admin@yourdomain.com
 ADMIN_DEFAULT_PASSWORD=SecurePassword123!
 ```
 
@@ -24,9 +28,10 @@ MONGODB_MOCK=false
 
 **注意**: MongoDB URIの `cluster0.xxxxx` 部分は実際のMongoDB Atlasクラスター名に置き換えてください。
 
-### アプリケーション設定
+### アプリケーション設定 (必須)
 ```
 NODE_ENV=production
+PORT=3000
 LOG_LEVEL=info
 DISABLE_TIME_CHECK=false
 ```

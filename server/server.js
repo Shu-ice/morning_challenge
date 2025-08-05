@@ -588,8 +588,8 @@ const startServer = async () => {
         app.use(errorHandler);
 
         // サーバー起動
-        app.listen(PORT, '127.0.0.1', () => {
-            logger.info(`✅ サーバーが起動しました！ポート ${PORT}、ホスト 127.0.0.1 で待機中...`); // ログ修正
+        app.listen(PORT, '0.0.0.0', () => {
+            logger.info(`✅ サーバーが起動しました！ポート ${PORT}、ホスト 0.0.0.0 で待機中...`); // ログ修正
             logger.info(`⏰ チャレンジ時間制限 ${process.env.DISABLE_TIME_CHECK === 'true' ? '無効' : '有効'}`);
             logger.info(`💾 DBモード: ${process.env.MONGODB_MOCK === 'true' ? 'モック (InMemory)' : 'MongoDB'}`);
             logger.info('✨ Expressサーバーはリクエストの受付を開始しました。ここまでは正常です。✨');
