@@ -18,9 +18,11 @@ ADMIN_DEFAULT_PASSWORD=SecurePassword123!
 
 ### データベース設定
 ```
-MONGODB_URI=mongodb+srv://railway-admin-user:31415926535@cluster.mongodb.net/morning_challenge
+MONGODB_URI=mongodb+srv://railway-admin-user:31415926535@cluster0.xxxxx.mongodb.net/morning_challenge?retryWrites=true&w=majority
 MONGODB_MOCK=false
 ```
+
+**注意**: MongoDB URIの `cluster0.xxxxx` 部分は実際のMongoDB Atlasクラスター名に置き換えてください。
 
 ### アプリケーション設定
 ```

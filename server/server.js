@@ -349,14 +349,20 @@ process.on('uncaughtException', (error) => {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// サーバーディレクトリ直下の .env を読み込む
+// サーバーディレクトリ直下の .env を読み込む（存在する場合のみ）
 const envPath = path.resolve(__dirname, './.env');
 logger.info(`[dotenv] Attempting to load .env file from: ${envPath}`);
-const dotenvResult = dotenv.config({ path: envPath });
-if (dotenvResult.error) {
-  logger.error('[dotenv] Error loading .env file:', dotenvResult.error);
+
+// .envファイルの存在チェック
+if (fs.existsSync(envPath)) {
+  const dotenvResult = dotenv.config({ path: envPath });
+  if (dotenvResult.error) {
+    logger.error('[dotenv] Error loading .env file:', dotenvResult.error);
+  } else {
+    logger.info('[dotenv] .env file loaded successfully.');
+  }
 } else {
-  logger.info('[dotenv] .env file loaded successfully.');
+  logger.info('[dotenv] .env file not found, using environment variables (e.g., Railway Variables).');
 }
 
 // *** セキュリティチェック：必須ENV変数の検証 ***
