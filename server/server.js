@@ -349,20 +349,30 @@ process.on('uncaughtException', (error) => {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// サーバーディレクトリ直下の .env を読み込む（存在する場合のみ）
-const envPath = path.resolve(__dirname, './.env');
-logger.info(`[dotenv] Attempting to load .env file from: ${envPath}`);
+// 環境設定ファイルを読み込む（優先順位順）
+const envFiles = [
+  path.resolve(__dirname, './.env'),           // server/.env
+  path.resolve(__dirname, '../.env.railway'),  // ルートの.env.railway
+  path.resolve(__dirname, '../.env')           // ルートの.env
+];
 
-// .envファイルの存在チェック
-if (fs.existsSync(envPath)) {
-  const dotenvResult = dotenv.config({ path: envPath });
-  if (dotenvResult.error) {
-    logger.error('[dotenv] Error loading .env file:', dotenvResult.error);
-  } else {
-    logger.info('[dotenv] .env file loaded successfully.');
+let envLoaded = false;
+for (const envPath of envFiles) {
+  if (fs.existsSync(envPath)) {
+    logger.info(`[dotenv] Loading environment from: ${envPath}`);
+    const dotenvResult = dotenv.config({ path: envPath });
+    if (dotenvResult.error) {
+      logger.error(`[dotenv] Error loading ${envPath}:`, dotenvResult.error);
+    } else {
+      logger.info(`[dotenv] Successfully loaded: ${envPath}`);
+      envLoaded = true;
+      break; // 最初に見つかったファイルのみ読み込み
+    }
   }
-} else {
-  logger.info('[dotenv] .env file not found, using environment variables (e.g., Railway Variables).');
+}
+
+if (!envLoaded) {
+  logger.info('[dotenv] No .env files found, using environment variables (e.g., Railway Variables).');
 }
 
 // *** セキュリティチェック：必須ENV変数の検証 ***
