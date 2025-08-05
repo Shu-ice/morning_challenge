@@ -26,7 +26,16 @@ class EnvironmentConfig {
    * 必須設定項目の検証
    */
   validateConfig() {
+    // デバッグ: 環境変数の読み込み状況を確認
+    console.log('🔍 [DEBUG] 環境変数確認:');
+    console.log('🔍 [DEBUG] JWT_SECRET存在:', !!process.env.JWT_SECRET);
+    console.log('🔍 [DEBUG] JWT_SECRET長さ:', process.env.JWT_SECRET?.length || 0);
+    console.log('🔍 [DEBUG] NODE_ENV:', process.env.NODE_ENV);
+    console.log('🔍 [DEBUG] 全環境変数数:', Object.keys(process.env).length);
+    console.log('🔍 [DEBUG] this.jwtSecret:', this.jwtSecret ? 'SET' : 'NOT_SET');
+    
     if (!this.jwtSecret) {
+      console.error('❌ [DEBUG] JWT_SECRET未設定 - process.env.JWT_SECRET:', process.env.JWT_SECRET);
       throw new Error('JWT_SECRET環境変数が設定されていません');
     }
     
