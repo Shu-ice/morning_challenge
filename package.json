@@ -2,6 +2,7 @@
   "name": "morning-math-challenge",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "朝のプログラミング練習アプリ - フルスタック数学チャレンジプラットフォーム",
   "author": "Your Name",
   "license": "MIT",
