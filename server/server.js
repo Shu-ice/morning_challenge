@@ -536,18 +536,26 @@ const startServer = async () => {
         app.use(cookieParser());
         console.log('🔍 [DEBUG] ボディパーサー設定完了');
         
+        console.log('🔍 [DEBUG] サニタイゼーション設定開始');
         // ✅ 入力値サニタイゼーション追加
         app.use(sanitizeInput);
+        console.log('🔍 [DEBUG] サニタイゼーション設定完了');
         
         // dayjs.extend(utc); // dayjsの初期化はトップレベルに移動済みなので不要
         // dayjs.extend(timezone);
         // dayjs.extend(isBetween);
         // dayjs.tz.setDefault("Asia/Tokyo");
 
+        console.log('🔍 [DEBUG] 静的ファイル配信設定開始');
         // --- 静的ファイル配信 (Railway.app用) ---
         if (process.env.NODE_ENV === 'production') {
-          app.use(express.static(path.join(process.cwd(), 'dist')));
+          console.log('🔍 [DEBUG] 本番モード: 静的ファイル設定開始');
+          const distPath = path.join(process.cwd(), 'dist');
+          console.log('🔍 [DEBUG] dist パス:', distPath);
+          app.use(express.static(distPath));
+          console.log('🔍 [DEBUG] express.static設定完了');
           
+          console.log('🔍 [DEBUG] SPA用キャッチオールルート設定開始');
           // SPA用のキャッチオール ルート
           app.get('*', (req, res, next) => {
             // API ルートは除外
@@ -556,12 +564,16 @@ const startServer = async () => {
             }
             res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
           });
+          console.log('🔍 [DEBUG] SPA用キャッチオールルート設定完了');
         }
+        console.log('🔍 [DEBUG] 静的ファイル配信設定完了');
 
+        console.log('🔍 [DEBUG] APIルート定義開始');
         // --- API ルート定義 --- 
         app.get('/api', (req, res) => {
           res.json({ message: '朝の計算チャレンジAPIへようこそ！' });
         });
+        console.log('🔍 [DEBUG] 基本APIルート設定完了');
 
         app.get('/api/health', (req, res) => {
           logger.debug('[API] GET /api/health endpoint hit (connection test)');
