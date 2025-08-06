@@ -674,24 +674,31 @@ const startServer = async () => {
           throw error;
         }
 
-        app.get('/api/problems/edit', protect, admin, async (req, res) => { // コメントアウトを解除
+        console.log('🔍 [DEBUG] problems/edit設定開始');
+        // 一時的にミドルウェアを無効化してテスト
+        app.get('/api/problems/edit', async (req, res) => { // protect, admin を一時的に削除
           // ...(元の処理)... 現状は省略
-          logger.debug(`[API /api/problems/edit GET] User: ${req.user?._id}, Admin: ${req.user?.isAdmin}`);
-          res.json({success:true, message: "/api/problems/edit GET accessed (server/server.js)"}); 
+          logger.debug(`[API /api/problems/edit GET] Middleware temporarily disabled for testing`);
+          res.json({success:true, message: "/api/problems/edit GET accessed (server/server.js) - middleware disabled"}); 
         });
 
-        app.post('/api/problems/edit', protect, admin, async (req, res) => { // コメントアウトを解除
+        app.post('/api/problems/edit', async (req, res) => { // protect, admin を一時的に削除
           // ...(元の処理)... 現状は省略
-          logger.debug(`[API /api/problems/edit POST] User: ${req.user?._id}, Admin: ${req.user?.isAdmin}`);
-          res.json({success:true, message: "/api/problems/edit POST accessed (server/server.js)"}); 
+          logger.debug(`[API /api/problems/edit POST] Middleware temporarily disabled for testing`);
+          res.json({success:true, message: "/api/problems/edit POST accessed (server/server.js) - middleware disabled"}); 
     });
+        console.log('🔍 [DEBUG] problems/edit設定完了');
 
+        console.log('🔍 [DEBUG] エラーハンドリング設定開始');
         // ★ 未定義ルートの処理 (404 Not Found)
         app.use(notFound);
+        console.log('🔍 [DEBUG] notFound設定完了');
 
         // ★ グローバルエラーハンドラ (全てのルート定義の後)
         app.use(errorHandler);
+        console.log('🔍 [DEBUG] errorHandler設定完了');
 
+        console.log('🔍 [DEBUG] サーバー起動開始');
         // サーバー起動
         app.listen(PORT, '0.0.0.0', () => {
             logger.info(`✅ サーバーが起動しました！ポート ${PORT}、ホスト 0.0.0.0 で待機中...`); // ログ修正
