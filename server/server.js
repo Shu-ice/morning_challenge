@@ -632,16 +632,32 @@ const startServer = async () => {
         app.use('/api/history', historyRoutes);
         app.use('/api/challenge', challengeRoutes);
         console.log('🔍 [DEBUG] その他ルート設定完了');
-        app.use('/api/leaderboard', leaderboardRoutes);
-        app.use('/api/billing', billingRoutes);
-        app.use('/api/progress', progressRoutes);
-        app.use('/api/counseling', counselingRoutes);
-
+        
+        console.log('🔍 [DEBUG] 追加ルート設定開始');
+        try {
+          app.use('/api/leaderboard', leaderboardRoutes);
+          console.log('🔍 [DEBUG] leaderboardRoutes設定完了');
+          
+          app.use('/api/billing', billingRoutes);
+          console.log('🔍 [DEBUG] billingRoutes設定完了');
+          
+          app.use('/api/progress', progressRoutes);
+          console.log('🔍 [DEBUG] progressRoutes設定完了');
+          
+          app.use('/api/counseling', counselingRoutes);
+          console.log('🔍 [DEBUG] counselingRoutes設定完了');
+        } catch (error) {
+          console.error('🔍 [DEBUG] 追加ルート設定エラー:', error.message);
+          throw error;
+        }
+        
+        console.log('🔍 [DEBUG] 個別APIルート設定開始');
         app.post('/api/problems/submit', protect, async (req, res) => { // コメントアウトを解除
           // ...(元の処理)... 現状は省略
           logger.debug(`[API /api/problems/submit] User: ${req.user?._id}`);
           res.json({success:true, message: "/api/problems/submit accessed (server/server.js)"}); 
         });
+        console.log('🔍 [DEBUG] problems/submit設定完了');
 
         app.post('/api/problems/generate', protect, admin, async (req, res) => { // コメントアウトを解除
           // ...(元の処理)... 現状は省略
