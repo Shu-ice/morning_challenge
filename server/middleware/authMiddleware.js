@@ -3,7 +3,7 @@ import User from '../models/User.js';
 // 🔧 統一: 環境設定はenvironment.jsで一元管理
 import environmentConfig from '../config/environment.js';
 import { getJSTTimeInfo } from '../utils/dateUtils.js';
-const { logger } = await import('../utils/logger.js');
+import { logger } from '../utils/logger.js';
 
 const JWT_SECRET = environmentConfig.jwtSecret;
 if (!JWT_SECRET) {
