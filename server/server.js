@@ -600,19 +600,38 @@ const startServer = async () => {
           throw error;
         }
 
+        console.log('🔍 [DEBUG] テストルート設定開始');
         app.get('/api/rankings/testpublic', (req, res) => {
           logger.debug('>>>>>> SERVER.JS: /api/rankings/testpublic hit successfully <<<<<<');
           res.status(200).json({ message: 'Test public route for rankings OK' });
         });
+        console.log('🔍 [DEBUG] テストルート設定完了');
 
-        app.use('/api/rankings', rankingRoutes);
+        console.log('🔍 [DEBUG] rankingRoutes設定開始');
+        try {
+          app.use('/api/rankings', rankingRoutes);
+          console.log('🔍 [DEBUG] rankingRoutes設定完了');
+        } catch (error) {
+          console.error('🔍 [DEBUG] rankingRoutes設定エラー:', error.message);
+          throw error;
+        }
 
-        app.use('/api/problems', problemRoutes);
+        console.log('🔍 [DEBUG] problemRoutes設定開始');
+        try {
+          app.use('/api/problems', problemRoutes);
+          console.log('🔍 [DEBUG] problemRoutes設定完了');
+        } catch (error) {
+          console.error('🔍 [DEBUG] problemRoutes設定エラー:', error.message);
+          throw error;
+        }
+
+        console.log('🔍 [DEBUG] その他ルート設定開始');
         app.use('/api/users', userRoutes);
         app.use('/api/admin', adminRoutes);
         app.use('/api/monitoring', monitoringRoutes);
         app.use('/api/history', historyRoutes);
         app.use('/api/challenge', challengeRoutes);
+        console.log('🔍 [DEBUG] その他ルート設定完了');
         app.use('/api/leaderboard', leaderboardRoutes);
         app.use('/api/billing', billingRoutes);
         app.use('/api/progress', progressRoutes);
