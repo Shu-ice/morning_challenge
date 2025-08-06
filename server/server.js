@@ -309,12 +309,23 @@ const ensureProblemsForToday = async () => {
 
 // --- initializeApp 関数の定義 (ヘルパー関数の後) ---
 async function initializeApp() {
+    console.log('🔍 [DEBUG] initializeApp()関数開始');
     logger.info('[Init] アプリ初期化開始 (非同期処理として実行)...'); // ログ変更
     try {
+        console.log('🔍 [DEBUG] createDefaultAdminUser()開始');
         await createDefaultAdminUser();
+        console.log('🔍 [DEBUG] createDefaultAdminUser()完了');
+        
+        console.log('🔍 [DEBUG] ensureProblemsForToday()開始');
         await ensureProblemsForToday();
+        console.log('🔍 [DEBUG] ensureProblemsForToday()完了');
+        
+        console.log('🔍 [DEBUG] scheduleNextGeneration()開始');
         scheduleNextGeneration(); // これも非同期で良いか、完了を待つべきか確認
+        console.log('🔍 [DEBUG] scheduleNextGeneration()完了');
+        
         logger.info('[Init] アプリ初期化の主要処理完了 (バックグラウンドで継続する可能性あり)');
+        console.log('🔍 [DEBUG] initializeApp()関数完了');
     } catch (error) {
         logger.error('!!!!!!!!!!!!!!! INITIALIZE APP ERROR !!!!!!!!!!!!!!!');
         logger.error('[Init] アプリ初期化中に致命的なエラーが発生しました:', error);
@@ -719,19 +730,32 @@ const startServer = async () => {
               }
         
 
+            console.log('🔍 [DEBUG] 初期化処理分岐開始');
             // モック環境以外でのみMongoDB接続後の初期化処理を実行
             if (!useMockDB) {
-                mongoose.connection.once('open', async () => {
-                    logger.info('[Init] MongoDB接続確立 - 初期化処理を非同期で開始します (500ms待機後)');
-                    await new Promise(resolve => setTimeout(resolve, 500)); // 500ms待機は維持
+                console.log('🔍 [DEBUG] 本番MongoDB初期化処理開始');
+                try {
+                  mongoose.connection.once('open', async () => {
+                      console.log('🔍 [DEBUG] MongoDB接続イベント開始');
+                      logger.info('[Init] MongoDB接続確立 - 初期化処理を非同期で開始します (500ms待機後)');
+                      await new Promise(resolve => setTimeout(resolve, 500)); // 500ms待機は維持
+                      console.log('🔍 [DEBUG] 500ms待機完了');
 
-                    // initializeApp を呼び出すが、await しないことで非同期実行とする
-                    // エラーは initializeApp 内部で処理するか、ここで .catch() する
-                    initializeApp().catch(initError => {
-                        logger.error('[Init] 非同期初期化処理のトップレベルでエラーハンドリング:', initError);
-                    });
-                });
+                      console.log('🔍 [DEBUG] initializeApp()呼び出し開始');
+                      // initializeApp を呼び出すが、await しないことで非同期実行とする
+                      // エラーは initializeApp 内部で処理するか、ここで .catch() する
+                      initializeApp().catch(initError => {
+                          console.error('🔍 [DEBUG] initializeApp()エラー:', initError.message);
+                          logger.error('[Init] 非同期初期化処理のトップレベルでエラーハンドリング:', initError);
+                      });
+                      console.log('🔍 [DEBUG] initializeApp()呼び出し完了');
+                  });
+                  console.log('🔍 [DEBUG] mongoose.connection.once設定完了');
+                } catch (mongoInitError) {
+                  console.error('🔍 [DEBUG] MongoDB初期化エラー:', mongoInitError.message);
+                }
             } else {
+                console.log('🔍 [DEBUG] モック環境分岐');
                 logger.info('[Init] モック環境のため、MongoDB接続イベントはスキップします');
             }
         });
