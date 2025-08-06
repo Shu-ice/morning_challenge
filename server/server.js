@@ -321,8 +321,13 @@ async function initializeApp() {
         console.log('🔍 [DEBUG] ensureProblemsForToday()完了');
         
         console.log('🔍 [DEBUG] scheduleNextGeneration()開始');
-        scheduleNextGeneration(); // これも非同期で良いか、完了を待つべきか確認
-        console.log('🔍 [DEBUG] scheduleNextGeneration()完了');
+        try {
+          scheduleNextGeneration(); // これも非同期で良いか、完了を待つべきか確認
+          console.log('🔍 [DEBUG] scheduleNextGeneration()完了');
+        } catch (scheduleError) {
+          console.error('🔍 [DEBUG] scheduleNextGeneration()エラー:', scheduleError.message);
+          logger.error('[Init] scheduleNextGeneration エラー:', scheduleError);
+        }
         
         logger.info('[Init] アプリ初期化の主要処理完了 (バックグラウンドで継続する可能性あり)');
         console.log('🔍 [DEBUG] initializeApp()関数完了');
@@ -795,6 +800,29 @@ const startServer = async () => {
         process.exit(1);
   }
 };
+
+// --- プロセス終了の監視とデバッグ ---
+process.on('exit', (code) => {
+    console.log('🔍 [DEBUG] プロセス終了:', code);
+});
+
+process.on('SIGTERM', () => {
+    console.log('🔍 [DEBUG] SIGTERM受信 - プロセス終了要求');
+});
+
+process.on('SIGINT', () => {
+    console.log('🔍 [DEBUG] SIGINT受信 - プロセス終了要求');
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('🔍 [DEBUG] uncaughtException:', error.message);
+    console.error('🔍 [DEBUG] uncaughtExceptionスタック:', error.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🔍 [DEBUG] unhandledRejection:', reason);
+    console.error('🔍 [DEBUG] unhandledRejection promise:', promise);
+});
 
 // --- startServer 関数の呼び出し (ファイルの末尾) ---
 startServer();
