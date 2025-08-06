@@ -426,21 +426,31 @@ const startServer = async () => {
         } else {
           console.log('🔍 [DEBUG] 本番MongoDB分岐開始');
           // 通常のMongoDBに接続
-          await mongoose.connect(mongoUri, {
-            // useNewUrlParser: true,
-            // useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 15000, // 通常DBも少し延長
-            connectTimeoutMS: 15000,
-            socketTimeoutMS: 30000,
-            family: 4
-          })
-          .then(() => logger.info(`✅ MongoDB サーバーに接続しました: ${mongoUri}`))
-          .catch(err => {
-            logger.error('💥 MongoDB 接続エラー:', err);
-            logger.error('    接続文字列を確認してください:', mongoUri);
+          try {
+            console.log('🔍 [DEBUG] mongoose.connect開始');
+            await mongoose.connect(mongoUri, {
+              // useNewUrlParser: true,
+              // useUnifiedTopology: true,
+              serverSelectionTimeoutMS: 15000, // 通常DBも少し延長
+              connectTimeoutMS: 15000,
+              socketTimeoutMS: 30000,
+              family: 4
+            });
+            console.log('🔍 [DEBUG] mongoose.connect成功');
+            logger.info(`✅ MongoDB サーバーに接続しました: ${mongoUri.replace(/\/\/[^@]+@/, '//***:***@')}`);
+          } catch (err) {
+            console.error('🔍 [DEBUG] mongoose.connect失敗');
+            logger.error('💥 MongoDB 接続エラー:', err.message);
+            logger.error('💥 エラー詳細:', {
+              name: err.name,
+              message: err.message,
+              code: err.code,
+              stack: err.stack?.split('\n')[0]
+            });
+            logger.error('    接続文字列確認:', mongoUri.replace(/\/\/[^@]+@/, '//***:***@'));
             logger.error('    MongoDBサーバーが起動しているか確認してください。');
             process.exit(1);
-          });
+          }
         }
         
         // MongoDB接続監視
