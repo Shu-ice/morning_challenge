@@ -700,15 +700,23 @@ const startServer = async () => {
 
         console.log('🔍 [DEBUG] サーバー起動開始');
         // サーバー起動
-        app.listen(PORT, '0.0.0.0', () => {
-            logger.info(`✅ サーバーが起動しました！ポート ${PORT}、ホスト 0.0.0.0 で待機中...`); // ログ修正
-            logger.info(`⏰ チャレンジ時間制限 ${process.env.DISABLE_TIME_CHECK === 'true' ? '無効' : '有効'}`);
-            logger.info(`💾 DBモード: ${process.env.MONGODB_MOCK === 'true' ? 'モック (InMemory)' : 'MongoDB'}`);
-            logger.info('✨ Expressサーバーはリクエストの受付を開始しました。ここまでは正常です。✨');
-            
-            // パフォーマンス監視を開始
-            startPerformanceMonitoring();
-            logger.info('📊 パフォーマンス監視システムが開始されました');
+        try {
+          const server = app.listen(PORT, '0.0.0.0', () => {
+              console.log('🔍 [DEBUG] app.listen()コールバック開始');
+              logger.info(`✅ サーバーが起動しました！ポート ${PORT}、ホスト 0.0.0.0 で待機中...`); // ログ修正
+              logger.info(`⏰ チャレンジ時間制限 ${process.env.DISABLE_TIME_CHECK === 'true' ? '無効' : '有効'}`);
+              logger.info(`💾 DBモード: ${process.env.MONGODB_MOCK === 'true' ? 'モック (InMemory)' : 'MongoDB'}`);
+              logger.info('✨ Expressサーバーはリクエストの受付を開始しました。ここまでは正常です。✨');
+              
+              console.log('🔍 [DEBUG] パフォーマンス監視開始');
+              try {
+                // パフォーマンス監視を開始
+                startPerformanceMonitoring();
+                console.log('🔍 [DEBUG] パフォーマンス監視開始成功');
+                logger.info('📊 パフォーマンス監視システムが開始されました');
+              } catch (perfError) {
+                console.error('🔍 [DEBUG] パフォーマンス監視エラー:', perfError.message);
+              }
         
 
             // モック環境以外でのみMongoDB接続後の初期化処理を実行
@@ -727,6 +735,20 @@ const startServer = async () => {
                 logger.info('[Init] モック環境のため、MongoDB接続イベントはスキップします');
             }
         });
+        
+        console.log('🔍 [DEBUG] app.listen()設定完了');
+        
+        server.on('error', (error) => {
+          console.error('🔍 [DEBUG] サーバーエラー:', error.message);
+          if (error.code === 'EADDRINUSE') {
+            console.error('🔍 [DEBUG] ポート使用中エラー:', PORT);
+          }
+        });
+        
+        } catch (listenError) {
+          console.error('🔍 [DEBUG] app.listen()エラー:', listenError.message);
+          throw listenError;
+        }
 
   } catch (error) {
         logger.error('サーバー起動中にエラーが発生しました:', error);
