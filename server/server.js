@@ -589,6 +589,17 @@ const startServer = async () => {
         app.get('/api', (req, res) => {
           res.json({ message: '朝の計算チャレンジAPIへようこそ！' });
         });
+        
+        // Railway ヘルスチェック用エンドポイント (ルートレベル)
+        app.get('/health', (req, res) => {
+            res.status(200).json({ status: 'healthy', uptime: process.uptime(), timestamp: new Date().toISOString() });
+        });
+        
+        // ルートエンドポイント
+        app.get('/', (req, res) => {
+            res.status(200).json({ message: 'Morning Challenge API is running', status: 'healthy', timestamp: new Date().toISOString() });
+        });
+        
         console.log('🔍 [DEBUG] 基本APIルート設定完了');
 
         app.get('/api/health', (req, res) => {
