@@ -217,7 +217,7 @@ const createDefaultAdminUser = async () => {
                 username: '管理者', // username も設定
                 email: adminEmail,
                 password: passwordInfo.password, // セキュリティ強化されたパスワード
-                grade: 6, // 例: 最高学年
+                grade: 'G6', // 有効なenum値: G6 (最高学年)
                 isAdmin: true,
                 avatar: '👑' 
             });
