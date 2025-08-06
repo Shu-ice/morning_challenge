@@ -734,23 +734,39 @@ const startServer = async () => {
             // モック環境以外でのみMongoDB接続後の初期化処理を実行
             if (!useMockDB) {
                 console.log('🔍 [DEBUG] 本番MongoDB初期化処理開始');
-                try {
-                  mongoose.connection.once('open', async () => {
-                      console.log('🔍 [DEBUG] MongoDB接続イベント開始');
-                      logger.info('[Init] MongoDB接続確立 - 初期化処理を非同期で開始します (500ms待機後)');
-                      await new Promise(resolve => setTimeout(resolve, 500)); // 500ms待機は維持
-                      console.log('🔍 [DEBUG] 500ms待機完了');
+                console.log('🔍 [DEBUG] MongoDB接続状態確認:', mongoose.connection.readyState);
+                // readyState: 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
+                
+                const executeInitialization = async () => {
+                    console.log('🔍 [DEBUG] 初期化関数開始');
+                    logger.info('[Init] MongoDB接続確立 - 初期化処理を非同期で開始します (500ms待機後)');
+                    await new Promise(resolve => setTimeout(resolve, 500)); // 500ms待機は維持
+                    console.log('🔍 [DEBUG] 500ms待機完了');
 
-                      console.log('🔍 [DEBUG] initializeApp()呼び出し開始');
-                      // initializeApp を呼び出すが、await しないことで非同期実行とする
-                      // エラーは initializeApp 内部で処理するか、ここで .catch() する
-                      initializeApp().catch(initError => {
-                          console.error('🔍 [DEBUG] initializeApp()エラー:', initError.message);
-                          logger.error('[Init] 非同期初期化処理のトップレベルでエラーハンドリング:', initError);
+                    console.log('🔍 [DEBUG] initializeApp()呼び出し開始');
+                    // initializeApp を呼び出すが、await しないことで非同期実行とする
+                    // エラーは initializeApp 内部で処理するか、ここで .catch() する
+                    initializeApp().catch(initError => {
+                        console.error('🔍 [DEBUG] initializeApp()エラー:', initError.message);
+                        logger.error('[Init] 非同期初期化処理のトップレベルでエラーハンドリング:', initError);
+                    });
+                    console.log('🔍 [DEBUG] initializeApp()呼び出し完了');
+                };
+                
+                try {
+                  if (mongoose.connection.readyState === 1) {
+                      // 既に接続済みの場合は即座に実行
+                      console.log('🔍 [DEBUG] MongoDB既に接続済み - 即座に初期化実行');
+                      executeInitialization();
+                  } else {
+                      // 接続待機の場合はイベントを待つ
+                      console.log('🔍 [DEBUG] MongoDB接続待機中 - イベント待機');
+                      mongoose.connection.once('open', async () => {
+                          console.log('🔍 [DEBUG] MongoDB接続イベント開始');
+                          executeInitialization();
                       });
-                      console.log('🔍 [DEBUG] initializeApp()呼び出し完了');
-                  });
-                  console.log('🔍 [DEBUG] mongoose.connection.once設定完了');
+                  }
+                  console.log('🔍 [DEBUG] MongoDB初期化設定完了');
                 } catch (mongoInitError) {
                   console.error('🔍 [DEBUG] MongoDB初期化エラー:', mongoInitError.message);
                 }
