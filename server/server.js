@@ -590,7 +590,15 @@ const startServer = async () => {
           next();
         });
 
-        app.use('/api/auth', authRoutes);
+        console.log('🔍 [DEBUG] authRoutes設定開始');
+        try {
+          app.use('/api/auth', authRoutes);
+          console.log('🔍 [DEBUG] authRoutes設定完了');
+        } catch (error) {
+          console.error('🔍 [DEBUG] authRoutes設定エラー:', error.message);
+          console.error('🔍 [DEBUG] authRoutesスタック:', error.stack);
+          throw error;
+        }
 
         app.get('/api/rankings/testpublic', (req, res) => {
           logger.debug('>>>>>> SERVER.JS: /api/rankings/testpublic hit successfully <<<<<<');
