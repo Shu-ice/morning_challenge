@@ -659,11 +659,20 @@ const startServer = async () => {
         });
         console.log('🔍 [DEBUG] problems/submit設定完了');
 
-        app.post('/api/problems/generate', protect, admin, async (req, res) => { // コメントアウトを解除
-          // ...(元の処理)... 現状は省略
-          logger.debug(`[API /api/problems/generate] User: ${req.user?._id}, Admin: ${req.user?.isAdmin}`);
-          res.json({success:true, message: "/api/problems/generate accessed (server/server.js)"}); 
-        });
+        console.log('🔍 [DEBUG] problems/generate設定開始');
+        try {
+          // 一時的にミドルウェアを無効化してテスト
+          app.post('/api/problems/generate', async (req, res) => { // protect, admin を一時的に削除
+            // ...(元の処理)... 現状は省略
+            logger.debug(`[API /api/problems/generate] Middleware temporarily disabled for testing`);
+            res.json({success:true, message: "/api/problems/generate accessed (server/server.js) - middleware disabled"}); 
+          });
+          console.log('🔍 [DEBUG] problems/generate設定完了');
+        } catch (error) {
+          console.error('🔍 [DEBUG] problems/generate設定エラー:', error.message);
+          console.error('🔍 [DEBUG] エラースタック:', error.stack);
+          throw error;
+        }
 
         app.get('/api/problems/edit', protect, admin, async (req, res) => { // コメントアウトを解除
           // ...(元の処理)... 現状は省略
