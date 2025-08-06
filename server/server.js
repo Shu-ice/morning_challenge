@@ -53,8 +53,10 @@ const PORT = environmentConfig.port;
 const FRONTEND_PORT = environmentConfig.frontendPort;
 const FRONTEND_ORIGIN = `http://localhost:${FRONTEND_PORT}`;
 
+console.log('🔍 [DEBUG] サーバー起動開始');
 logger.info(`🚀 サーバーがポート ${PORT} で起動準備中...`);
 logger.info(`🔗 フロントエンドオリジン許可予定: ${FRONTEND_ORIGIN}`);
+console.log('🔍 [DEBUG] 環境設定読み込み完了');
 
 // ポート使用状況をチェックする関数
 

@@ -39,13 +39,22 @@ class EnvironmentConfig {
       throw new Error('JWT_SECRET環境変数が設定されていません');
     }
     
+    console.log('🔍 [DEBUG] JWT_SECRET検証通過');
+    
     if (this.jwtSecret.length < 32) {
       logger.warn('⚠️ JWT_SECRETが短すぎます。セキュリティのため32文字以上を推奨します。');
     }
     
+    console.log('🔍 [DEBUG] MONGODB_MOCK:', this.mongodbMock);
+    console.log('🔍 [DEBUG] MONGODB_URI存在:', !!process.env.MONGODB_URI);
+    console.log('🔍 [DEBUG] ADMIN_EMAIL存在:', !!process.env.ADMIN_EMAIL);
+    console.log('🔍 [DEBUG] ADMIN_DEFAULT_PASSWORD存在:', !!process.env.ADMIN_DEFAULT_PASSWORD);
+    
     if (this.environment === 'production' && this.mongodbMock) {
       logger.warn('⚠️ 本番環境でモックデータベースが有効になっています。');
     }
+    
+    console.log('🔍 [DEBUG] validateConfig完了');
   }
 
   /**
