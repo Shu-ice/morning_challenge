@@ -399,24 +399,32 @@ logger.info(`✅ ENV SUMMARY → NODE_ENV=${process.env.NODE_ENV}, MONGODB_MOCK=
 // MongoDBサーバーに接続 & サーバー起動
 const startServer = async () => {
     try {
+        console.log('🔍 [DEBUG] startServer開始');
         // MongoDB接続文字列
         const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/morningmathdb';
+        console.log('🔍 [DEBUG] MongoDB URI取得完了');
         
         // モックモード確認
         const useMockDB = process.env.MONGODB_MOCK === 'true';
+        console.log('🔍 [DEBUG] モックモード確認:', useMockDB);
         
         if (useMockDB) {
+          console.log('🔍 [DEBUG] モックモード分岐開始');
           logger.warn('⚠️ モックモードで実行中 - インメモリデータベースを使用します');
           try {
+            console.log('🔍 [DEBUG] connectDB import開始');
             // モックデータの初期化のみ行う（MongoMemoryServerは使用しない）
             const { connectDB } = await import('./config/database.js');
+            console.log('🔍 [DEBUG] connectDB import完了');
             await connectDB();
+            console.log('🔍 [DEBUG] connectDB実行完了');
             logger.info('✅ モックデータベース初期化完了');
           } catch (error) {
             logger.error('💥 モックデータの初期化に失敗しました:', error);
             process.exit(1);
           }
         } else {
+          console.log('🔍 [DEBUG] 本番MongoDB分岐開始');
           // 通常のMongoDBに接続
           await mongoose.connect(mongoUri, {
             // useNewUrlParser: true,
