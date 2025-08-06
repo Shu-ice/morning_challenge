@@ -483,21 +483,28 @@ const startServer = async () => {
         app.use(rateLimiter);
         console.log('🔍 [DEBUG] Rate Limiter設定完了');
         
+        console.log('🔍 [DEBUG] CORS設定開始');
         // ✅ セキュリティ強化: 厳格なCORS設定
+        const corsOrigin = environmentConfig.getCorsOrigin();
+        console.log('🔍 [DEBUG] CORS Origin取得:', corsOrigin);
+        
         app.use(cors({
-          origin: environmentConfig.getCorsOrigin(),
+          origin: corsOrigin,
           credentials: true,
           methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
           allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
           optionsSuccessStatus: 200,
           maxAge: 86400 // 24時間
         }));
+        console.log('🔍 [DEBUG] CORS設定完了');
 
+        console.log('🔍 [DEBUG] リクエストロガー設定開始');
         // ★ グローバルリクエストロガーをCORSの直後、ボディパーサーの前に移動
         app.use((req, res, next) => {
           logger.debug(`[Global Request Logger] Method: ${req.method}, URL: ${req.originalUrl}, IP: ${req.ip}, Origin: ${req.headers.origin}, Body (raw): ${req.body}`); // Originヘッダーと生のBodyもログに追加
           next();
         });
+        console.log('🔍 [DEBUG] リクエストロガー設定完了');
         
         // app.use(cors({ // 元の詳細なCORS設定 (コメントアウト)
         //     origin: function (origin, callback) {
@@ -518,12 +525,16 @@ const startServer = async () => {
         //     maxAge: 86400 
         // }));
 
+        console.log('🔍 [DEBUG] パフォーマンス監視設定開始');
         // パフォーマンス監視ミドルウェア（最初に設定）
         app.use(performanceMonitor);
+        console.log('🔍 [DEBUG] パフォーマンス監視設定完了');
         
+        console.log('🔍 [DEBUG] ボディパーサー設定開始');
         app.use(express.json()); // JSON形式のリクエストボディをパース
         app.use(express.urlencoded({ extended: true })); // URLエンコードされたリクエストボディをパース
         app.use(cookieParser());
+        console.log('🔍 [DEBUG] ボディパーサー設定完了');
         
         // ✅ 入力値サニタイゼーション追加
         app.use(sanitizeInput);
