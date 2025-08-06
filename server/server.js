@@ -453,6 +453,8 @@ const startServer = async () => {
           }
         }
         
+        console.log('🔍 [DEBUG] MongoDB接続後処理開始');
+        
         // MongoDB接続監視
         mongoose.connection.on('error', err => {
           logger.error('MongoDB 接続エラー:', err);
@@ -462,16 +464,24 @@ const startServer = async () => {
           logger.warn('MongoDB 接続が切断されました。再接続します...');
         });
         
+        console.log('🔍 [DEBUG] Express app作成開始');
         const app = express();
+        console.log('🔍 [DEBUG] Express app作成完了');
         
+        console.log('🔍 [DEBUG] Helmet設定開始');
         // ✅ Helmet で主要ヘッダーを一括付与
         app.use(helmet());
+        console.log('🔍 [DEBUG] Helmet設定完了');
 
+        console.log('🔍 [DEBUG] カスタムセキュリティヘッダー設定開始');
         // ✅ カスタムセキュリティヘッダー追加（Helmetの後に上書き・追加）
         app.use(securityHeaders);
+        console.log('🔍 [DEBUG] カスタムセキュリティヘッダー設定完了');
         
+        console.log('🔍 [DEBUG] Rate Limiter設定開始');
         // ✅ Rate Limiting追加
         app.use(rateLimiter);
+        console.log('🔍 [DEBUG] Rate Limiter設定完了');
         
         // ✅ セキュリティ強化: 厳格なCORS設定
         app.use(cors({
